@@ -512,6 +512,9 @@ class SettingsActivity : AppCompatActivity() {
     // ── Search ───────────────────────────────────────────────────
 
     private fun setupSearch() {
+        val isLight = isColorLight(parseColorSafe(prefs.backgroundColor))
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#AAAAAA")
+
         val switchEnable = findViewById<MaterialSwitch>(R.id.switchSearch)
         switchEnable.isChecked = prefs.searchEnabled
         switchEnable.setOnCheckedChangeListener { _, checked ->
@@ -519,17 +522,37 @@ class SettingsActivity : AppCompatActivity() {
             if (!checked) {
                 prefs.showSearchBarOnHome = false
                 findViewById<MaterialSwitch>(R.id.switchSearchOnHome).isChecked = false
+                findViewById<View>(R.id.rowSearchBarPosition).visibility = View.GONE
             }
         }
+
+        val rowPosition = findViewById<View>(R.id.rowSearchBarPosition)
+        val positionValue = findViewById<TextView>(R.id.searchBarPositionValue)
+        positionValue.setTextColor(secondary)
+        positionValue.text = prefs.searchBarPosition.replaceFirstChar { it.uppercaseChar() }
+        rowPosition.visibility = if (prefs.showSearchBarOnHome) View.VISIBLE else View.GONE
 
         val switchOnHome = findViewById<MaterialSwitch>(R.id.switchSearchOnHome)
         switchOnHome.isChecked = prefs.showSearchBarOnHome
         switchOnHome.setOnCheckedChangeListener { _, checked ->
             prefs.showSearchBarOnHome = checked
+            rowPosition.visibility = if (checked) View.VISIBLE else View.GONE
             if (checked && !prefs.searchEnabled) {
                 prefs.searchEnabled = true
                 switchEnable.isChecked = true
             }
+        }
+
+        rowPosition.setOnClickListener {
+            SlateListDialog(
+                context = this,
+                title = "Search bar position",
+                items = listOf("Top", "Bottom"),
+                bgColor = prefs.backgroundColor
+            ) { _, label ->
+                prefs.searchBarPosition = label.lowercase()
+                positionValue.text = label
+            }.show()
         }
     }
 

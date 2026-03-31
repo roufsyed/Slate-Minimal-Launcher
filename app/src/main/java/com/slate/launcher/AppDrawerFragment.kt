@@ -180,6 +180,7 @@ class AppDrawerFragment : Fragment() {
         val bg = parseColorSafe(prefs.backgroundColor)
         scrollView.setBackgroundColor(bg)
         requireView().setBackgroundColor(bg)
+        applySearchBarPosition()
         applySearchColors()
         if (prefs.showSearchBarOnHome && prefs.searchEnabled) {
             isSearchOpen = true
@@ -196,6 +197,17 @@ class AppDrawerFragment : Fragment() {
     }
 
     // ── Search ────────────────────────────────────────────────────
+
+    private fun applySearchBarPosition() {
+        val root = requireView() as android.widget.LinearLayout
+        val atBottom = prefs.searchBarPosition == "bottom"
+        val currentIndex = root.indexOfChild(searchContainer)
+        val targetIndex = if (atBottom) root.childCount - 1 else 0
+        if (currentIndex != targetIndex) {
+            root.removeView(searchContainer)
+            root.addView(searchContainer, if (atBottom) root.childCount else 0)
+        }
+    }
 
     private fun setupSearch() {
         searchInput.addTextChangedListener(object : TextWatcher {

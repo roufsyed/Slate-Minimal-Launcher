@@ -776,6 +776,32 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
+            <!-- Position sub-row (visible when show-on-home is on) -->
+            <LinearLayout
+                android:id="@+id/rowSearchBarPosition"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="10dp"
+                android:paddingStart="16dp"
+                android:visibility="gone"
+                android:background="?attr/selectableItemBackground">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Position"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:id="@+id/searchBarPositionValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
         </LinearLayout>
 
         <View

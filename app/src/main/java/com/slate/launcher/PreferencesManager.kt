@@ -21,6 +21,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_DOUBLE_TAP_LOCK = "double_tap_lock"
         private const val KEY_SEARCH_ENABLED = "search_enabled"
         private const val KEY_SEARCH_BAR_ON_HOME = "search_bar_on_home"
+        private const val KEY_SEARCH_BAR_POSITION = "search_bar_position"
         private const val KEY_FONT_FAMILY = "font_family"
         private const val KEY_FONT_WEIGHT = "font_weight"
         private const val KEY_LINE_SPACING = "line_spacing"
@@ -75,6 +76,11 @@ class PreferencesManager(context: Context) {
     var showSearchBarOnHome: Boolean
         get() = prefs.getBoolean(KEY_SEARCH_BAR_ON_HOME, false)
         set(value) = prefs.edit().putBoolean(KEY_SEARCH_BAR_ON_HOME, value).apply()
+
+    /** "top" or "bottom" */
+    var searchBarPosition: String
+        get() = prefs.getString(KEY_SEARCH_BAR_POSITION, "top") ?: "top"
+        set(value) = prefs.edit().putString(KEY_SEARCH_BAR_POSITION, value).apply()
 
     var fontFamily: String
         get() = prefs.getString(KEY_FONT_FAMILY, DEFAULT_FONT_FAMILY) ?: DEFAULT_FONT_FAMILY
