@@ -27,7 +27,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_WORD_SPACING = "word_spacing"
         private const val KEY_HIDE_STATUS_BAR = "hide_status_bar"
         private const val KEY_SORT_BY_USAGE = "sort_by_usage"
-        private const val KEY_SORT_ALIGN_RIGHT = "sort_align_right"
+        private const val KEY_TEXT_ALIGNMENT = "text_alignment"
         private const val KEY_LOCK_ORIENTATION = "lock_orientation"
         private const val KEY_NOTIF_COLOR_ENABLED = "notif_color_enabled"
         private const val KEY_NOTIF_HIGHLIGHT_COLOR = "notif_highlight_color"
@@ -100,9 +100,10 @@ class PreferencesManager(context: Context) {
         get() = prefs.getBoolean(KEY_SORT_BY_USAGE, false)
         set(value) = prefs.edit().putBoolean(KEY_SORT_BY_USAGE, value).apply()
 
-    var sortAlignRight: Boolean
-        get() = prefs.getBoolean(KEY_SORT_ALIGN_RIGHT, false)
-        set(value) = prefs.edit().putBoolean(KEY_SORT_ALIGN_RIGHT, value).apply()
+    /** "left", "center", or "right" */
+    var textAlignment: String
+        get() = prefs.getString(KEY_TEXT_ALIGNMENT, "center") ?: "center"
+        set(value) = prefs.edit().putString(KEY_TEXT_ALIGNMENT, value).apply()
 
     var lockOrientation: Boolean
         get() = prefs.getBoolean(KEY_LOCK_ORIENTATION, true)

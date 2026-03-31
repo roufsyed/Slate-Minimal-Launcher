@@ -261,8 +261,8 @@ class AppDrawerFragment : Fragment() {
 
     private fun filterApps(query: String) {
         flowLayout.justifyContent = when {
-            prefs.sortByUsage && prefs.sortAlignRight -> JustifyContent.FLEX_END
-            prefs.sortByUsage -> JustifyContent.FLEX_START
+            prefs.textAlignment == "left" -> JustifyContent.FLEX_START
+            prefs.textAlignment == "right" -> JustifyContent.FLEX_END
             else -> JustifyContent.CENTER
         }
         flowLayout.removeAllViews()
@@ -345,8 +345,8 @@ class AppDrawerFragment : Fragment() {
 
     private fun buildAppList() {
         flowLayout.justifyContent = when {
-            prefs.sortByUsage && prefs.sortAlignRight -> JustifyContent.FLEX_END
-            prefs.sortByUsage -> JustifyContent.FLEX_START
+            prefs.textAlignment == "left" -> JustifyContent.FLEX_START
+            prefs.textAlignment == "right" -> JustifyContent.FLEX_END
             else -> JustifyContent.CENTER
         }
         flowLayout.removeAllViews()

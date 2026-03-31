@@ -299,6 +299,22 @@ class SettingsActivity : AppCompatActivity() {
 
         _fontValueRef = fontValue
 
+        val alignmentValue = findViewById<TextView>(R.id.alignmentValue)
+        alignmentValue.setTextColor(secondary)
+        alignmentValue.text = prefs.textAlignment.replaceFirstChar { it.uppercaseChar() }
+
+        findViewById<android.view.View>(R.id.rowAlignment).setOnClickListener {
+            SlateListDialog(
+                context = this,
+                title = "Alignment",
+                items = listOf("Left", "Center", "Right"),
+                bgColor = prefs.backgroundColor
+            ) { _, label ->
+                prefs.textAlignment = label.lowercase()
+                alignmentValue.text = label
+            }.show()
+        }
+
         findViewById<android.view.View>(R.id.rowWeight).setOnClickListener {
             SlateListDialog(
                 context = this,
@@ -611,31 +627,11 @@ class SettingsActivity : AppCompatActivity() {
         val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#AAAAAA")
         val density = resources.displayMetrics.density
 
-        // Sort by usage + alignment sub-row
+        // Sort by usage
         val switchSortUsage = findViewById<MaterialSwitch>(R.id.switchSortByUsage)
-        val rowSortAlignment = findViewById<View>(R.id.rowSortAlignment)
-        val sortAlignValue = findViewById<TextView>(R.id.sortAlignValue)
-
-        sortAlignValue.setTextColor(secondary)
-        sortAlignValue.text = if (prefs.sortAlignRight) "Right" else "Left"
-        rowSortAlignment.visibility = if (prefs.sortByUsage) View.VISIBLE else View.GONE
-
         switchSortUsage.isChecked = prefs.sortByUsage
         switchSortUsage.setOnCheckedChangeListener { _, checked ->
             prefs.sortByUsage = checked
-            rowSortAlignment.visibility = if (checked) View.VISIBLE else View.GONE
-        }
-
-        rowSortAlignment.setOnClickListener {
-            SlateListDialog(
-                context = this,
-                title = "Most used side",
-                items = listOf("Left", "Right"),
-                bgColor = prefs.backgroundColor
-            ) { index, label ->
-                prefs.sortAlignRight = (index == 1)
-                sortAlignValue.text = label
-            }.show()
         }
 
         // Lock orientation
