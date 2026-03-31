@@ -138,17 +138,20 @@ class AppDrawerFragment : Fragment() {
         )
 
         // Multi-finger: 2 and 3 finger directional swipes
+        // Detector is wired to SlateGestureLayout.dispatchTouchEvent so it sees every
+        // ACTION_POINTER_DOWN even when the first finger lands on a child TextView.
         multiFingerDetector = MultiFingerGestureDetector { fingers, dir ->
             executeGestureAction(fingers, dir)
         }
+        (view as SlateGestureLayout).multiFingerDetector = multiFingerDetector
 
         scrollView.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = false
-            val multiConsumed = multiFingerDetector.onTouchEvent(event)
             if (event.pointerCount == 1) {
                 singleFingerDetector.onTouchEvent(event)
             }
-            multiConsumed || event.pointerCount > 1
+            // Let multi-touch events pass without claiming them — SlateGestureLayout handles them
+            event.pointerCount > 1
         }
 
         // Back press closes search if open
@@ -199,7 +202,7 @@ class AppDrawerFragment : Fragment() {
     // ── Search ────────────────────────────────────────────────────
 
     private fun applySearchBarPosition() {
-        val root = requireView() as android.widget.LinearLayout
+        val root = requireView() as SlateGestureLayout
         val atBottom = prefs.searchBarPosition == "bottom"
         val currentIndex = root.indexOfChild(searchContainer)
         val targetIndex = if (atBottom) root.childCount - 1 else 0
@@ -311,8 +314,17 @@ class AppDrawerFragment : Fragment() {
                 setOnLongClickListener { showAppMenu(app, this); true }
                 setOnTouchListener { _, event ->
                     if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = true
-                    multiFingerDetector.onTouchEvent(event)
-                    singleFingerDetector.onTouchEvent(event)
+                    when {
+                        event.actionMasked == MotionEvent.ACTION_POINTER_DOWN -> {
+                            // Second finger added — cancel any in-progress single-finger gesture
+                            // so the single-finger detector doesn't fire onFling mid multi-touch
+                            val cancel = MotionEvent.obtain(event)
+                            cancel.action = MotionEvent.ACTION_CANCEL
+                            singleFingerDetector.onTouchEvent(cancel)
+                            cancel.recycle()
+                        }
+                        event.pointerCount == 1 -> singleFingerDetector.onTouchEvent(event)
+                    }
                     false
                 }
             }
@@ -392,8 +404,17 @@ class AppDrawerFragment : Fragment() {
                 setOnLongClickListener { showAppMenu(app, this); true }
                 setOnTouchListener { _, event ->
                     if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = true
-                    multiFingerDetector.onTouchEvent(event)
-                    singleFingerDetector.onTouchEvent(event)
+                    when {
+                        event.actionMasked == MotionEvent.ACTION_POINTER_DOWN -> {
+                            // Second finger added — cancel any in-progress single-finger gesture
+                            // so the single-finger detector doesn't fire onFling mid multi-touch
+                            val cancel = MotionEvent.obtain(event)
+                            cancel.action = MotionEvent.ACTION_CANCEL
+                            singleFingerDetector.onTouchEvent(cancel)
+                            cancel.recycle()
+                        }
+                        event.pointerCount == 1 -> singleFingerDetector.onTouchEvent(event)
+                    }
                     false
                 }
             }
