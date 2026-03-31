@@ -1,0 +1,82 @@
+package com.slate.launcher
+
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.graphics.Color
+import android.os.Bundle
+import androidx.activity.OnBackPressedCallback
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var prefs: PreferencesManager
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        prefs = PreferencesManager(this)
+        AppCompatDelegate.setDefaultNightMode(prefs.nightMode)
+        super.onCreate(savedInstanceState)
+
+        if (!prefs.onboardingComplete) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+            finish()
+            return
+        }
+
+        setContentView(R.layout.activity_main)
+        applySystemBarColors()
+
+        // Never exit — this is a launcher
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {}
+        })
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applySystemBarColors()
+        requestedOrientation = if (prefs.lockOrientation)
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        else
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    }
+
+    private fun applySystemBarColors() {
+        val color = parseColorSafe(prefs.backgroundColor)
+        window.navigationBarColor = color
+
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        if (prefs.hideStatusBar) {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            controller.hide(WindowInsetsCompat.Type.statusBars())
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+            controller.show(WindowInsetsCompat.Type.statusBars())
+            window.statusBarColor = color
+            val isLight = isColorLight(color)
+            controller.isAppearanceLightStatusBars = isLight
+            controller.isAppearanceLightNavigationBars = isLight
+        }
+    }
+
+    companion object {
+        fun parseColorSafe(hex: String, fallback: Int = Color.BLACK): Int = try {
+            Color.parseColor(hex)
+        } catch (_: Exception) {
+            fallback
+        }
+
+        fun isColorLight(color: Int): Boolean {
+            val r = Color.red(color) / 255.0
+            val g = Color.green(color) / 255.0
+            val b = Color.blue(color) / 255.0
+            val luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+            return luminance > 0.5
+        }
+    }
+}

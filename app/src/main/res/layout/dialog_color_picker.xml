@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="320dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_slate_dialog"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/dialogTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.1"
+        android:textAllCaps="true"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Preview swatch -->
+    <View
+        android:id="@+id/colorPreview"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Hex input row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="HEX"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            android:layout_marginEnd="12dp" />
+
+        <EditText
+            android:id="@+id/hexInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:inputType="text"
+            android:maxLines="1"
+            android:textSize="16sp"
+            android:fontFamily="monospace"
+            android:background="@drawable/bg_hex_input" />
+    </LinearLayout>
+
+    <!-- Preset swatches -->
+    <com.google.android.flexbox.FlexboxLayout
+        android:id="@+id/swatchGrid"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <TextView
+            android:id="@+id/btnReset"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="RESET"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:padding="8dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/btnCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="CANCEL"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:padding="8dp"
+            android:layout_marginEnd="16dp" />
+
+        <TextView
+            android:id="@+id/btnApply"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="APPLY"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:padding="8dp" />
+    </LinearLayout>
+
+</LinearLayout>

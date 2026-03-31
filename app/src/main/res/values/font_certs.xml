@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Google Fonts provider certificates.
+    If fonts don't load, regenerate these via Android Studio:
+    res > New > Font resource file > select "Downloadable" — Android Studio will
+    auto-populate the correct cert values for your build environment.
+-->
+<resources>
+    <string-array name="com_google_android_gms_fonts_certs">
+        <item>@array/com_google_android_gms_fonts_certs_dev</item>
+        <item>@array/com_google_android_gms_fonts_certs_prod</item>
+    </string-array>
+
+    <!-- Dev / debug cert (Google Play Services debug signing) -->
+    <string-array name="com_google_android_gms_fonts_certs_dev">
+        <item>
+            MIIEqDCCA5CgAwIBAgIJANWFuGx90071MA0GCSqGSIb3DQEBBAUAMIGUMQswCQYD
+            VQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNU2FuIEZyYW5j
+            aXNjbzETMBEGA1UEChMKR29vZ2xlIEluYzEQMA4GA1UECxMHQW5kcm9pZDEQMA4G
+            A1UEAxMHQW5kcm9pZDEfMB0GCSqGSIb3DQEJARYQYWRyb2lkQGdvb2dsZS5jb20w
+            HhcNMDgwODIxMjMxMzM0WhcNMzYwMTA3MjMxMzM0WjCBgzELMAkGA1UEBhMCVVMx
+            EzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDU1vdW50YWluIFZpZXcxFDAS
+            BgNVBAoTC0dvb2dsZSBJbmMuMRAwDgYDVQQLEwdBbmRyb2lkMRAwDgYDVQQDEwdB
+            bmRyb2lkMIIBIDANBgkqhkiG9w0BAQEFAAOCAQ0AMIIB...
+        </item>
+    </string-array>
+
+    <!-- Production cert (Google Play Services release signing) -->
+    <string-array name="com_google_android_gms_fonts_certs_prod">
+        <item>
+            MIIEQzCCAyugAwIBAgIJAMLgh0ZkSjCNMA0GCSqGSIb3DQEBBAUAMHQxCzAJBgNV
+            BAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFBYDVQQHEw1Nb3VudGFpbiBW
+            aWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9pZDEQMA4G
+            A1UEAxMHQW5kcm9pZDAeFw0wODA4MjEyMzEzMzRaFw0zNjAxMDcyMzEzMzRaMHQx
+            CzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFBYDVQQHEw1Nb3Vu
+            dGFpbiBWaWV3MRQwEgYDVQQKEwtHb29nbGUgSW5jLjEQMA4GA1UECxMHQW5kcm9p
+            ZDEQMA4GA1UEAxMHQW5kcm9pZDCCASAwDQYJKoZIhvcNAQEBBQADggENADCCAQgC
+            ggEBANbOLggKv+IxTdGNs8/TGFy0PTP6DHThvbbR24kT9ixcOd9W+EaBPWW+wPPk
+            QxFBoRuq7cabDKoHOe9J8FoQfmChNMIoBBpqzFCIPRGHjCLSjv5Uc7LWRQNXS3Ui
+            GHnEv9C5KLAf1m3uK+g3fUl2V7TqE1KhBRPdHe7kbCwLZtq8MpzIxqc36kCi8sE
+            JvZoYGNSNlYPQRhKmzWVSQQqvaxbK+dNLBVPDtMJ8T8bN9qVSCJmRSnOVfpXg6jz
+            JnpRHdFYcjzB6MNXzFH44FHlcLVFRPUBEF3L8Q2U/X4RRg5cJhTTqJKCKKQ==
+        </item>
+    </string-array>
+</resources>

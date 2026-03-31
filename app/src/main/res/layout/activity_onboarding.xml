@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/onboardingRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#000000"
+    android:padding="32dp">
+
+    <!-- App name -->
+    <TextView
+        android:id="@+id/labelAppName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="52dp"
+        android:text="slate"
+        android:textSize="52sp"
+        android:textColor="#FFFFFF"
+        android:fontFamily="sans-serif-light"
+        android:letterSpacing="-0.02" />
+
+    <TextView
+        android:id="@+id/labelTagline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="choose a look to get started"
+        android:textSize="15sp"
+        android:textColor="#808080" />
+
+    <!-- Theme preview cards -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:layout_marginTop="32dp"
+        android:layout_marginBottom="24dp">
+
+        <!-- Dark theme card -->
+        <LinearLayout
+            android:id="@+id/cardDark"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DARK"
+                android:textSize="11sp"
+                android:textColor="#8888FF"
+                android:textAllCaps="true"
+                android:letterSpacing="0.15"
+                android:textStyle="bold"
+                android:layout_marginBottom="20dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="messages"
+                android:textSize="19sp"
+                android:textColor="#808080" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="maps"
+                android:textSize="16sp"
+                android:textColor="#808080"
+                android:layout_marginTop="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="camera"
+                android:textSize="14sp"
+                android:textColor="#808080"
+                android:layout_marginTop="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="photos"
+                android:textSize="14sp"
+                android:textColor="#808080"
+                android:layout_marginTop="6dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="settings"
+                android:textSize="13sp"
+                android:textColor="#808080"
+                android:layout_marginTop="6dp" />
+
+        </LinearLayout>
+
+        <!-- Light theme card -->
+        <LinearLayout
+            android:id="@+id/cardLight"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="LIGHT"
+                android:textSize="11sp"
+                android:textColor="#333399"
+                android:textAllCaps="true"
+                android:letterSpacing="0.15"
+                android:textStyle="bold"
+                android:layout_marginBottom="20dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="messages"
+                android:textSize="19sp"
+                android:textColor="#333333" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="maps"
+                android:textSize="16sp"
+                android:textColor="#333333"
+                android:layout_marginTop="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="camera"
+                android:textSize="14sp"
+                android:textColor="#333333"
+                android:layout_marginTop="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="photos"
+                android:textSize="14sp"
+                android:textColor="#333333"
+                android:layout_marginTop="6dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="settings"
+                android:textSize="13sp"
+                android:textColor="#333333"
+                android:layout_marginTop="6dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Action buttons -->
+    <TextView
+        android:id="@+id/btnSetDefault"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Set as default launcher"
+        android:textSize="16sp"
+        android:textColor="#8888FF"
+        android:gravity="center"
+        android:paddingVertical="16dp"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:id="@+id/btnSkip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="skip"
+        android:textSize="15sp"
+        android:textColor="#555555"
+        android:gravity="center"
+        android:paddingVertical="12dp"
+        android:layout_marginBottom="8dp" />
+
+</LinearLayout>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="SectionLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.15</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:layout_marginBottom">14dp</item>
+        <item name="android:layout_marginTop">4dp</item>
+    </style>
+
+    <style name="SlateDialogTheme" parent="Theme.Material3.DayNight.Dialog">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.7</item>
+    </style>
+
+    <style name="Theme.Slate" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/seed</item>
+    </style>
+</resources>

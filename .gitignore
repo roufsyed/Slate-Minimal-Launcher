@@ -1,0 +1,63 @@
+# Built application files
+*.apk
+*.aar
+*.aab
+*.ap_
+
+# Dalvik / ART
+*.dex
+
+# Java class files
+*.class
+
+# Gradle build output
+.gradle/
+build/
+**/build/
+
+# Local properties (contains SDK path — machine-specific)
+local.properties
+
+# IDE — IntelliJ / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/gradle.xml
+.idea/assetWizardSettings.xml
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+!.idea/runConfigurations/
+
+# External native build
+.externalNativeBuild/
+.cxx/
+
+# NDK
+obj/
+
+# Log files
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Google Services keys — do not commit
+google-services.json
+
+# Signing keys — never commit private keystores
+*.jks
+*.keystore
+
+# Navigation editor temp
+.navigation/
+
+# Android Studio captures
+captures/
+
+# Lint output
+lint/
