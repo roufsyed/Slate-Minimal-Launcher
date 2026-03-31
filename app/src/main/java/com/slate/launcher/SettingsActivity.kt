@@ -51,14 +51,6 @@ class SettingsActivity : AppCompatActivity() {
             Triple(1, Direction.DOWN,  "1 finger  ↓"),
             Triple(1, Direction.LEFT,  "1 finger  ←"),
             Triple(1, Direction.RIGHT, "1 finger  →"),
-            Triple(2, Direction.UP,    "2 fingers ↑"),
-            Triple(2, Direction.DOWN,  "2 fingers ↓"),
-            Triple(2, Direction.LEFT,  "2 fingers ←"),
-            Triple(2, Direction.RIGHT, "2 fingers →"),
-            Triple(3, Direction.UP,    "3 fingers ↑"),
-            Triple(3, Direction.DOWN,  "3 fingers ↓"),
-            Triple(3, Direction.LEFT,  "3 fingers ←"),
-            Triple(3, Direction.RIGHT, "3 fingers →"),
         )
 
         data class FontOption(val key: String, val displayName: String)
