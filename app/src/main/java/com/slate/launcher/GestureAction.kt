@@ -9,6 +9,7 @@ sealed class GestureAction {
     object ToggleWifi : GestureAction()
     object ToggleBluetooth : GestureAction()
     object ToggleLocation : GestureAction()
+    object OpenCamera : GestureAction()
     data class OpenApp(val packageName: String) : GestureAction()
 
     fun serialize(): String = when (this) {
@@ -20,6 +21,7 @@ sealed class GestureAction {
         is ToggleWifi        -> "TOGGLE_WIFI"
         is ToggleBluetooth   -> "TOGGLE_BLUETOOTH"
         is ToggleLocation    -> "TOGGLE_LOCATION"
+        is OpenCamera        -> "OPEN_CAMERA"
         is OpenApp           -> "app:$packageName"
     }
 
@@ -27,7 +29,7 @@ sealed class GestureAction {
         /** Actions shown as static menu items (before "Open app…"). */
         val staticActions: List<GestureAction> =
             listOf(None, OpenNotifications, LockScreen, OpenSettings, Search,
-                   ToggleWifi, ToggleBluetooth, ToggleLocation)
+                   ToggleWifi, ToggleBluetooth, ToggleLocation, OpenCamera)
 
         fun deserialize(value: String): GestureAction = when {
             value == "OPEN_NOTIFICATIONS" -> OpenNotifications
@@ -37,6 +39,7 @@ sealed class GestureAction {
             value == "TOGGLE_WIFI"        -> ToggleWifi
             value == "TOGGLE_BLUETOOTH"   -> ToggleBluetooth
             value == "TOGGLE_LOCATION"    -> ToggleLocation
+            value == "OPEN_CAMERA"        -> OpenCamera
             value.startsWith("app:")      -> OpenApp(value.removePrefix("app:"))
             else                          -> None
         }
@@ -61,5 +64,6 @@ val GestureAction.staticLabel: String
         is GestureAction.ToggleWifi        -> "Toggle Wi-Fi"
         is GestureAction.ToggleBluetooth   -> "Toggle Bluetooth"
         is GestureAction.ToggleLocation    -> "Toggle location"
+        is GestureAction.OpenCamera        -> "Open camera"
         is GestureAction.OpenApp           -> packageName   // resolved to app name in UI
     }

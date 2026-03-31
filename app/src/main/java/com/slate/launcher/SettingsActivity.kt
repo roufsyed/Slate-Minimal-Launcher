@@ -5,21 +5,20 @@ import android.app.role.RoleManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.provider.Settings
-import android.text.Editable
 import android.text.SpannableString
-import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.View
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -83,6 +82,14 @@ class SettingsActivity : AppCompatActivity() {
             500 to "Medium",
             700 to "Bold",
         )
+
+        data class ColorPreset(val bg: String, val text: String)
+        val PRESETS = listOf(
+            ColorPreset("#000000", "#808080"),
+            ColorPreset("#101010", "#808080"),
+            ColorPreset("#d0d0d0", "#263238"),
+            ColorPreset("#0f3460", "#d0d0d0"),
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -113,9 +120,9 @@ class SettingsActivity : AppCompatActivity() {
         applyBackgroundColor()
         setupTextSize()
         setupTypography()
+        setupColors()
         setupGestures()
         setupSearch()
-        setupColors()
         setupBackup()
         setupGeneral()
     }
@@ -134,7 +141,6 @@ class SettingsActivity : AppCompatActivity() {
         supportActionBar?.setBackgroundDrawable(drawable)
         applySystemBarColors(color)
 
-        // Derive text colors from background brightness
         val primary   = if (isLight) Color.BLACK else Color.WHITE
         val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#AAAAAA")
         val accent    = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
@@ -144,24 +150,23 @@ class SettingsActivity : AppCompatActivity() {
         }
         supportActionBar?.title = title
 
-        // Paint section labels with accent, everything else primary/secondary
         val root = findViewById<android.view.ViewGroup>(android.R.id.content)
         applyTextColors(root, primary, secondary, accent)
 
-        // Color section dividers
         val dividerColor = if (isLight) Color.parseColor("#22000000") else Color.parseColor("#22FFFFFF")
-        listOf(R.id.divider1, R.id.divider1b, R.id.divider2, R.id.divider3, R.id.divider4, R.id.divider6).forEach { id ->
+        listOf(R.id.divider0, R.id.divider1, R.id.divider1b, R.id.divider2,
+               R.id.divider3, R.id.divider4).forEach { id ->
             findViewById<View>(id)?.setBackgroundColor(dividerColor)
         }
 
-        // Style toggles to match theme
         applySwitchColors(
             switchDoubleTap,
             findViewById(R.id.switchSearch),
             findViewById(R.id.switchSearchOnHome),
             findViewById(R.id.switchHideStatusBar),
             findViewById(R.id.switchSortByUsage),
-            findViewById(R.id.switchLockOrientation)
+            findViewById(R.id.switchLockOrientation),
+            findViewById(R.id.switchNotifColor)
         )
     }
 
@@ -195,9 +200,7 @@ class SettingsActivity : AppCompatActivity() {
                 view.setHintTextColor(secondary)
             }
             is TextView -> {
-                // Section labels (all-caps bold) get accent color
                 val isSectionLabel = view.isAllCaps && view.typeface?.isBold == true
-                // Dimmed subtitles (alpha < 1) keep secondary color
                 val isDimmed = view.alpha < 0.99f
                 view.setTextColor(when {
                     isSectionLabel -> accent
@@ -296,7 +299,6 @@ class SettingsActivity : AppCompatActivity() {
             }.show()
         }
 
-        // Allow importFontLauncher to update the label when a font is imported
         _fontValueRef = fontValue
 
         findViewById<android.view.View>(R.id.rowWeight).setOnClickListener {
@@ -312,7 +314,6 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    // Weak reference so importFont() can update the label after async file pick
     private var _fontValueRef: TextView? = null
 
     private fun fontDisplayName(key: String): String = when {
@@ -344,10 +345,111 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    // ── Colors ───────────────────────────────────────────────────
+
+    private fun setupColors() {
+        val isLight = isColorLight(parseColorSafe(prefs.backgroundColor))
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#AAAAAA")
+        val borderColor = if (isLight) Color.parseColor("#BBBBBB") else Color.parseColor("#444444")
+        val density = resources.displayMetrics.density
+
+        val bgDisplay   = findViewById<TextView>(R.id.bgColorDisplay)
+        val bgSwatch    = findViewById<View>(R.id.bgColorSwatch)
+        val textDisplay = findViewById<TextView>(R.id.textColorDisplay)
+        val textSwatch  = findViewById<View>(R.id.textColorSwatch)
+
+        bgDisplay.setTextColor(secondary)
+        textDisplay.setTextColor(secondary)
+
+        fun updateBgSwatch(hex: String) {
+            bgDisplay.text = hex
+            bgSwatch.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 6f * density
+                setColor(parseColorSafe(hex))
+                setStroke((1.5f * density).toInt(), borderColor)
+            }
+        }
+
+        fun updateTextSwatch(hex: String) {
+            textDisplay.text = hex
+            textSwatch.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 6f * density
+                setColor(parseColorSafe(hex, Color.GRAY))
+                setStroke((1.5f * density).toInt(), borderColor)
+            }
+        }
+
+        updateBgSwatch(prefs.backgroundColor)
+        updateTextSwatch(prefs.appTextColor)
+
+        // Entire row opens the picker — no keyboard input
+        fun openBgPicker() {
+            ColorPickerDialog(
+                context = this,
+                title = "Background",
+                initialColor = prefs.backgroundColor,
+                bgColor = prefs.backgroundColor
+            ) { hex ->
+                prefs.backgroundColor = hex
+                updateBgSwatch(hex)
+                applyBackgroundColor()
+                setupColors()   // re-run to refresh border colors for new theme
+            }.show()
+        }
+
+        fun openTextPicker() {
+            ColorPickerDialog(
+                context = this,
+                title = "App Text",
+                initialColor = prefs.appTextColor,
+                bgColor = prefs.backgroundColor
+            ) { hex ->
+                prefs.appTextColor = hex
+                updateTextSwatch(hex)
+            }.show()
+        }
+
+        findViewById<View>(R.id.rowBgColor).setOnClickListener { openBgPicker() }
+        findViewById<View>(R.id.rowTextColor).setOnClickListener { openTextPicker() }
+
+        // Preset tiles
+        val presetIds = listOf(R.id.preset1, R.id.preset2, R.id.preset3, R.id.preset4)
+        presetIds.forEachIndexed { i, id ->
+            val preset = PRESETS[i]
+            val tile = findViewById<TextView>(id)
+            tile.setTextColor(Color.parseColor(preset.text))
+            tile.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 8f * density
+                setColor(Color.parseColor(preset.bg))
+                setStroke((1f * density).toInt(), borderColor)
+            }
+            tile.setOnClickListener {
+                prefs.backgroundColor = preset.bg
+                prefs.appTextColor = preset.text
+                updateBgSwatch(preset.bg)
+                updateTextSwatch(preset.text)
+                applyBackgroundColor()
+                setupColors()
+            }
+        }
+    }
+
+    private fun applySystemBarColors(color: Int) {
+        window.statusBarColor = color
+        window.navigationBarColor = color
+        val isLight = isColorLight(color)
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = isLight
+            isAppearanceLightNavigationBars = isLight
+        }
+    }
+
     // ── Gestures ─────────────────────────────────────────────────
 
     private fun setupGestures() {
-        // Double tap toggle
         switchDoubleTap.isChecked = prefs.doubleTapToLock
         switchDoubleTap.setOnCheckedChangeListener { _, checked ->
             if (checked) {
@@ -358,7 +460,6 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        // Directional gesture rows
         val container = findViewById<LinearLayout>(R.id.gesturesContainer)
         val inflater = LayoutInflater.from(this)
 
@@ -370,7 +471,6 @@ class SettingsActivity : AppCompatActivity() {
             labelView.text = label
             actionView.text = resolveGestureLabel(prefs.getGestureAction(fingers, dir))
 
-            // Style based on background brightness
             val isLight = isColorLight(parseColorSafe(prefs.backgroundColor))
             val textColor = if (isLight) Color.BLACK else Color.WHITE
             val accentColor = if (isLight) Color.parseColor("#555555") else Color.parseColor("#AAAAAA")
@@ -414,99 +514,24 @@ class SettingsActivity : AppCompatActivity() {
     // ── Search ───────────────────────────────────────────────────
 
     private fun setupSearch() {
-        val switchEnable = findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switchSearch)
+        val switchEnable = findViewById<MaterialSwitch>(R.id.switchSearch)
         switchEnable.isChecked = prefs.searchEnabled
         switchEnable.setOnCheckedChangeListener { _, checked ->
             prefs.searchEnabled = checked
-            // If search disabled, also disable "show on home"
             if (!checked) {
                 prefs.showSearchBarOnHome = false
-                findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switchSearchOnHome)
-                    .isChecked = false
+                findViewById<MaterialSwitch>(R.id.switchSearchOnHome).isChecked = false
             }
         }
 
-        val switchOnHome = findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switchSearchOnHome)
+        val switchOnHome = findViewById<MaterialSwitch>(R.id.switchSearchOnHome)
         switchOnHome.isChecked = prefs.showSearchBarOnHome
         switchOnHome.setOnCheckedChangeListener { _, checked ->
             prefs.showSearchBarOnHome = checked
-            // Enabling "show on home" implicitly enables search
             if (checked && !prefs.searchEnabled) {
                 prefs.searchEnabled = true
                 switchEnable.isChecked = true
             }
-        }
-    }
-
-    // ── Colors ───────────────────────────────────────────────────
-
-    private fun setupColors() {
-        val bgInput = findViewById<EditText>(R.id.bgColorInput)
-        val bgSwatch = findViewById<View>(R.id.bgColorSwatch)
-        val textInput = findViewById<EditText>(R.id.textColorInput)
-        val textSwatch = findViewById<View>(R.id.textColorSwatch)
-
-        bgInput.setText(prefs.backgroundColor)
-        bgSwatch.background = ColorDrawable(parseColorSafe(prefs.backgroundColor))
-        textInput.setText(prefs.appTextColor)
-        textSwatch.background = ColorDrawable(parseColorSafe(prefs.appTextColor, Color.GRAY))
-
-        bgInput.addTextChangedListener(hexWatcher { hex ->
-            prefs.backgroundColor = hex
-            bgSwatch.background = ColorDrawable(parseColorSafe(hex))
-            applyBackgroundColor()
-        })
-        textInput.addTextChangedListener(hexWatcher { hex ->
-            prefs.appTextColor = hex
-            textSwatch.background = ColorDrawable(parseColorSafe(hex, Color.GRAY))
-        })
-
-        bgSwatch.setOnClickListener {
-            ColorPickerDialog(
-                context = this,
-                title = "Background",
-                initialColor = prefs.backgroundColor,
-                bgColor = prefs.backgroundColor
-            ) { hex ->
-                prefs.backgroundColor = hex
-                bgInput.setText(hex)
-                bgSwatch.background = ColorDrawable(parseColorSafe(hex))
-                applyBackgroundColor()
-                // Refresh text picker swatch border too
-                setupColors()
-            }.show()
-        }
-
-        textSwatch.setOnClickListener {
-            ColorPickerDialog(
-                context = this,
-                title = "App Text",
-                initialColor = prefs.appTextColor,
-                bgColor = prefs.backgroundColor
-            ) { hex ->
-                prefs.appTextColor = hex
-                textInput.setText(hex)
-                textSwatch.background = ColorDrawable(parseColorSafe(hex, Color.GRAY))
-            }.show()
-        }
-    }
-
-    private fun hexWatcher(onValid: (String) -> Unit) = object : TextWatcher {
-        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        override fun afterTextChanged(s: Editable?) {
-            val hex = s?.toString() ?: return
-            if (hex.matches(Regex("^#[0-9A-Fa-f]{6}$"))) onValid(hex)
-        }
-    }
-
-    private fun applySystemBarColors(color: Int) {
-        window.statusBarColor = color
-        window.navigationBarColor = color
-        val isLight = isColorLight(color)
-        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = isLight
-            isAppearanceLightNavigationBars = isLight
         }
     }
 
@@ -566,7 +591,6 @@ class SettingsActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.rowExportBackup).apply {
             setOnClickListener { createBackupLauncher.launch("slate_backup.json") }
-            // tint the arrow
             (this as? LinearLayout)?.let {
                 for (i in 0 until it.childCount)
                     (it.getChildAt(i) as? TextView)?.setTextColor(primary)
@@ -592,7 +616,6 @@ class SettingsActivity : AppCompatActivity() {
             val json = contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: return
             BackupManager(prefs).fromJson(json)
             Toast.makeText(this, "Settings restored", Toast.LENGTH_SHORT).show()
-            // Rebuild the UI with restored values
             recreate()
         } catch (e: Exception) {
             Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
@@ -602,6 +625,94 @@ class SettingsActivity : AppCompatActivity() {
     // ── General ───────────────────────────────────────────────────
 
     private fun setupGeneral() {
+        val isLight = isColorLight(parseColorSafe(prefs.backgroundColor))
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#AAAAAA")
+        val density = resources.displayMetrics.density
+
+        // Sort by usage + alignment sub-row
+        val switchSortUsage = findViewById<MaterialSwitch>(R.id.switchSortByUsage)
+        val rowSortAlignment = findViewById<View>(R.id.rowSortAlignment)
+        val sortAlignValue = findViewById<TextView>(R.id.sortAlignValue)
+
+        sortAlignValue.setTextColor(secondary)
+        sortAlignValue.text = if (prefs.sortAlignRight) "Right" else "Left"
+        rowSortAlignment.visibility = if (prefs.sortByUsage) View.VISIBLE else View.GONE
+
+        switchSortUsage.isChecked = prefs.sortByUsage
+        switchSortUsage.setOnCheckedChangeListener { _, checked ->
+            prefs.sortByUsage = checked
+            rowSortAlignment.visibility = if (checked) View.VISIBLE else View.GONE
+        }
+
+        rowSortAlignment.setOnClickListener {
+            SlateListDialog(
+                context = this,
+                title = "Most used side",
+                items = listOf("Left", "Right"),
+                bgColor = prefs.backgroundColor
+            ) { index, label ->
+                prefs.sortAlignRight = (index == 1)
+                sortAlignValue.text = label
+            }.show()
+        }
+
+        // Lock orientation
+        val switchLockOrientation = findViewById<MaterialSwitch>(R.id.switchLockOrientation)
+        switchLockOrientation.isChecked = prefs.lockOrientation
+        switchLockOrientation.setOnCheckedChangeListener { _, checked ->
+            prefs.lockOrientation = checked
+            requestedOrientation = if (checked)
+                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            else
+                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+
+        // Notification highlight + color sub-row
+        val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifColor)
+        val rowNotifHighlight = findViewById<View>(R.id.rowNotifHighlight)
+        val notifColorSwatch = findViewById<View>(R.id.notifColorSwatch)
+        val notifColorValue = findViewById<TextView>(R.id.notifColorValue)
+
+        notifColorValue.setTextColor(secondary)
+
+        fun updateNotifSwatch(hex: String) {
+            notifColorValue.text = hex
+            notifColorSwatch.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 5f * density
+                setColor(parseColorSafe(hex))
+                val borderColor = if (isLight) Color.parseColor("#BBBBBB") else Color.parseColor("#444444")
+                setStroke((1.5f * density).toInt(), borderColor)
+            }
+        }
+
+        updateNotifSwatch(prefs.notificationHighlightColor)
+        rowNotifHighlight.visibility = if (prefs.notificationColorEnabled) View.VISIBLE else View.GONE
+
+        switchNotif.isChecked = prefs.notificationColorEnabled
+        switchNotif.setOnCheckedChangeListener { _, checked ->
+            if (checked && !isNotificationListenerEnabled()) {
+                switchNotif.isChecked = false
+                Toast.makeText(this, "Grant notification access in system settings", Toast.LENGTH_LONG).show()
+                startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
+            } else {
+                prefs.notificationColorEnabled = checked
+                rowNotifHighlight.visibility = if (checked) View.VISIBLE else View.GONE
+            }
+        }
+
+        rowNotifHighlight.setOnClickListener {
+            ColorPickerDialog(
+                context = this,
+                title = "Highlight color",
+                initialColor = prefs.notificationHighlightColor,
+                bgColor = prefs.backgroundColor
+            ) { hex ->
+                prefs.notificationHighlightColor = hex
+                updateNotifSwatch(hex)
+            }.show()
+        }
+
         // Status bar toggle
         val switchStatusBar = findViewById<MaterialSwitch>(R.id.switchHideStatusBar)
         switchStatusBar.isChecked = prefs.hideStatusBar
@@ -609,28 +720,16 @@ class SettingsActivity : AppCompatActivity() {
             prefs.hideStatusBar = checked
         }
 
-        // Sort by usage toggle
-        val switchSortUsage = findViewById<MaterialSwitch>(R.id.switchSortByUsage)
-        switchSortUsage.isChecked = prefs.sortByUsage
-        switchSortUsage.setOnCheckedChangeListener { _, checked ->
-            prefs.sortByUsage = checked
-        }
-
-        // Lock orientation toggle
-        val switchLockOrientation = findViewById<MaterialSwitch>(R.id.switchLockOrientation)
-        switchLockOrientation.isChecked = prefs.lockOrientation
-        switchLockOrientation.setOnCheckedChangeListener { _, checked ->
-            prefs.lockOrientation = checked
-            requestedOrientation = if (checked)
-                android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            else
-                android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        }
-
         // Default launcher row
         findViewById<View>(R.id.rowDefaultLauncher).setOnClickListener {
             requestDefaultLauncher()
         }
+    }
+
+    private fun isNotificationListenerEnabled(): Boolean {
+        val cn = ComponentName(this, SlateNotificationService::class.java)
+        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+        return flat?.contains(cn.flattenToString()) == true
     }
 
     private fun requestDefaultLauncher() {

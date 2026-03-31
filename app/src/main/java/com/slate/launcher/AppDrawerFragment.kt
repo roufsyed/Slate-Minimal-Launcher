@@ -176,6 +176,9 @@ class AppDrawerFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        SlateNotificationService.onChange = {
+            activity?.runOnUiThread { buildAppList() }
+        }
         val bg = parseColorSafe(prefs.backgroundColor)
         scrollView.setBackgroundColor(bg)
         requireView().setBackgroundColor(bg)
@@ -187,6 +190,11 @@ class AppDrawerFragment : Fragment() {
             searchContainer.visibility = View.GONE
         }
         buildAppList()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        SlateNotificationService.onChange = null
     }
 
     // ── Search ────────────────────────────────────────────────────
@@ -254,6 +262,11 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun filterApps(query: String) {
+        flowLayout.justifyContent = when {
+            prefs.sortByUsage && prefs.sortAlignRight -> JustifyContent.FLEX_END
+            prefs.sortByUsage -> JustifyContent.FLEX_START
+            else -> JustifyContent.CENTER
+        }
         flowLayout.removeAllViews()
         val all = repository.getAllApps()
         val apps = if (query.isEmpty()) all
@@ -263,12 +276,19 @@ class AppDrawerFragment : Fragment() {
             ?.takeIf { it > 0 } ?: 1
         val density = resources.displayMetrics.density
         val defaultTextColor = parseColorSafe(prefs.appTextColor, Color.GRAY)
+        val notifEnabled = prefs.notificationColorEnabled
+        val notifColor = parseColorSafe(prefs.notificationHighlightColor)
         val typeface = buildTypeface()
 
         apps.forEach { app ->
             val usage = prefs.getUsageCount(app.packageName)
             val appColor = prefs.getAppTextColor(app.packageName)
-            val textColor = if (appColor != null) parseColorSafe(appColor) else defaultTextColor
+            val hasNotif = notifEnabled && app.packageName in SlateNotificationService.activePackages
+            val textColor = when {
+                hasNotif -> notifColor
+                appColor != null -> parseColorSafe(appColor)
+                else -> defaultTextColor
+            }
             val tv = TextView(requireContext()).apply {
                 text = app.name
                 textSize = computeFontSize(usage, maxUsage)
@@ -310,6 +330,11 @@ class AppDrawerFragment : Fragment() {
                 startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
             }
+            is GestureAction.OpenCamera        -> {
+                val intent = Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try { startActivity(intent); true } catch (_: Exception) { false }
+            }
             is GestureAction.OpenApp           -> {
                 val intent = requireContext().packageManager
                     .getLaunchIntentForPackage(action.packageName)
@@ -321,18 +346,30 @@ class AppDrawerFragment : Fragment() {
     // ── App list ──────────────────────────────────────────────────
 
     private fun buildAppList() {
+        flowLayout.justifyContent = when {
+            prefs.sortByUsage && prefs.sortAlignRight -> JustifyContent.FLEX_END
+            prefs.sortByUsage -> JustifyContent.FLEX_START
+            else -> JustifyContent.CENTER
+        }
         flowLayout.removeAllViews()
         val apps = repository.getAllApps()
         val maxUsage = apps.maxOfOrNull { prefs.getUsageCount(it.packageName) }
             ?.takeIf { it > 0 } ?: 1
         val density = resources.displayMetrics.density
         val defaultTextColor = parseColorSafe(prefs.appTextColor, Color.GRAY)
+        val notifEnabled = prefs.notificationColorEnabled
+        val notifColor = parseColorSafe(prefs.notificationHighlightColor)
         val typeface = buildTypeface()
 
         apps.forEach { app ->
             val usage = prefs.getUsageCount(app.packageName)
             val appColor = prefs.getAppTextColor(app.packageName)
-            val textColor = if (appColor != null) parseColorSafe(appColor) else defaultTextColor
+            val hasNotif = notifEnabled && app.packageName in SlateNotificationService.activePackages
+            val textColor = when {
+                hasNotif -> notifColor
+                appColor != null -> parseColorSafe(appColor)
+                else -> defaultTextColor
+            }
             val tv = TextView(requireContext()).apply {
                 text = app.name
                 textSize = computeFontSize(usage, maxUsage)
@@ -398,6 +435,8 @@ class AppDrawerFragment : Fragment() {
 
     private fun launchApp(app: AppInfo) {
         prefs.incrementUsage(app.packageName)
+        // Optimistically clear notification highlight so it reverts immediately on return
+        SlateNotificationService.activePackages.remove(app.packageName)
         if (isSearchOpen) closeSearch()
         val intent = requireContext().packageManager
             .getLaunchIntentForPackage(app.packageName) ?: return
