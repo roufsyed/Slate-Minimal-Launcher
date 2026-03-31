@@ -501,11 +501,11 @@
 
                 <TextView
                     android:id="@+id/labelBg"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="Background"
-                    android:textSize="17sp"
-                    android:layout_marginEnd="12dp" />
+                    android:textSize="17sp" />
 
                 <View
                     android:id="@+id/bgColorSwatch"
@@ -515,9 +515,8 @@
 
                 <TextView
                     android:id="@+id/bgColorDisplay"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:textSize="15sp"
                     android:fontFamily="monospace" />
             </LinearLayout>
@@ -534,11 +533,11 @@
 
                 <TextView
                     android:id="@+id/labelText"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="App text"
-                    android:textSize="17sp"
-                    android:layout_marginEnd="12dp" />
+                    android:textSize="17sp" />
 
                 <View
                     android:id="@+id/textColorSwatch"
@@ -548,9 +547,8 @@
 
                 <TextView
                     android:id="@+id/textColorDisplay"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:textSize="15sp"
                     android:fontFamily="monospace" />
             </LinearLayout>
