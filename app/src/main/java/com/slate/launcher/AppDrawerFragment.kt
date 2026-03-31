@@ -446,22 +446,22 @@ class AppDrawerFragment : Fragment() {
         SlateListDialog(
             context = requireContext(),
             title = app.name,
-            items = listOf("Custom color", "Hide", "App Info", "Uninstall"),
+            items = listOf("App Info", "Hide", "Uninstall", "Custom color"),
             bgColor = prefs.backgroundColor
         ) { index, _ ->
             when (index) {
-                0 -> showAppColorPicker(app)
-                1 -> { prefs.hideApp(app.packageName); buildAppList() }
-                2 -> startActivity(
+                0 -> startActivity(
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = Uri.fromParts("package", app.packageName, null)
                     }
                 )
-                3 -> startActivity(
+                1 -> { prefs.hideApp(app.packageName); buildAppList() }
+                2 -> startActivity(
                     Intent(Intent.ACTION_DELETE).apply {
                         data = Uri.fromParts("package", app.packageName, null)
                     }
                 )
+                3 -> showAppColorPicker(app)
             }
         }.show()
     }
