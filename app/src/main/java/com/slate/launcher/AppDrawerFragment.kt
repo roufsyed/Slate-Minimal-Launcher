@@ -1,8 +1,6 @@
 package com.slate.launcher
 
-import android.app.admin.DevicePolicyManager
 import android.bluetooth.BluetoothAdapter
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -560,21 +558,10 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun lockScreen() {
-        val dpm = requireContext().getSystemService(Context.DEVICE_POLICY_SERVICE)
-                as DevicePolicyManager
-        val admin = ComponentName(requireContext(), SlateDeviceAdminReceiver::class.java)
-        if (dpm.isAdminActive(admin)) {
-            dpm.lockNow()
-        } else {
-            startActivity(
-                Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
-                    putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin)
-                    putExtra(
-                        DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-                        "Allows Slate to lock the screen on double tap."
-                    )
-                }
-            )
+        if (!SlateAccessibilityService.lockScreen()) {
+            // Service not connected — guide user to enable it
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 

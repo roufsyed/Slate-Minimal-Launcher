@@ -1,6 +1,5 @@
 package com.slate.launcher
 
-import android.app.admin.DevicePolicyManager
 import android.app.role.RoleManager
 import android.content.ComponentName
 import android.content.Context
@@ -42,7 +41,6 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var requestRoleLauncher: ActivityResultLauncher<Intent>
 
     companion object {
-        private const val REQUEST_DEVICE_ADMIN = 100
         private val MIN_SIZES     = (8..24).toList()
         private val MAX_SIZES     = (20..60).toList()
         private val LINE_SPACINGS = (0..24).toList()
@@ -452,11 +450,14 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupGestures() {
         switchDoubleTap.isChecked = prefs.doubleTapToLock
         switchDoubleTap.setOnCheckedChangeListener { _, checked ->
-            if (checked) {
-                if (isDeviceAdminActive()) prefs.doubleTapToLock = true
-                else requestDeviceAdmin()
+            if (checked && !isAccessibilityServiceEnabled()) {
+                switchDoubleTap.isChecked = false
+                Toast.makeText(this,
+                    "Enable Slate in Accessibility settings to use this feature",
+                    Toast.LENGTH_LONG).show()
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             } else {
-                prefs.doubleTapToLock = false
+                prefs.doubleTapToLock = checked
             }
         }
 
@@ -484,31 +485,12 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun isDeviceAdminActive(): Boolean {
-        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        return dpm.isAdminActive(ComponentName(this, SlateDeviceAdminReceiver::class.java))
-    }
-
-    private fun requestDeviceAdmin() {
-        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
-            putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN,
-                ComponentName(this@SettingsActivity, SlateDeviceAdminReceiver::class.java))
-            putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-                "Allows Slate to lock the screen on double tap.")
-        }
-        @Suppress("DEPRECATION")
-        startActivityForResult(intent, REQUEST_DEVICE_ADMIN)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        @Suppress("DEPRECATION")
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_DEVICE_ADMIN) {
-            val granted = isDeviceAdminActive()
-            prefs.doubleTapToLock = granted
-            switchDoubleTap.isChecked = granted
-        }
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val cn = ComponentName(this, SlateAccessibilityService::class.java)
+        val enabled = Settings.Secure.getString(
+            contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return enabled.contains(cn.flattenToString())
     }
 
     // ── Search ───────────────────────────────────────────────────
