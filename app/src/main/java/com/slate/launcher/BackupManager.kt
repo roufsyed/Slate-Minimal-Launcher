@@ -29,9 +29,21 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.getAllGestureActions().forEach { (k, v) -> gesturesObj.put(k, v) }
         root.put("gestureActions", gesturesObj)
 
+        // Typography (extended)
+        root.put("textAlignment", prefs.textAlignment)
+
+        // General
+        root.put("sortByUsage", prefs.sortByUsage)
+        root.put("lockOrientation", prefs.lockOrientation)
+        root.put("hideStatusBar", prefs.hideStatusBar)
+        root.put("notificationColorEnabled", prefs.notificationColorEnabled)
+        root.put("notificationHighlightColor", prefs.notificationHighlightColor)
+        root.put("nightMode", prefs.nightMode)
+
         // Search
         root.put("searchEnabled", prefs.searchEnabled)
         root.put("showSearchBarOnHome", prefs.showSearchBarOnHome)
+        root.put("searchBarPosition", prefs.searchBarPosition)
 
         // Hidden apps
         val hiddenArr = JSONArray()
@@ -59,8 +71,16 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.backgroundColor = root.optString("backgroundColor", PreferencesManager.DEFAULT_BACKGROUND_COLOR)
         prefs.appTextColor    = root.optString("appTextColor",    PreferencesManager.DEFAULT_TEXT_COLOR)
         prefs.doubleTapToLock   = root.optBoolean("doubleTapToLock", false)
+        prefs.textAlignment     = root.optString("textAlignment", "center")
+        prefs.sortByUsage       = root.optBoolean("sortByUsage", false)
+        prefs.lockOrientation   = root.optBoolean("lockOrientation", true)
+        prefs.hideStatusBar     = root.optBoolean("hideStatusBar", false)
+        prefs.notificationColorEnabled   = root.optBoolean("notificationColorEnabled", false)
+        prefs.notificationHighlightColor = root.optString("notificationHighlightColor", "#FFFFFF")
+        prefs.nightMode         = root.optInt("nightMode", -1)
         prefs.searchEnabled     = root.optBoolean("searchEnabled", true)
         prefs.showSearchBarOnHome = root.optBoolean("showSearchBarOnHome", false)
+        prefs.searchBarPosition = root.optString("searchBarPosition", "top")
 
         // Hidden apps
         root.optJSONArray("hiddenApps")?.let { arr ->
