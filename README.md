@@ -56,9 +56,13 @@ Slate does not collect, transmit, or share any data. There is no analytics, no c
 All preferences are stored locally using Android's `SharedPreferences`. App usage counts (for sort-by-usage) never leave the device.
 
 The app requests only the permissions it actively uses:
-- `ACCESS_WIFI_STATE` / `CHANGE_WIFI_STATE` — for the Wi-Fi gesture toggle
-- `BLUETOOTH` / `BLUETOOTH_ADMIN` — for the Bluetooth gesture toggle (Android 11 and below only)
-- `BIND_DEVICE_ADMIN` — for double-tap screen lock
+- `EXPAND_STATUS_BAR` — swipe-down gesture to expand the notification panel
+- `ACCESS_WIFI_STATE` / `CHANGE_WIFI_STATE` — Wi-Fi gesture toggle (Android 10+: opens the system internet panel; Android 9 and below: toggles Wi-Fi directly)
+- `BLUETOOTH` / `BLUETOOTH_ADMIN` — Bluetooth gesture toggle on Android 11 and below only; not requested on Android 12+
+- `QUERY_ALL_PACKAGES` — required on Android 11+ to enumerate all installed apps so they appear in the launcher
+- `REQUEST_DELETE_PACKAGES` — opens the system uninstall confirmation dialog when you choose to uninstall an app from the long-press menu
+- `BIND_ACCESSIBILITY_SERVICE` — declared by the optional accessibility service used solely to lock the screen on double-tap; grants no ability to read screen content or monitor usage
+- `BIND_NOTIFICATION_LISTENER_SERVICE` — declared by the optional notification listener used solely to know which apps have a pending notification, enabling the notification highlight color feature; notification content is never read or stored
 
 ---
 
