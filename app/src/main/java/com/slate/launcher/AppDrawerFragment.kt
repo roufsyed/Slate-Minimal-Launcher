@@ -122,19 +122,19 @@ class AppDrawerFragment : Fragment() {
                     if (scrollDelta > density * 80) return false
 
                     val dir = if (absDx > absDy) {
-                        if (dx > 0) MultiFingerGestureDetector.Direction.RIGHT
-                        else MultiFingerGestureDetector.Direction.LEFT
+                        if (dx > 0) Direction.RIGHT
+                        else Direction.LEFT
                     } else {
-                        if (dy > 0) MultiFingerGestureDetector.Direction.DOWN
-                        else MultiFingerGestureDetector.Direction.UP
+                        if (dy > 0) Direction.DOWN
+                        else Direction.UP
                     }
 
                     // Swipe down while search open → close search
-                    if (dir == MultiFingerGestureDetector.Direction.DOWN && isSearchOpen) {
+                    if (dir == Direction.DOWN && isSearchOpen) {
                         closeSearch(); return true
                     }
                     // Swipe down only triggers when already at top
-                    if (dir == MultiFingerGestureDetector.Direction.DOWN && scrollView.scrollY != 0)
+                    if (dir == Direction.DOWN && scrollView.scrollY != 0)
                         return false
 
                     return executeGestureAction(1, dir)
@@ -320,7 +320,7 @@ class AppDrawerFragment : Fragment() {
 
     private fun executeGestureAction(
         fingers: Int,
-        dir: MultiFingerGestureDetector.Direction
+        dir: Direction
     ): Boolean {
         return when (val action = prefs.getGestureAction(fingers, dir)) {
             is GestureAction.None              -> false

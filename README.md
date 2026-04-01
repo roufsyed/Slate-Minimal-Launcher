@@ -66,6 +66,12 @@ The app requests only the permissions it actively uses:
 
 ---
 
+## Privacy Policy
+
+See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for the full policy.
+
+---
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.

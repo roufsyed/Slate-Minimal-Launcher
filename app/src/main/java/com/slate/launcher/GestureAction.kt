@@ -1,5 +1,7 @@
 package com.slate.launcher
 
+enum class Direction { UP, DOWN, LEFT, RIGHT }
+
 sealed class GestureAction {
     object None : GestureAction()
     object OpenNotifications : GestureAction()
@@ -44,10 +46,10 @@ sealed class GestureAction {
             else                          -> None
         }
 
-        fun defaultFor(fingers: Int, dir: MultiFingerGestureDetector.Direction): GestureAction =
+        fun defaultFor(fingers: Int, dir: Direction): GestureAction =
             when {
-                fingers == 1 && dir == MultiFingerGestureDetector.Direction.UP   -> Search
-                fingers == 1 && dir == MultiFingerGestureDetector.Direction.DOWN -> OpenNotifications
+                fingers == 1 && dir == Direction.UP   -> Search
+                fingers == 1 && dir == Direction.DOWN -> OpenNotifications
                 else -> None
             }
     }

@@ -28,7 +28,6 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
-import com.slate.launcher.MultiFingerGestureDetector.Direction
 import java.io.File
 
 class SettingsActivity : AppCompatActivity() {

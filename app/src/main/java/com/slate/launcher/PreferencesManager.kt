@@ -2,7 +2,6 @@ package com.slate.launcher
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.appcompat.app.AppCompatDelegate
 
 class PreferencesManager(context: Context) {
 
@@ -14,7 +13,6 @@ class PreferencesManager(context: Context) {
         private const val KEY_HIDDEN_APPS = "hidden_apps"
         private const val KEY_MIN_FONT_SIZE = "min_font_size"
         private const val KEY_MAX_FONT_SIZE = "max_font_size"
-        private const val KEY_NIGHT_MODE = "night_mode"
         private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
         private const val KEY_BACKGROUND_COLOR = "background_color"
         private const val KEY_TEXT_COLOR = "text_color"
@@ -151,23 +149,19 @@ class PreferencesManager(context: Context) {
         get() = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
         set(value) = prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, value).apply()
 
-    var nightMode: Int
-        get() = prefs.getInt(KEY_NIGHT_MODE, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        set(value) = prefs.edit().putInt(KEY_NIGHT_MODE, value).apply()
-
     // ── Gesture actions ───────────────────────────────────────────
 
-    fun getGestureAction(fingers: Int, dir: MultiFingerGestureDetector.Direction): GestureAction {
+    fun getGestureAction(fingers: Int, dir: Direction): GestureAction {
         val saved = prefs.getString(gestureKey(fingers, dir), null)
             ?: return GestureAction.defaultFor(fingers, dir)
         return GestureAction.deserialize(saved)
     }
 
-    fun setGestureAction(fingers: Int, dir: MultiFingerGestureDetector.Direction, action: GestureAction) {
+    fun setGestureAction(fingers: Int, dir: Direction, action: GestureAction) {
         prefs.edit().putString(gestureKey(fingers, dir), action.serialize()).apply()
     }
 
-    private fun gestureKey(fingers: Int, dir: MultiFingerGestureDetector.Direction) =
+    private fun gestureKey(fingers: Int, dir: Direction) =
         "gesture_${fingers}_${dir.name.lowercase()}"
 
     // ── Usage tracking ────────────────────────────────────────────

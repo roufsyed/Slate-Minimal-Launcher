@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -19,7 +18,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         prefs = PreferencesManager(this)
-        AppCompatDelegate.setDefaultNightMode(prefs.nightMode)
         super.onCreate(savedInstanceState)
 
         // Skip redirect if Slate is already set as the default launcher. This covers the
