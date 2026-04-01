@@ -2,7 +2,9 @@ package com.slate.launcher
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import android.os.Build
 
 class AppRepository(private val context: Context, private val prefs: PreferencesManager) {
 
@@ -11,8 +13,13 @@ class AppRepository(private val context: Context, private val prefs: Preferences
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
         val pm = context.packageManager
-        @Suppress("DEPRECATION")
-        val resolveInfos: List<ResolveInfo> = pm.queryIntentActivities(intent, 0)
+        val resolveInfos: List<ResolveInfo> =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.queryIntentActivities(intent, 0)
+            }
         val hidden = prefs.hiddenApps
         val selfPackage = context.packageName
 
@@ -20,9 +27,10 @@ class AppRepository(private val context: Context, private val prefs: Preferences
             .filter { it.activityInfo.packageName != selfPackage }
             .filter { it.activityInfo.packageName !in hidden }
             .map {
+                val pkg = it.activityInfo.packageName
                 AppInfo(
-                    name = it.loadLabel(pm).toString(),
-                    packageName = it.activityInfo.packageName,
+                    name = prefs.getAppCustomName(pkg) ?: it.loadLabel(pm).toString(),
+                    packageName = pkg,
                     activityName = it.activityInfo.name
                 )
             }

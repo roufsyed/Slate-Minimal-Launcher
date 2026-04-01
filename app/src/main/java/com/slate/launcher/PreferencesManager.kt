@@ -121,6 +121,22 @@ class PreferencesManager(context: Context) {
         get() = prefs.getString(KEY_NOTIF_HIGHLIGHT_COLOR, "#FFFFFF") ?: "#FFFFFF"
         set(value) = prefs.edit().putString(KEY_NOTIF_HIGHLIGHT_COLOR, value).apply()
 
+    // ── Per-app custom names ──────────────────────────────────────
+
+    fun getAppCustomName(packageName: String): String? =
+        prefs.getString("app_name_$packageName", null)
+
+    fun setAppCustomName(packageName: String, name: String) =
+        prefs.edit().putString("app_name_$packageName", name).apply()
+
+    fun clearAppCustomName(packageName: String) =
+        prefs.edit().remove("app_name_$packageName").apply()
+
+    fun getAllAppCustomNames(): Map<String, String> =
+        prefs.all.entries
+            .filter { it.key.startsWith("app_name_") }
+            .associate { it.key.removePrefix("app_name_") to (it.value as? String ?: "") }
+
     // ── Per-app text color ─────────────────────────────────────────
 
     fun getAppTextColor(packageName: String): String? =

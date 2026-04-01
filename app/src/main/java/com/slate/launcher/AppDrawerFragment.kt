@@ -452,7 +452,7 @@ class AppDrawerFragment : Fragment() {
         SlateListDialog(
             context = requireContext(),
             title = app.name,
-            items = listOf("App Info", "Hide", "Uninstall", "Custom color"),
+            items = listOf("App Info", "Hide", "Uninstall", "Custom color", "Rename"),
             bgColor = prefs.backgroundColor
         ) { index, _ ->
             when (index) {
@@ -468,8 +468,117 @@ class AppDrawerFragment : Fragment() {
                     }
                 )
                 3 -> showAppColorPicker(app)
+                4 -> showRenameDialog(app)
             }
         }.show()
+    }
+
+    private fun showRenameDialog(app: AppInfo) {
+        val ctx = requireContext()
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#888888")
+        val dividerColor = if (isLight) Color.parseColor("#DDDDDD") else Color.parseColor("#333333")
+        val ripple = if (isLight) Color.parseColor("#15000000") else Color.parseColor("#20FFFFFF")
+        val density = ctx.resources.displayMetrics.density
+        val hPad = (24 * density).toInt()
+        val vPad = (14 * density).toInt()
+
+        val root = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(bg)
+                cornerRadius = 12f * density
+            }
+        }
+
+        // Title
+        root.addView(TextView(ctx).apply {
+            text = app.name
+            textSize = 15f
+            setTextColor(accent)
+            setPadding(hPad, vPad, hPad, vPad)
+        })
+
+        fun divider() = View(ctx).apply {
+            setBackgroundColor(dividerColor)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 1
+            ).also { it.marginStart = hPad; it.marginEnd = hPad }
+        }
+
+        root.addView(divider())
+
+        // Text input
+        val input = android.widget.EditText(ctx).apply {
+            setText(app.name)
+            textSize = 17f
+            setTextColor(primary)
+            setHintTextColor(secondary)
+            background = null
+            setPadding(hPad, vPad, hPad, vPad)
+            selectAll()
+        }
+        root.addView(input)
+
+        root.addView(divider())
+
+        val dialog = Dialog(ctx, R.style.SlateDialogTheme)
+
+        fun actionRow(label: String, color: Int, onClick: () -> Unit) = TextView(ctx).apply {
+            text = label
+            textSize = 17f
+            setTextColor(color)
+            setPadding(hPad, vPad, hPad, vPad)
+            setOnClickListener { onClick(); dialog.dismiss() }
+            setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> (v as TextView).setBackgroundColor(ripple)
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                        (v as TextView).setBackgroundColor(Color.TRANSPARENT)
+                }
+                false
+            }
+        }
+
+        // Save
+        root.addView(actionRow("Save", primary) {
+            val newName = input.text.toString().trim()
+            if (newName.isNotEmpty()) {
+                prefs.setAppCustomName(app.packageName, newName)
+                buildAppList()
+            }
+        })
+
+        // Reset — only when a custom name is already saved
+        if (prefs.getAppCustomName(app.packageName) != null) {
+            root.addView(divider())
+            val originalName = try {
+                val info = ctx.packageManager.getApplicationInfo(app.packageName, 0)
+                ctx.packageManager.getApplicationLabel(info).toString()
+            } catch (_: Exception) { app.name }
+            root.addView(actionRow("Reset to \"$originalName\"", secondary) {
+                prefs.clearAppCustomName(app.packageName)
+                buildAppList()
+            })
+        }
+
+        dialog.setContentView(root)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(
+            (ctx.resources.displayMetrics.widthPixels * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.show()
+
+        input.requestFocus()
+        val imm = ctx.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        input.postDelayed({ imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT) }, 80)
     }
 
     private fun showAppColorPicker(app: AppInfo) {

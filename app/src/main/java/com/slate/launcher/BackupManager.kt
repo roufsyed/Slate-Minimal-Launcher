@@ -54,6 +54,11 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.getAllAppColors().forEach { (k, v) -> colorsObj.put(k, v) }
         root.put("appColors", colorsObj)
 
+        // Per-app custom names
+        val namesObj = JSONObject()
+        prefs.getAllAppCustomNames().forEach { (k, v) -> namesObj.put(k, v) }
+        root.put("appCustomNames", namesObj)
+
         return root.toString(2)
     }
 
@@ -93,6 +98,11 @@ class BackupManager(private val prefs: PreferencesManager) {
         // Per-app colors
         root.optJSONObject("appColors")?.let { obj ->
             obj.keys().forEach { pkg -> prefs.setAppTextColor(pkg, obj.getString(pkg)) }
+        }
+
+        // Per-app custom names
+        root.optJSONObject("appCustomNames")?.let { obj ->
+            obj.keys().forEach { pkg -> prefs.setAppCustomName(pkg, obj.getString(pkg)) }
         }
     }
 }
