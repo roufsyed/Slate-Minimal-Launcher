@@ -46,9 +46,17 @@ class OnboardingActivity : AppCompatActivity() {
         )
     )
 
+    // onResume detects acceptance; callback handles denial (user backed out without selecting).
     private val requestRoleLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { finishOnboarding() }
+    ) { result ->
+        if (result.resultCode != android.app.Activity.RESULT_OK) {
+            // User dismissed the picker without selecting Slate — stay on onboarding
+            // so they can try again or tap Skip.
+            return@registerForActivityResult
+        }
+        // Accepted — onResume will confirm and advance.
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,12 +85,6 @@ class OnboardingActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.btnSetDefault).setOnClickListener {
             applySelectedTheme()
-            // Mark onboarding complete BEFORE opening the role picker.
-            // When the user accepts, Android immediately fires a HOME intent which
-            // starts MainActivity. If the flag isn't set here first, MainActivity
-            // sees onboarding incomplete and redirects back, forcing the user to
-            // tap "Set as Default" a second time.
-            prefs.onboardingComplete = true
             requestDefaultLauncher()
         }
 
@@ -90,6 +92,27 @@ class OnboardingActivity : AppCompatActivity() {
             applySelectedTheme()
             finishOnboarding()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // After returning from the role picker or Home Settings, check if Slate
+        // is now the default launcher and auto-advance if so.
+        if (isDefaultLauncher()) {
+            finishOnboarding()
+        }
+    }
+
+    private fun isDefaultLauncher(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            return roleManager.isRoleHeld(RoleManager.ROLE_HOME)
+        }
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val info = packageManager.resolveActivity(
+            intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
+        )
+        return info?.activityInfo?.packageName == packageName
     }
 
     private fun applySelectedTheme() {
@@ -124,7 +147,7 @@ class OnboardingActivity : AppCompatActivity() {
             }
         }
         startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
-        finishOnboarding()
+        // Don't finish here — onResume will detect acceptance when the user returns.
     }
 
     private fun finishOnboarding() {

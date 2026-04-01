@@ -120,6 +120,19 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
 
+    override fun onResume() {
+        super.onResume()
+        updateDefaultLauncherRow()
+    }
+
+    private fun updateDefaultLauncherRow() {
+        val sub = findViewById<TextView>(R.id.labelDefaultLauncherSub) ?: return
+        sub.text = if (isAlreadyDefaultLauncher())
+            "Slate is your default launcher"
+        else
+            "Open system launcher picker"
+    }
+
     // ── Background ───────────────────────────────────────────────
 
     private fun applyBackgroundColor() {

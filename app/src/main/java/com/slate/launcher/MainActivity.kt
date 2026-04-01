@@ -1,8 +1,10 @@
 package com.slate.launcher
 
+import android.app.role.RoleManager
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -20,7 +22,10 @@ class MainActivity : AppCompatActivity() {
         AppCompatDelegate.setDefaultNightMode(prefs.nightMode)
         super.onCreate(savedInstanceState)
 
-        if (!prefs.onboardingComplete) {
+        // Skip redirect if Slate is already set as the default launcher. This covers the
+        // race window where Android fires the HOME intent immediately after the user
+        // accepts the role, before OnboardingActivity's onResume has set the flag.
+        if (!prefs.onboardingComplete && !isDefaultLauncher()) {
             startActivity(Intent(this, OnboardingActivity::class.java))
             finish()
             return
@@ -62,6 +67,18 @@ class MainActivity : AppCompatActivity() {
             controller.isAppearanceLightStatusBars = isLight
             controller.isAppearanceLightNavigationBars = isLight
         }
+    }
+
+    private fun isDefaultLauncher(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            return roleManager.isRoleHeld(RoleManager.ROLE_HOME)
+        }
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val info = packageManager.resolveActivity(
+            intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
+        )
+        return info?.activityInfo?.packageName == packageName
     }
 
     companion object {
