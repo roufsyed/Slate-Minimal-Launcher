@@ -49,9 +49,10 @@ Thumbs.db
 # Google Services keys — do not commit
 google-services.json
 
-# Signing keys — never commit private keystores
+# Signing keys — never commit private keystores or credentials
 *.jks
 *.keystore
+keystore.properties
 
 # Navigation editor temp
 .navigation/
