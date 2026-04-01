@@ -77,6 +77,12 @@ class OnboardingActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.btnSetDefault).setOnClickListener {
             applySelectedTheme()
+            // Mark onboarding complete BEFORE opening the role picker.
+            // When the user accepts, Android immediately fires a HOME intent which
+            // starts MainActivity. If the flag isn't set here first, MainActivity
+            // sees onboarding incomplete and redirects back, forcing the user to
+            // tap "Set as Default" a second time.
+            prefs.onboardingComplete = true
             requestDefaultLauncher()
         }
 

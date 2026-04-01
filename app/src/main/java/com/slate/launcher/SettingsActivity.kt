@@ -115,6 +115,7 @@ class SettingsActivity : AppCompatActivity() {
         setupSearch()
         setupBackup()
         setupGeneral()
+        setupAbout()
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
@@ -145,7 +146,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val dividerColor = if (isLight) Color.parseColor("#22000000") else Color.parseColor("#22FFFFFF")
         listOf(R.id.divider0, R.id.divider1, R.id.divider1b, R.id.divider2,
-               R.id.divider3, R.id.divider4).forEach { id ->
+               R.id.divider3, R.id.divider4, R.id.divider5).forEach { id ->
             findViewById<View>(id)?.setBackgroundColor(dividerColor)
         }
 
@@ -726,6 +727,15 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun requestDefaultLauncher() {
+        if (isAlreadyDefaultLauncher()) {
+            SlateListDialog(
+                context = this,
+                title = "Already the default launcher",
+                items = listOf("Slate is your home. Thank you for using it."),
+                bgColor = prefs.backgroundColor
+            ) { _, _ -> }.show()
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = getSystemService(RoleManager::class.java)
             if (roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
@@ -736,5 +746,39 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
         startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
+    }
+
+    private fun isAlreadyDefaultLauncher(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            return roleManager.isRoleHeld(RoleManager.ROLE_HOME)
+        }
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val info = packageManager.resolveActivity(
+            intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
+        )
+        return info?.activityInfo?.packageName == packageName
+    }
+
+    // ── About ─────────────────────────────────────────────────────
+
+    private fun setupAbout() {
+        val isLight = isColorLight(parseColorSafe(prefs.backgroundColor))
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#AAAAAA")
+
+        val versionName = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (_: Exception) { "—" }
+        findViewById<TextView>(R.id.labelAppVersion)?.apply {
+            text = "v$versionName"
+            setTextColor(secondary)
+        }
+
+        findViewById<View>(R.id.rowGithub)?.setOnClickListener {
+            startActivity(
+                Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/roufsyed/Slate-Minimal-Launcher"))
+            )
+        }
     }
 }

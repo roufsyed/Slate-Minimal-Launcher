@@ -1,10 +1,13 @@
 package com.slate.launcher
 
+import android.app.Dialog
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.net.Uri
@@ -12,11 +15,13 @@ import android.os.Bundle
 import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.Gravity
 import android.view.GestureDetector
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -32,6 +37,7 @@ import com.google.android.flexbox.AlignItems
 import com.google.android.flexbox.FlexboxLayout
 import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.JustifyContent
+import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
 import java.io.File
 import kotlin.math.abs
@@ -490,14 +496,90 @@ class AppDrawerFragment : Fragment() {
         SlateListDialog(
             context = requireContext(),
             title = "",
-            items = listOf("Customize", "Hidden Apps"),
+            items = listOf("Customize", "Hidden Apps", "FAQ"),
             bgColor = prefs.backgroundColor
         ) { index, _ ->
             when (index) {
                 0 -> startActivity(Intent(requireContext(), SettingsActivity::class.java))
                 1 -> showHiddenAppsDialog()
+                2 -> showFaqDialog()
             }
         }.show()
+    }
+
+    private fun showFaqDialog() {
+        val faqs = listOf(
+            "Why does Slate need Accessibility permission?" to
+                "Accessibility is used only for the \"double tap to lock screen\" feature. It calls a single system API (GLOBAL_ACTION_LOCK_SCREEN) to lock the device while keeping biometric unlock available.\n\nSlate cannot read screen content, monitor app usage, or collect any data via this permission.",
+
+            "Why does Slate need Notification access?" to
+                "Notification access is optional and used only for the notification highlight feature — it changes the color of an app's name when it has a pending notification.\n\nSlate only checks which packages have active notifications. Notification content (titles, messages, senders) is never read or stored.",
+
+            "Does Slate collect any data?" to
+                "No. Slate is 100% offline and collects zero data.\n\nThere is no analytics, no crash reporting, no tracking, and no network requests of any kind. All settings, usage counts, and customizations are stored locally on your device using Android's SharedPreferences and never leave it.",
+
+            "What other permissions does Slate use?" to
+                "• EXPAND_STATUS_BAR — swipe-down notification panel gesture\n• ACCESS_WIFI_STATE / CHANGE_WIFI_STATE — Wi-Fi toggle gesture (Android 10+: opens system panel)\n• BLUETOOTH / BLUETOOTH_ADMIN — Bluetooth toggle on Android 11 and below\n• QUERY_ALL_PACKAGES — required to list all installed apps (Android 11+)\n• REQUEST_DELETE_PACKAGES — initiates the system uninstall flow when you choose to uninstall an app",
+
+            "Is Slate open source?" to
+                "Yes. Slate is open source under the MIT licence.\n\nSource code: github.com/roufsyed/Slate-Minimal-Launcher"
+        )
+        SlateListDialog(
+            context = requireContext(),
+            title = "FAQ",
+            items = faqs.map { it.first },
+            bgColor = prefs.backgroundColor
+        ) { index, _ ->
+            showFaqDetail(faqs[index].first, faqs[index].second)
+        }.show()
+    }
+
+    private fun showFaqDetail(question: String, answer: String) {
+        val ctx = requireContext()
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primaryColor = if (isLight) Color.BLACK else Color.WHITE
+        val accentColor = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = ctx.resources.displayMetrics.density
+        val pad = (24 * density).toInt()
+
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(bg)
+                cornerRadius = 12f * density
+            }
+            setPadding(pad, pad, pad, pad)
+        }
+
+        container.addView(TextView(ctx).apply {
+            text = question
+            textSize = 15f
+            setTextColor(accentColor)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.bottomMargin = (14 * density).toInt() }
+        })
+
+        container.addView(TextView(ctx).apply {
+            text = answer
+            textSize = 15f
+            setTextColor(primaryColor)
+            setLineSpacing(4f * density, 1f)
+        })
+
+        val dialog = Dialog(ctx, R.style.SlateDialogTheme)
+        dialog.setContentView(container)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(
+            (ctx.resources.displayMetrics.widthPixels * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.show()
     }
 
     private fun showHiddenAppsDialog() {
