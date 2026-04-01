@@ -184,7 +184,17 @@
         android:textSize="15sp"
         android:textColor="#555555"
         android:gravity="center"
-        android:paddingVertical="12dp"
-        android:layout_marginBottom="8dp" />
+        android:paddingVertical="12dp" />
+
+    <TextView
+        android:id="@+id/btnPrivacyPolicy"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Privacy Policy"
+        android:textSize="12sp"
+        android:textColor="#404040"
+        android:gravity="center"
+        android:paddingVertical="10dp"
+        android:layout_marginBottom="4dp" />
 
 </LinearLayout>

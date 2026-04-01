@@ -3,6 +3,7 @@ package com.slate.launcher
 import android.app.role.RoleManager
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
@@ -91,6 +92,13 @@ class OnboardingActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.btnSkip).setOnClickListener {
             applySelectedTheme()
             finishOnboarding()
+        }
+
+        findViewById<TextView>(R.id.btnPrivacyPolicy).setOnClickListener {
+            startActivity(
+                Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/roufsyed/Slate-Minimal-Launcher/blob/master/PRIVACY_POLICY.md"))
+            )
         }
     }
 
