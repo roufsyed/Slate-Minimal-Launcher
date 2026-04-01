@@ -4,6 +4,18 @@ A text-only Android home screen built for focus. No icons, no widgets, no algori
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/slate_home_black.jpg" width="18%" alt="Home — black theme" />
+  <img src="screenshots/slate_home_navy.jpg"  width="18%" alt="Home — navy theme" />
+  <img src="screenshots/slate_home_white.jpg" width="18%" alt="Home — white theme" />
+  <img src="screenshots/slate_settings_1.jpg" width="18%" alt="Settings — general & text size" />
+  <img src="screenshots/slate_settings_2.jpg" width="18%" alt="Settings — colors & gestures" />
+</p>
+
+---
+
 ## Why Slate Exists
 
 Most launchers are designed to keep you on your phone. Colorful icons trigger recognition without thought, notification badges create artificial urgency, and recommendation widgets are optimized for engagement rather than intent.
