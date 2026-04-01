@@ -55,6 +55,8 @@ class AppDrawerFragment : Fragment() {
     private var isSearchOpen = false
     private var touchStartedOnApp = false
     private var scrollYOnDown = 0
+    private var statusBarHeight = 0
+    private var bottomInset = 0
     private lateinit var singleFingerDetector: GestureDetector
 
     override fun onCreateView(
@@ -89,7 +91,10 @@ class AppDrawerFragment : Fragment() {
                 }
 
                 override fun onLongPress(e: MotionEvent) {
-                    if (!isSearchOpen && !touchStartedOnApp) {
+                    // Block only when user explicitly opened search (keyboard up);
+                    // always-visible search bar should not block customization long press.
+                    val searchBlocksLongPress = isSearchOpen && !prefs.showSearchBarOnHome
+                    if (!touchStartedOnApp && !searchBlocksLongPress) {
                         showHomeLongPressDialog()
                     }
                 }
@@ -165,6 +170,18 @@ class AppDrawerFragment : Fragment() {
             if (!imeVisible && isSearchOpen && !prefs.showSearchBarOnHome) {
                 dismissSearchBar()
             }
+            val newStatusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            if (newStatusBarHeight != statusBarHeight) {
+                statusBarHeight = newStatusBarHeight
+                applySearchBarPosition()
+            }
+            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            val newBottomInset = maxOf(imeBottom, navBottom)
+            if (newBottomInset != bottomInset) {
+                bottomInset = newBottomInset
+                applySearchBarPosition()
+            }
             ViewCompat.onApplyWindowInsets(v, insets)
         }
     }
@@ -182,7 +199,8 @@ class AppDrawerFragment : Fragment() {
         if (prefs.showSearchBarOnHome && prefs.searchEnabled) {
             isSearchOpen = true
             searchContainer.visibility = View.VISIBLE
-        } else if (!prefs.showSearchBarOnHome && !isSearchOpen) {
+        } else if (!prefs.showSearchBarOnHome) {
+            isSearchOpen = false
             searchContainer.visibility = View.GONE
         }
         buildAppList()
@@ -203,6 +221,24 @@ class AppDrawerFragment : Fragment() {
         if (currentIndex != targetIndex) {
             root.removeView(searchContainer)
             root.addView(searchContainer, if (atBottom) root.childCount else 0)
+        }
+        val density = resources.displayMetrics.density
+        if (atBottom) {
+            searchContainer.setPadding(
+                (24 * density).toInt(),
+                (20 * density).toInt(),
+                (24 * density).toInt(),
+                (12 * density).toInt() + bottomInset
+            )
+            scrollView.setPadding(0, 0, 0, 0)
+        } else {
+            searchContainer.setPadding(
+                (24 * density).toInt(),
+                (20 * density).toInt() + statusBarHeight,
+                (24 * density).toInt(),
+                (12 * density).toInt()
+            )
+            scrollView.setPadding(0, 0, 0, bottomInset)
         }
     }
 
@@ -253,12 +289,18 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun closeSearch() {
-        isSearchOpen = false
-        searchContainer.visibility = View.GONE
         searchInput.setText("")
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(searchInput.windowToken, 0)
-        buildAppList()
+        searchInput.clearFocus()
+        if (prefs.showSearchBarOnHome) {
+            // Keep bar visible; just clear the filter
+            buildAppList()
+        } else {
+            isSearchOpen = false
+            searchContainer.visibility = View.GONE
+            buildAppList()
+        }
     }
 
     private fun dismissSearchBar() {
@@ -497,7 +539,7 @@ class AppDrawerFragment : Fragment() {
 
         // Title
         root.addView(TextView(ctx).apply {
-            text = app.name
+            text = "Rename ${app.name}"
             textSize = 15f
             setTextColor(accent)
             setPadding(hPad, vPad, hPad, vPad)
@@ -512,59 +554,110 @@ class AppDrawerFragment : Fragment() {
 
         root.addView(divider())
 
-        // Text input
+        // Text input — filled background so it reads as an editable field
+        val inputFill = if (isLight) Color.parseColor("#EBEBEB") else Color.parseColor("#1E1E1E")
+        val inputStroke = if (isLight) Color.parseColor("#CCCCCC") else Color.parseColor("#4A4A4A")
         val input = android.widget.EditText(ctx).apply {
             setText(app.name)
             textSize = 17f
             setTextColor(primary)
             setHintTextColor(secondary)
-            background = null
-            setPadding(hPad, vPad, hPad, vPad)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(inputFill)
+                setStroke((1f * density).toInt(), inputStroke)
+                cornerRadius = 8f * density
+            }
+            val inputHPad = (14 * density).toInt()
+            val inputVPad = (12 * density).toInt()
+            setPadding(inputHPad, inputVPad, inputHPad, inputVPad)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also {
+                it.marginStart = hPad
+                it.marginEnd = hPad
+                it.topMargin = (12 * density).toInt()
+                it.bottomMargin = (12 * density).toInt()
+            }
             selectAll()
         }
         root.addView(input)
 
-        root.addView(divider())
-
         val dialog = Dialog(ctx, R.style.SlateDialogTheme)
 
-        fun actionRow(label: String, color: Int, onClick: () -> Unit) = TextView(ctx).apply {
-            text = label
-            textSize = 17f
-            setTextColor(color)
-            setPadding(hPad, vPad, hPad, vPad)
-            setOnClickListener { onClick(); dialog.dismiss() }
-            setOnTouchListener { v, event ->
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> (v as TextView).setBackgroundColor(ripple)
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                        (v as TextView).setBackgroundColor(Color.TRANSPARENT)
+        val hasCustomName = prefs.getAppCustomName(app.packageName) != null
+        val saveBg   = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val resetBg  = if (isLight) Color.parseColor("#DEDEDE") else Color.parseColor("#2A2A2A")
+
+        val bVPad = (15 * density).toInt()
+        val bHPad = (20 * density).toInt()
+
+        fun pillButton(label: String, bgColor: Int, textColor: Int, onClick: () -> Unit) =
+            TextView(ctx).apply {
+                text = label
+                textSize = 15f
+                setTextColor(textColor)
+                gravity = android.view.Gravity.CENTER
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    setColor(bgColor)
+                    cornerRadius = 100f * density
                 }
-                false
+                setPadding(bHPad, bVPad, bHPad, bVPad)
+                setOnClickListener { onClick(); dialog.dismiss() }
+            }
+
+        // Horizontal button row
+        val buttonRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also {
+                it.marginStart  = hPad
+                it.marginEnd    = hPad
+                it.topMargin    = (10 * density).toInt()
+                it.bottomMargin = (20 * density).toInt()
             }
         }
 
-        // Save
-        root.addView(actionRow("Save", primary) {
-            val newName = input.text.toString().trim()
-            if (newName.isNotEmpty()) {
-                prefs.setAppCustomName(app.packageName, newName)
-                buildAppList()
-            }
-        })
-
-        // Reset — only when a custom name is already saved
-        if (prefs.getAppCustomName(app.packageName) != null) {
-            root.addView(divider())
+        if (hasCustomName) {
             val originalName = try {
                 val info = ctx.packageManager.getApplicationInfo(app.packageName, 0)
                 ctx.packageManager.getApplicationLabel(info).toString()
             } catch (_: Exception) { app.name }
-            root.addView(actionRow("Reset to \"$originalName\"", secondary) {
-                prefs.clearAppCustomName(app.packageName)
-                buildAppList()
-            })
+
+            buttonRow.addView(
+                pillButton("Reset to Default", resetBg, secondary) {
+                    prefs.clearAppCustomName(app.packageName)
+                    buildAppList()
+                }.also {
+                    it.layoutParams = LinearLayout.LayoutParams(0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT, 1f).also { lp ->
+                        lp.marginEnd = (12 * density).toInt()
+                    }
+                }
+            )
         }
+
+        buttonRow.addView(
+            pillButton("Save", saveBg, Color.WHITE) {
+                val newName = input.text.toString().trim()
+                if (newName.isNotEmpty()) {
+                    prefs.setAppCustomName(app.packageName, newName)
+                    buildAppList()
+                }
+            }.also {
+                it.layoutParams = if (hasCustomName)
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                else
+                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+        )
+
+        root.addView(buttonRow)
 
         dialog.setContentView(root)
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
@@ -662,6 +755,25 @@ class AppDrawerFragment : Fragment() {
             setPadding(pad, pad, pad, pad)
         }
 
+        val dialog = Dialog(ctx, R.style.SlateDialogTheme)
+
+        // Back arrow row
+        val mutedColor = if (isLight) Color.parseColor("#666666") else Color.parseColor("#888888")
+        container.addView(TextView(ctx).apply {
+            text = "← FAQ"
+            textSize = 13f
+            setTextColor(mutedColor)
+            setPadding((4 * density).toInt(), (10 * density).toInt(), (20 * density).toInt(), (10 * density).toInt())
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.bottomMargin = (8 * density).toInt() }
+            setOnClickListener {
+                dialog.dismiss()
+                showFaqDialog()
+            }
+        })
+
         container.addView(TextView(ctx).apply {
             text = question
             textSize = 15f
@@ -679,7 +791,6 @@ class AppDrawerFragment : Fragment() {
             setLineSpacing(4f * density, 1f)
         })
 
-        val dialog = Dialog(ctx, R.style.SlateDialogTheme)
         dialog.setContentView(container)
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.window?.setLayout(
