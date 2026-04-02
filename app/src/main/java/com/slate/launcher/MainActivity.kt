@@ -1,9 +1,14 @@
 package com.slate.launcher
 
+import android.app.WallpaperManager
 import android.app.role.RoleManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
@@ -92,6 +97,28 @@ class MainActivity : AppCompatActivity() {
             val b = Color.blue(color) / 255.0
             val luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
             return luminance > 0.5
+        }
+
+        fun applyColorToLockscreen(context: Context, colorInt: Int): Boolean {
+            return try {
+                val wm = WallpaperManager.getInstance(context)
+                val size = wm.desiredMinimumWidth.coerceAtLeast(1) to
+                        wm.desiredMinimumHeight.coerceAtLeast(1)
+                val bitmap = Bitmap.createBitmap(size.first, size.second, Bitmap.Config.ARGB_8888)
+                Canvas(bitmap).drawRect(
+                    0f, 0f, size.first.toFloat(), size.second.toFloat(),
+                    Paint().apply { color = colorInt }
+                )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    wm.setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK)
+                } else {
+                    wm.setBitmap(bitmap)
+                }
+                bitmap.recycle()
+                true
+            } catch (_: Exception) {
+                false
+            }
         }
     }
 }

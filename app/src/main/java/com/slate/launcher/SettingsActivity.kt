@@ -169,7 +169,8 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchHideStatusBar),
             findViewById(R.id.switchSortByUsage),
             findViewById(R.id.switchLockOrientation),
-            findViewById(R.id.switchNotifColor)
+            findViewById(R.id.switchNotifColor),
+            findViewById(R.id.switchSyncToLockscreen)
         )
     }
 
@@ -403,6 +404,12 @@ class SettingsActivity : AppCompatActivity() {
         updateBgSwatch(prefs.backgroundColor)
         updateTextSwatch(prefs.appTextColor)
 
+        fun syncLockscreenIfNeeded(colorInt: Int) {
+            if (!prefs.syncToLockscreen) return
+            val ok = MainActivity.applyColorToLockscreen(this, colorInt)
+            if (!ok) Toast.makeText(this, "Could not set lockscreen wallpaper", Toast.LENGTH_SHORT).show()
+        }
+
         // Entire row opens the picker — no keyboard input
         fun openBgPicker() {
             ColorPickerDialog(
@@ -414,6 +421,7 @@ class SettingsActivity : AppCompatActivity() {
                 prefs.backgroundColor = hex
                 updateBgSwatch(hex)
                 applyBackgroundColor()
+                syncLockscreenIfNeeded(parseColorSafe(hex))
                 setupColors()   // re-run to refresh border colors for new theme
             }.show()
         }
@@ -433,6 +441,21 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.rowBgColor).setOnClickListener { openBgPicker() }
         findViewById<View>(R.id.rowTextColor).setOnClickListener { openTextPicker() }
 
+        // Apply to lockscreen toggle
+        val switchSyncToLockscreen = findViewById<MaterialSwitch>(R.id.switchSyncToLockscreen)
+        switchSyncToLockscreen.isChecked = prefs.syncToLockscreen
+        switchSyncToLockscreen.setOnCheckedChangeListener { _, checked ->
+            prefs.syncToLockscreen = checked
+            if (checked) {
+                val ok = MainActivity.applyColorToLockscreen(this, parseColorSafe(prefs.backgroundColor))
+                if (!ok) {
+                    Toast.makeText(this, "Could not set lockscreen wallpaper", Toast.LENGTH_SHORT).show()
+                    prefs.syncToLockscreen = false
+                    switchSyncToLockscreen.isChecked = false
+                }
+            }
+        }
+
         // Preset tiles
         val presetIds = listOf(R.id.preset1, R.id.preset2, R.id.preset3, R.id.preset4)
         presetIds.forEachIndexed { i, id ->
@@ -451,10 +474,12 @@ class SettingsActivity : AppCompatActivity() {
                 updateBgSwatch(preset.bg)
                 updateTextSwatch(preset.text)
                 applyBackgroundColor()
+                syncLockscreenIfNeeded(parseColorSafe(preset.bg))
                 setupColors()
             }
         }
     }
+
 
     private fun applySystemBarColors(color: Int) {
         window.statusBarColor = color
