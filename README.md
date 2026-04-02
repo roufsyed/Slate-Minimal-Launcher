@@ -28,6 +28,7 @@ Slate removes all of that. It presents your apps as plain text — the same way 
 
 **Appearance**
 - Fully customizable background and text colors with a live color picker
+- Apply background to lockscreen — sets your lockscreen wallpaper to the launcher's solid background color for a uniform look
 - Per-app color overrides — highlight only what matters
 - Typography control: font family (including Google Fonts + import your own), weight, line spacing, word spacing
 - Font size scales with app name length — frequently used apps appear larger
@@ -63,6 +64,7 @@ The app requests only the permissions it actively uses:
 - `REQUEST_DELETE_PACKAGES` — opens the system uninstall confirmation dialog when you choose to uninstall an app from the long-press menu
 - `BIND_ACCESSIBILITY_SERVICE` — declared by the optional accessibility service used solely to lock the screen on double-tap; grants no ability to read screen content or monitor usage
 - `BIND_NOTIFICATION_LISTENER_SERVICE` — declared by the optional notification listener used solely to know which apps have a pending notification, enabling the notification highlight color feature; notification content is never read or stored
+- `SET_WALLPAPER` — used only when the "Apply to lockscreen" toggle is enabled, to set a solid-color wallpaper on the lock screen matching the launcher's background color; never triggered without explicit user action
 
 ---
 
