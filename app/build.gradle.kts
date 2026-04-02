@@ -43,6 +43,22 @@ android {
         }
     }
 
+    val appName = groovy.xml.XmlParser().parse(file("src/main/res/values/strings.xml"))
+        .children()
+        .filterIsInstance<groovy.util.Node>()
+        .firstOrNull { it.attribute("name") == "app_name" }
+        ?.text()
+        ?.lowercase()
+        ?: "app"
+
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "${appName}_${variant.versionName}_${variant.buildType.name}.apk"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
