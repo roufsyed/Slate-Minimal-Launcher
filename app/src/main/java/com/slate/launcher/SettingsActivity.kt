@@ -229,11 +229,13 @@ class SettingsActivity : AppCompatActivity() {
         val maxLabel = findViewById<TextView>(R.id.maxFontLabel)
 
         minSeekBar.max = MIN_SIZES.size - 1
-        minSeekBar.progress = MIN_SIZES.indexOf(prefs.minFontSize).coerceAtLeast(0)
+        minSeekBar.progress = MIN_SIZES.indexOf(prefs.minFontSize)
+            .takeIf { it >= 0 } ?: MIN_SIZES.indexOf(PreferencesManager.DEFAULT_MIN_FONT_SIZE).coerceAtLeast(0)
         minLabel.text = "${prefs.minFontSize}sp"
 
         maxSeekBar.max = MAX_SIZES.size - 1
-        maxSeekBar.progress = MAX_SIZES.indexOf(prefs.maxFontSize).coerceAtLeast(0)
+        maxSeekBar.progress = MAX_SIZES.indexOf(prefs.maxFontSize)
+            .takeIf { it >= 0 } ?: MAX_SIZES.indexOf(PreferencesManager.DEFAULT_MAX_FONT_SIZE).coerceAtLeast(0)
         maxLabel.text = "${prefs.maxFontSize}sp"
 
         minSeekBar.setOnSeekBarChangeListener(seekBarListener { p ->
@@ -249,11 +251,13 @@ class SettingsActivity : AppCompatActivity() {
         val wordLabel   = findViewById<TextView>(R.id.wordSpacingLabel)
 
         lineSeekBar.max = LINE_SPACINGS.size - 1
-        lineSeekBar.progress = LINE_SPACINGS.indexOf(prefs.lineSpacing).coerceAtLeast(0)
+        lineSeekBar.progress = LINE_SPACINGS.indexOf(prefs.lineSpacing)
+            .takeIf { it >= 0 } ?: LINE_SPACINGS.indexOf(PreferencesManager.DEFAULT_LINE_SPACING).coerceAtLeast(0)
         lineLabel.text = "${prefs.lineSpacing}dp"
 
         wordSeekBar.max = WORD_SPACINGS.size - 1
-        wordSeekBar.progress = WORD_SPACINGS.indexOf(prefs.wordSpacing).coerceAtLeast(0)
+        wordSeekBar.progress = WORD_SPACINGS.indexOf(prefs.wordSpacing)
+            .takeIf { it >= 0 } ?: WORD_SPACINGS.indexOf(PreferencesManager.DEFAULT_WORD_SPACING).coerceAtLeast(0)
         wordLabel.text = "${prefs.wordSpacing}dp"
 
         lineSeekBar.setOnSeekBarChangeListener(seekBarListener { p ->

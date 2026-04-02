@@ -304,10 +304,17 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun dismissSearchBar() {
-        isSearchOpen = false
-        searchContainer.visibility = View.GONE
         searchInput.setText("")
-        buildAppList()
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(searchInput.windowToken, 0)
+        searchInput.clearFocus()
+        if (prefs.showSearchBarOnHome && prefs.searchEnabled) {
+            buildAppList()
+        } else {
+            isSearchOpen = false
+            searchContainer.visibility = View.GONE
+            buildAppList()
+        }
     }
 
     private fun filterApps(query: String) {
