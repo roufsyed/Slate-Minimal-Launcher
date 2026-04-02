@@ -2,12 +2,13 @@ package com.slate.launcher
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import java.util.Collections
 
 class SlateNotificationService : NotificationListenerService() {
 
     companion object {
         /** Packages that currently have at least one active notification. */
-        val activePackages: MutableSet<String> = mutableSetOf()
+        val activePackages: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
 
         /** Called on the service thread whenever the set changes. */
         var onChange: (() -> Unit)? = null

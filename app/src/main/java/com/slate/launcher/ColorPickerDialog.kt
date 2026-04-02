@@ -60,7 +60,7 @@ class ColorPickerDialog(
         val borderColor = if (isLight) Color.parseColor("#AAAAAA") else Color.parseColor("#444444")
 
         // Card background
-        val root = findViewById<View>(R.id.dialogTitle)!!.parent as android.view.ViewGroup
+        val root = findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
         root.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(bg)
@@ -68,12 +68,12 @@ class ColorPickerDialog(
         }
 
         // Title
-        val titleView = findViewById<TextView>(R.id.dialogTitle)!!
+        val titleView = findViewById<TextView>(R.id.dialogTitle) ?: return
         titleView.text = title
         titleView.setTextColor(accent)
 
         // Preview swatch
-        val previewView = findViewById<View>(R.id.colorPreview)!!
+        val previewView = findViewById<View>(R.id.colorPreview) ?: return
         fun updatePreview(hex: String) {
             previewView.background = ColorDrawable(parseColorSafe(hex))
         }
@@ -83,7 +83,7 @@ class ColorPickerDialog(
         val hexRow = root.getChildAt(2) as android.view.ViewGroup
         (hexRow.getChildAt(0) as? TextView)?.setTextColor(secondary)
 
-        val hexInput = findViewById<EditText>(R.id.hexInput)!!
+        val hexInput = findViewById<EditText>(R.id.hexInput) ?: return
         hexInput.setText(currentHex)
         hexInput.setTextColor(primary)
         hexInput.setHintTextColor(secondary)
@@ -111,9 +111,9 @@ class ColorPickerDialog(
         buildSwatches(previewView, hexInput, accent, density)
 
         // Buttons
-        val btnCancel = findViewById<TextView>(R.id.btnCancel)!!
-        val btnApply = findViewById<TextView>(R.id.btnApply)!!
-        val btnReset = findViewById<TextView>(R.id.btnReset)!!
+        val btnCancel = findViewById<TextView>(R.id.btnCancel) ?: return
+        val btnApply = findViewById<TextView>(R.id.btnApply) ?: return
+        val btnReset = findViewById<TextView>(R.id.btnReset) ?: return
         btnCancel.setTextColor(secondary)
         btnApply.setTextColor(accent)
         if (showReset) {
@@ -135,7 +135,7 @@ class ColorPickerDialog(
         selectedBorderColor: Int,
         density: Float
     ) {
-        val grid = findViewById<FlexboxLayout>(R.id.swatchGrid)!!
+        val grid = findViewById<FlexboxLayout>(R.id.swatchGrid) ?: return
         grid.flexWrap = FlexWrap.WRAP
         grid.justifyContent = JustifyContent.FLEX_START
         grid.removeAllViews()

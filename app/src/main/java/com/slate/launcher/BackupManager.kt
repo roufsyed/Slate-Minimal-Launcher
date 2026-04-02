@@ -64,7 +64,7 @@ class BackupManager(private val prefs: PreferencesManager) {
 
     fun fromJson(json: String) {
         val root = JSONObject(json)
-        if (root.optInt("version", 0) < 1) return
+        if (root.optInt("version", 0) < 1) throw IllegalArgumentException("Unsupported backup version")
 
         prefs.minFontSize  = root.optInt("minFontSize",  PreferencesManager.DEFAULT_MIN_FONT_SIZE)
         prefs.maxFontSize  = root.optInt("maxFontSize",  PreferencesManager.DEFAULT_MAX_FONT_SIZE)

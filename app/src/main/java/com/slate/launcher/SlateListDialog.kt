@@ -48,7 +48,7 @@ class SlateListDialog(
         val density = context.resources.displayMetrics.density
 
         // Card background
-        val root = findViewById<View>(R.id.dialogTitle)!!.parent as android.view.ViewGroup
+        val root = findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
         root.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(bg)
@@ -56,8 +56,8 @@ class SlateListDialog(
         }
 
         // Title and divider — hide both when title is empty
-        val titleView = findViewById<TextView>(R.id.dialogTitle)!!
-        val divider = findViewById<View>(R.id.titleDivider)!!
+        val titleView = findViewById<TextView>(R.id.dialogTitle) ?: return
+        val divider = findViewById<View>(R.id.titleDivider) ?: return
 
         if (title.isEmpty()) {
             titleView.visibility = View.GONE
@@ -69,7 +69,7 @@ class SlateListDialog(
         }
 
         // List items
-        val container = findViewById<LinearLayout>(R.id.listContainer)!!
+        val container = findViewById<LinearLayout>(R.id.listContainer) ?: return
         container.removeAllViews()
 
         items.forEachIndexed { index, label ->
