@@ -452,7 +452,7 @@ class AppDrawerFragment : Fragment() {
         val base: Typeface = when {
             family.startsWith("/") -> {
                 // Imported font file in internal storage
-                try { Typeface.createFromFile(File(family)) }
+                try { Typeface.createFromFile(File(family)) ?: Typeface.DEFAULT }
                 catch (_: Exception) { Typeface.DEFAULT }
             }
             family.startsWith("gf:") -> {
