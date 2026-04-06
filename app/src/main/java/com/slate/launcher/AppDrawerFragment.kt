@@ -868,11 +868,7 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun lockScreen() {
-        if (!SlateAccessibilityService.lockScreen()) {
-            // Service not connected — guide user to enable it
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
+        SlateAccessibilityService.lockScreen()
     }
 
     private fun expandNotificationsPanel() {

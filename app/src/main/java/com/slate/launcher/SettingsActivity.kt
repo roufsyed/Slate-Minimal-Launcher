@@ -38,6 +38,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var openBackupLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var importFontLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var requestRoleLauncher: ActivityResultLauncher<Intent>
+    private var awaitingAccessibilityPermission = false
+    private var awaitingNotificationPermission = false
 
     companion object {
         private val MIN_SIZES     = (8..24).toList()
@@ -122,6 +124,44 @@ class SettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateDefaultLauncherRow()
+        syncPermissionToggles()
+    }
+
+    private fun syncPermissionToggles() {
+        // Double tap to lock: if permission was revoked externally, turn off
+        val accessibilityEnabled = isAccessibilityServiceEnabled()
+        if (prefs.doubleTapToLock && !accessibilityEnabled) {
+            prefs.doubleTapToLock = false
+            switchDoubleTap.setOnCheckedChangeListener(null)
+            switchDoubleTap.isChecked = false
+            setupDoubleTapListener()
+        } else if (awaitingAccessibilityPermission && accessibilityEnabled) {
+            // Only auto-enable when returning from the permission grant flow
+            prefs.doubleTapToLock = true
+            switchDoubleTap.setOnCheckedChangeListener(null)
+            switchDoubleTap.isChecked = true
+            setupDoubleTapListener()
+        }
+        awaitingAccessibilityPermission = false
+
+        // Notification highlight: if permission was revoked externally, turn off
+        val notifEnabled = isNotificationListenerEnabled()
+        val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifColor) ?: return
+        if (prefs.notificationColorEnabled && !notifEnabled) {
+            prefs.notificationColorEnabled = false
+            switchNotif.setOnCheckedChangeListener(null)
+            switchNotif.isChecked = false
+            setupNotifListener(switchNotif)
+            findViewById<View>(R.id.rowNotifHighlight).visibility = View.GONE
+        } else if (awaitingNotificationPermission && notifEnabled) {
+            // Only auto-enable when returning from the permission grant flow
+            prefs.notificationColorEnabled = true
+            switchNotif.setOnCheckedChangeListener(null)
+            switchNotif.isChecked = true
+            setupNotifListener(switchNotif)
+            findViewById<View>(R.id.rowNotifHighlight).visibility = View.VISIBLE
+        }
+        awaitingNotificationPermission = false
     }
 
     private fun updateDefaultLauncherRow() {
@@ -499,17 +539,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun setupGestures() {
         switchDoubleTap.isChecked = prefs.doubleTapToLock
-        switchDoubleTap.setOnCheckedChangeListener { _, checked ->
-            if (checked && !isAccessibilityServiceEnabled()) {
-                switchDoubleTap.isChecked = false
-                Toast.makeText(this,
-                    "Enable Slate in Accessibility settings to use this feature",
-                    Toast.LENGTH_LONG).show()
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            } else {
-                prefs.doubleTapToLock = checked
-            }
-        }
+        setupDoubleTapListener()
 
         val container = findViewById<LinearLayout>(R.id.gesturesContainer)
         val inflater = LayoutInflater.from(this)
@@ -532,6 +562,21 @@ class SettingsActivity : AppCompatActivity() {
                 showGestureActionPicker(fingers, dir, actionView)
             }
             container.addView(row)
+        }
+    }
+
+    private fun setupDoubleTapListener() {
+        switchDoubleTap.setOnCheckedChangeListener { _, checked ->
+            if (checked && !isAccessibilityServiceEnabled()) {
+                switchDoubleTap.isChecked = false
+                awaitingAccessibilityPermission = true
+                Toast.makeText(this,
+                    "Enable Slate in Accessibility settings to use this feature",
+                    Toast.LENGTH_LONG).show()
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            } else {
+                prefs.doubleTapToLock = checked
+            }
         }
     }
 
@@ -725,16 +770,7 @@ class SettingsActivity : AppCompatActivity() {
         rowNotifHighlight.visibility = if (prefs.notificationColorEnabled) View.VISIBLE else View.GONE
 
         switchNotif.isChecked = prefs.notificationColorEnabled
-        switchNotif.setOnCheckedChangeListener { _, checked ->
-            if (checked && !isNotificationListenerEnabled()) {
-                switchNotif.isChecked = false
-                Toast.makeText(this, "Grant notification access in system settings", Toast.LENGTH_LONG).show()
-                startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
-            } else {
-                prefs.notificationColorEnabled = checked
-                rowNotifHighlight.visibility = if (checked) View.VISIBLE else View.GONE
-            }
-        }
+        setupNotifListener(switchNotif)
 
         rowNotifHighlight.setOnClickListener {
             ColorPickerDialog(
@@ -758,6 +794,21 @@ class SettingsActivity : AppCompatActivity() {
         // Default launcher row
         findViewById<View>(R.id.rowDefaultLauncher).setOnClickListener {
             requestDefaultLauncher()
+        }
+    }
+
+    private fun setupNotifListener(switchNotif: MaterialSwitch) {
+        val rowNotifHighlight = findViewById<View>(R.id.rowNotifHighlight)
+        switchNotif.setOnCheckedChangeListener { _, checked ->
+            if (checked && !isNotificationListenerEnabled()) {
+                switchNotif.isChecked = false
+                awaitingNotificationPermission = true
+                Toast.makeText(this, "Grant notification access in system settings", Toast.LENGTH_LONG).show()
+                startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
+            } else {
+                prefs.notificationColorEnabled = checked
+                rowNotifHighlight.visibility = if (checked) View.VISIBLE else View.GONE
+            }
         }
     }
 
