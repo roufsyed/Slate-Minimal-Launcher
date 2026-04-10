@@ -45,6 +45,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (prefs.followSystemTheme) {
+            val nightMode = resources.configuration.uiMode and
+                    android.content.res.Configuration.UI_MODE_NIGHT_MASK
+            val isDark = nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val targetBg = if (isDark) "#000000" else "#FFFFFF"
+            val targetText = if (isDark) "#808080" else "#333333"
+            if (prefs.backgroundColor != targetBg || prefs.appTextColor != targetText) {
+                prefs.backgroundColor = targetBg
+                prefs.appTextColor = targetText
+            }
+        }
         applySystemBarColors()
         requestedOrientation = if (prefs.lockOrientation)
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT

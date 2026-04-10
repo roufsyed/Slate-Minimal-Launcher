@@ -35,10 +35,13 @@ class AppRepository(private val context: Context, private val prefs: Preferences
                 )
             }
 
-        return if (prefs.sortByUsage) {
+        val pinned = prefs.pinnedApps
+        val sorted = if (prefs.sortByUsage) {
             apps.sortedByDescending { prefs.getUsageCount(it.packageName) }
         } else {
             apps.sortedBy { it.name.lowercase() }
         }
+        // Pinned apps float to the top, preserving sort order within each group
+        return sorted.sortedByDescending { it.packageName in pinned }
     }
 }

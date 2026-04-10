@@ -1,211 +1,246 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/onboardingRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="#000000"
-    android:padding="32dp">
+    android:fillViewport="true"
+    android:scrollbars="none">
 
-    <!-- App name -->
-    <TextView
-        android:id="@+id/labelAppName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="52dp"
-        android:text="slate"
-        android:textSize="52sp"
-        android:textColor="#FFFFFF"
-        android:fontFamily="sans-serif-light"
-        android:letterSpacing="-0.02" />
-
-    <TextView
-        android:id="@+id/labelTagline"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="choose a look to get started"
-        android:textSize="15sp"
-        android:textColor="#808080" />
-
-    <!-- Theme preview cards -->
     <LinearLayout
+        android:id="@+id/onboardingRoot"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="horizontal"
-        android:layout_marginTop="32dp"
-        android:layout_marginBottom="24dp">
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="32dp"
+        android:paddingTop="80dp"
+        android:paddingBottom="32dp"
+        android:gravity="center_horizontal">
 
-        <!-- Dark theme card -->
+        <!-- ── Branding ── -->
+
+        <TextView
+            android:id="@+id/labelAppName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="slate"
+            android:textSize="56sp"
+            android:textColor="#FFFFFF"
+            android:fontFamily="sans-serif-light"
+            android:letterSpacing="-0.03" />
+
+        <TextView
+            android:id="@+id/labelTagline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="a minimal launcher"
+            android:textSize="15sp"
+            android:textColor="#666666"
+            android:letterSpacing="0.05" />
+
+        <!-- ── Theme selection ── -->
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="48dp"
+            android:layout_marginBottom="16dp"
+            android:text="CHOOSE A THEME"
+            android:textSize="11sp"
+            android:textColor="#555555"
+            android:textAllCaps="true"
+            android:letterSpacing="0.15"
+            android:textStyle="bold" />
+
         <LinearLayout
-            android:id="@+id/cardDark"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
-            android:orientation="vertical"
-            android:padding="20dp">
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="false">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <!-- Dark theme card -->
+            <LinearLayout
+                android:id="@+id/cardDark"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="DARK"
-                android:textSize="11sp"
-                android:textColor="#8888FF"
-                android:textAllCaps="true"
-                android:letterSpacing="0.15"
-                android:textStyle="bold"
-                android:layout_marginBottom="20dp" />
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:orientation="vertical"
+                android:padding="20dp"
+                android:minHeight="200dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="messages"
-                android:textSize="19sp"
-                android:textColor="#808080" />
+                <TextView
+                    android:id="@+id/labelDark"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="DARK"
+                    android:textSize="11sp"
+                    android:textColor="#8888FF"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.15"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="24dp" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="maps"
-                android:textSize="16sp"
-                android:textColor="#808080"
-                android:layout_marginTop="8dp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="messages"
+                    android:textSize="20sp"
+                    android:textColor="#808080" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="camera"
-                android:textSize="14sp"
-                android:textColor="#808080"
-                android:layout_marginTop="8dp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="maps"
+                    android:textSize="16sp"
+                    android:textColor="#808080"
+                    android:layout_marginTop="10dp" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="photos"
-                android:textSize="14sp"
-                android:textColor="#808080"
-                android:layout_marginTop="6dp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="camera"
+                    android:textSize="14sp"
+                    android:textColor="#808080"
+                    android:layout_marginTop="8dp" />
 
-            <TextView
-                android:layout_width="wrap_content"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="photos"
+                    android:textSize="13sp"
+                    android:textColor="#808080"
+                    android:layout_marginTop="7dp" />
+
+            </LinearLayout>
+
+            <!-- Light theme card -->
+            <LinearLayout
+                android:id="@+id/cardLight"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="settings"
-                android:textSize="13sp"
-                android:textColor="#808080"
-                android:layout_marginTop="6dp" />
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:orientation="vertical"
+                android:padding="20dp"
+                android:minHeight="200dp">
+
+                <TextView
+                    android:id="@+id/labelLight"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="LIGHT"
+                    android:textSize="11sp"
+                    android:textColor="#333399"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.15"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="24dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="messages"
+                    android:textSize="20sp"
+                    android:textColor="#333333" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="maps"
+                    android:textSize="16sp"
+                    android:textColor="#333333"
+                    android:layout_marginTop="10dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="camera"
+                    android:textSize="14sp"
+                    android:textColor="#333333"
+                    android:layout_marginTop="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="photos"
+                    android:textSize="13sp"
+                    android:textColor="#333333"
+                    android:layout_marginTop="7dp" />
+
+            </LinearLayout>
 
         </LinearLayout>
 
-        <!-- Light theme card -->
-        <LinearLayout
-            android:id="@+id/cardLight"
+        <!-- ── Spacer ── -->
+        <View
             android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:orientation="vertical"
-            android:padding="20dp">
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="LIGHT"
-                android:textSize="11sp"
-                android:textColor="#333399"
-                android:textAllCaps="true"
-                android:letterSpacing="0.15"
-                android:textStyle="bold"
-                android:layout_marginBottom="20dp" />
+        <!-- ── Actions ── -->
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="messages"
-                android:textSize="19sp"
-                android:textColor="#333333" />
+        <TextView
+            android:id="@+id/btnSetDefault"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="40dp"
+            android:text="Set as default launcher"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:gravity="center"
+            android:paddingVertical="16dp"
+            android:background="@android:color/transparent" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="maps"
-                android:textSize="16sp"
-                android:textColor="#333333"
-                android:layout_marginTop="8dp" />
+        <TextView
+            android:id="@+id/btnSkip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Skip for now"
+            android:textSize="14sp"
+            android:textColor="#555555"
+            android:gravity="center"
+            android:paddingVertical="14dp" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="camera"
-                android:textSize="14sp"
-                android:textColor="#333333"
-                android:layout_marginTop="8dp" />
+        <!-- ── Returning user ── -->
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="photos"
-                android:textSize="14sp"
-                android:textColor="#333333"
-                android:layout_marginTop="6dp" />
+        <View
+            android:layout_width="48dp"
+            android:layout_height="1dp"
+            android:layout_marginVertical="12dp"
+            android:background="#222222" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="settings"
-                android:textSize="13sp"
-                android:textColor="#333333"
-                android:layout_marginTop="6dp" />
+        <TextView
+            android:id="@+id/btnImportSettings"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Import previous settings"
+            android:textSize="14sp"
+            android:textColor="#8888FF"
+            android:gravity="center"
+            android:paddingVertical="12dp" />
 
-        </LinearLayout>
+        <TextView
+            android:id="@+id/labelImportHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Restore from a slate_backup.json file"
+            android:textSize="12sp"
+            android:textColor="#444444"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/btnPrivacyPolicy"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Privacy Policy"
+            android:textSize="12sp"
+            android:textColor="#333333"
+            android:gravity="center"
+            android:paddingVertical="8dp" />
 
     </LinearLayout>
 
-    <!-- Action buttons -->
-    <TextView
-        android:id="@+id/btnSetDefault"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Set as default launcher"
-        android:textSize="16sp"
-        android:textColor="#8888FF"
-        android:gravity="center"
-        android:paddingVertical="16dp"
-        android:layout_marginBottom="4dp" />
-
-    <TextView
-        android:id="@+id/btnSkip"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="skip"
-        android:textSize="15sp"
-        android:textColor="#555555"
-        android:gravity="center"
-        android:paddingVertical="12dp" />
-
-    <TextView
-        android:id="@+id/btnImportSettings"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="import settings"
-        android:textSize="13sp"
-        android:textColor="#555555"
-        android:gravity="center"
-        android:paddingVertical="10dp"
-        android:layout_marginTop="8dp" />
-
-    <TextView
-        android:id="@+id/btnPrivacyPolicy"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Privacy Policy"
-        android:textSize="12sp"
-        android:textColor="#404040"
-        android:gravity="center"
-        android:paddingVertical="10dp"
-        android:layout_marginBottom="4dp" />
-
-</LinearLayout>
+</ScrollView>

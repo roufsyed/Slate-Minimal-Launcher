@@ -31,6 +31,8 @@ class PreferencesManager(context: Context) {
         private const val KEY_NOTIF_COLOR_ENABLED = "notif_color_enabled"
         private const val KEY_NOTIF_HIGHLIGHT_COLOR = "notif_highlight_color"
         private const val KEY_SYNC_TO_LOCKSCREEN = "sync_to_lockscreen"
+        private const val KEY_PINNED_APPS = "pinned_apps"
+        private const val KEY_FOLLOW_SYSTEM_THEME = "follow_system_theme"
 
         const val DEFAULT_FONT_FAMILY = "gf:tex_gyre_adventor_bold"
         const val DEFAULT_FONT_WEIGHT = 400
@@ -125,6 +127,18 @@ class PreferencesManager(context: Context) {
     var syncToLockscreen: Boolean
         get() = prefs.getBoolean(KEY_SYNC_TO_LOCKSCREEN, false)
         set(value) = prefs.edit().putBoolean(KEY_SYNC_TO_LOCKSCREEN, value).apply()
+
+    var pinnedApps: Set<String>
+        get() = prefs.getStringSet(KEY_PINNED_APPS, emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_PINNED_APPS, value).apply()
+
+    fun pinApp(packageName: String) { pinnedApps = pinnedApps + packageName }
+    fun unpinApp(packageName: String) { pinnedApps = pinnedApps - packageName }
+    fun isPinned(packageName: String): Boolean = packageName in pinnedApps
+
+    var followSystemTheme: Boolean
+        get() = prefs.getBoolean(KEY_FOLLOW_SYSTEM_THEME, false)
+        set(value) = prefs.edit().putBoolean(KEY_FOLLOW_SYSTEM_THEME, value).apply()
 
     // ── Per-app custom names ──────────────────────────────────────
 

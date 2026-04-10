@@ -126,6 +126,10 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (prefs.followSystemTheme) {
+            applySystemThemeColors()
+            applyBackgroundColor()
+        }
         updateDefaultLauncherRow()
         syncPermissionToggles()
     }
@@ -465,11 +469,12 @@ class SettingsActivity : AppCompatActivity() {
                 initialColor = prefs.backgroundColor,
                 bgColor = prefs.backgroundColor
             ) { hex ->
+                prefs.followSystemTheme = false
                 prefs.backgroundColor = hex
                 updateBgSwatch(hex)
                 applyBackgroundColor()
                 syncLockscreenIfNeeded(parseColorSafe(hex))
-                setupColors()   // re-run to refresh border colors for new theme
+                setupColors()
             }.show()
         }
 
@@ -480,13 +485,27 @@ class SettingsActivity : AppCompatActivity() {
                 initialColor = prefs.appTextColor,
                 bgColor = prefs.backgroundColor
             ) { hex ->
+                prefs.followSystemTheme = false
                 prefs.appTextColor = hex
                 updateTextSwatch(hex)
+                setupColors()
             }.show()
         }
 
         findViewById<View>(R.id.rowBgColor).setOnClickListener { openBgPicker() }
         findViewById<View>(R.id.rowTextColor).setOnClickListener { openTextPicker() }
+
+        // Follow system theme toggle
+        val switchFollowSystem = findViewById<MaterialSwitch>(R.id.switchFollowSystemTheme)
+        switchFollowSystem.isChecked = prefs.followSystemTheme
+        switchFollowSystem.setOnCheckedChangeListener { _, checked ->
+            prefs.followSystemTheme = checked
+            if (checked) {
+                applySystemThemeColors()
+                applyBackgroundColor()
+                setupColors()
+            }
+        }
 
         // Apply to lockscreen toggle
         val switchSyncToLockscreen = findViewById<MaterialSwitch>(R.id.switchSyncToLockscreen)
@@ -516,6 +535,7 @@ class SettingsActivity : AppCompatActivity() {
                 setStroke((1f * density).toInt(), borderColor)
             }
             tile.setOnClickListener {
+                prefs.followSystemTheme = false
                 prefs.backgroundColor = preset.bg
                 prefs.appTextColor = preset.text
                 updateBgSwatch(preset.bg)
@@ -527,6 +547,21 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+
+    private fun isSystemDarkMode(): Boolean {
+        val nightMode = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        return nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+    }
+
+    private fun applySystemThemeColors() {
+        if (isSystemDarkMode()) {
+            prefs.backgroundColor = "#000000"
+            prefs.appTextColor = "#808080"
+        } else {
+            prefs.backgroundColor = "#FFFFFF"
+            prefs.appTextColor = "#333333"
+        }
+    }
 
     private fun applySystemBarColors(color: Int) {
         window.statusBarColor = color
