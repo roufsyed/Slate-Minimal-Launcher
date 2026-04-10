@@ -18,8 +18,8 @@ android {
         applicationId = "com.slate.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
     }
 
     signingConfigs {
@@ -55,7 +55,7 @@ android {
         val variant = this
         variant.outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "${appName}_${variant.versionName}_${variant.buildType.name}.apk"
+            output.outputFileName = "${appName}_${variant.versionName}_${variant.versionCode}_${variant.buildType.name}.apk"
         }
     }
 
