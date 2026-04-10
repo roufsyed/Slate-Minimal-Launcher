@@ -1035,7 +1035,7 @@ class SettingsActivity : AppCompatActivity() {
             SlateListDialog(
                 context = this,
                 title = "Already the default launcher",
-                items = listOf("Slate is your home. Thank you for using it."),
+                items = listOf("Slate is your home. Thank you for using it.", "OK"),
                 bgColor = prefs.backgroundColor
             ) { _, _ -> }.show()
             return
