@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 
@@ -46,6 +47,20 @@ class OnboardingActivity : AppCompatActivity() {
             strokeUnselected = Color.parseColor("#DDDDDD")
         )
     )
+
+    private val openBackupLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            val json = contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: return@registerForActivityResult
+            BackupManager(prefs).fromJson(json)
+            Toast.makeText(this, "Settings restored", Toast.LENGTH_SHORT).show()
+            finishOnboarding()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
 
     // onResume detects acceptance; callback handles denial (user backed out without selecting).
     private val requestRoleLauncher = registerForActivityResult(
@@ -92,6 +107,10 @@ class OnboardingActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.btnSkip).setOnClickListener {
             applySelectedTheme()
             finishOnboarding()
+        }
+
+        findViewById<TextView>(R.id.btnImportSettings).setOnClickListener {
+            openBackupLauncher.launch(arrayOf("application/json", "*/*"))
         }
 
         findViewById<TextView>(R.id.btnPrivacyPolicy).setOnClickListener {

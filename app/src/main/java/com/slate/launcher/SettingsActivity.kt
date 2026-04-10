@@ -1,5 +1,6 @@
 package com.slate.launcher
 
+import android.app.Dialog
 import android.app.role.RoleManager
 import android.content.ComponentName
 import android.content.Context
@@ -16,8 +17,10 @@ import android.provider.OpenableColumns
 import android.provider.Settings
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
+import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -569,15 +572,68 @@ class SettingsActivity : AppCompatActivity() {
         switchDoubleTap.setOnCheckedChangeListener { _, checked ->
             if (checked && !isAccessibilityServiceEnabled()) {
                 switchDoubleTap.isChecked = false
-                awaitingAccessibilityPermission = true
-                Toast.makeText(this,
-                    "Enable Slate in Accessibility settings to use this feature",
-                    Toast.LENGTH_LONG).show()
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                showAccessibilityDialog()
             } else {
                 prefs.doubleTapToLock = checked
             }
         }
+    }
+
+    private fun showAccessibilityDialog() {
+        val dialog = Dialog(this, R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle).parent as android.view.ViewGroup
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogTitle).setTextColor(accent)
+
+        dialog.findViewById<TextView>(R.id.dialogBody).apply {
+            text = "Double-tap to lock uses Android's Accessibility Service to lock your screen.\n\n" +
+                    "On the next screen, find \"Slate\" in the list and enable it."
+            setTextColor(primary)
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogPrivacy).apply {
+            text = "Slate only uses this permission to lock the screen. " +
+                    "No data is collected, read, or sent anywhere."
+            setTextColor(secondary)
+        }
+
+        dialog.findViewById<TextView>(R.id.btnCancel).apply {
+            setTextColor(secondary)
+            setOnClickListener { dialog.dismiss() }
+        }
+
+        dialog.findViewById<TextView>(R.id.btnContinue).apply {
+            setTextColor(accent)
+            setOnClickListener {
+                dialog.dismiss()
+                awaitingAccessibilityPermission = true
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        }
+
+        dialog.show()
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
@@ -802,14 +858,72 @@ class SettingsActivity : AppCompatActivity() {
         switchNotif.setOnCheckedChangeListener { _, checked ->
             if (checked && !isNotificationListenerEnabled()) {
                 switchNotif.isChecked = false
-                awaitingNotificationPermission = true
-                Toast.makeText(this, "Grant notification access in system settings", Toast.LENGTH_LONG).show()
-                startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
+                showNotificationDialog()
             } else {
                 prefs.notificationColorEnabled = checked
                 rowNotifHighlight.visibility = if (checked) View.VISIBLE else View.GONE
             }
         }
+    }
+
+    private fun showNotificationDialog() {
+        val dialog = Dialog(this, R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle).parent as android.view.ViewGroup
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogTitle).apply {
+            text = "NOTIFICATION ACCESS"
+            setTextColor(accent)
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogBody).apply {
+            text = "Notification highlight reads your active notifications to tint app names on the home screen.\n\n" +
+                    "On the next screen, find \"Slate\" and enable it."
+            setTextColor(primary)
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogPrivacy).apply {
+            text = "Slate only reads which apps have notifications. " +
+                    "Message content is never accessed, stored, or sent anywhere."
+            setTextColor(secondary)
+        }
+
+        dialog.findViewById<TextView>(R.id.btnCancel).apply {
+            setTextColor(secondary)
+            setOnClickListener { dialog.dismiss() }
+        }
+
+        dialog.findViewById<TextView>(R.id.btnContinue).apply {
+            setTextColor(accent)
+            setOnClickListener {
+                dialog.dismiss()
+                awaitingNotificationPermission = true
+                startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
+            }
+        }
+
+        dialog.show()
     }
 
     private fun isNotificationListenerEnabled(): Boolean {

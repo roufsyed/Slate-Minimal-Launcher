@@ -187,6 +187,17 @@
         android:paddingVertical="12dp" />
 
     <TextView
+        android:id="@+id/btnImportSettings"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="import settings"
+        android:textSize="13sp"
+        android:textColor="#555555"
+        android:gravity="center"
+        android:paddingVertical="10dp"
+        android:layout_marginTop="8dp" />
+
+    <TextView
         android:id="@+id/btnPrivacyPolicy"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
