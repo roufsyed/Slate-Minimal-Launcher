@@ -500,11 +500,11 @@ class SettingsActivity : AppCompatActivity() {
         val switchFollowSystem = findViewById<MaterialSwitch>(R.id.switchFollowSystemTheme)
         switchFollowSystem.isChecked = prefs.followSystemTheme
         switchFollowSystem.setOnCheckedChangeListener { _, checked ->
-            prefs.followSystemTheme = checked
             if (checked) {
-                applySystemThemeColors()
-                applyBackgroundColor()
-                setupColors()
+                switchFollowSystem.isChecked = false
+                showFollowSystemThemeDialog(switchFollowSystem)
+            } else {
+                prefs.followSystemTheme = false
             }
         }
 
@@ -552,6 +552,72 @@ class SettingsActivity : AppCompatActivity() {
     private fun isSystemDarkMode(): Boolean {
         val nightMode = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
         return nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+    }
+
+    private fun showFollowSystemThemeDialog(switchFollowSystem: MaterialSwitch) {
+        val dialog = Dialog(this, R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.apply {
+            text = "FOLLOW SYSTEM THEME"
+            setTextColor(accent)
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
+            text = "This will override your current background and text colors " +
+                    "to match your system's dark or light mode.\n\n" +
+                    "Your custom color selections will be replaced and cannot be restored automatically."
+            setTextColor(primary)
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
+            text = "You can turn this off at any time and pick new colors manually."
+            setTextColor(secondary)
+        }
+
+        dialog.findViewById<TextView>(R.id.btnCancel)?.apply {
+            setTextColor(secondary)
+            setOnClickListener { dialog.dismiss() }
+        }
+
+        dialog.findViewById<TextView>(R.id.btnContinue)?.apply {
+            text = "Enable"
+            setTextColor(accent)
+            setOnClickListener {
+                dialog.dismiss()
+                prefs.followSystemTheme = true
+                switchFollowSystem.setOnCheckedChangeListener(null)
+                switchFollowSystem.isChecked = true
+                setupColors()
+                applySystemThemeColors()
+                applyBackgroundColor()
+                setupColors()
+            }
+        }
+
+        dialog.show()
     }
 
     private fun applySystemThemeColors() {
