@@ -53,7 +53,7 @@ class OnboardingActivity : AppCompatActivity() {
     ) { uri ->
         if (uri == null) return@registerForActivityResult
         try {
-            val json = contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: return@registerForActivityResult
+            val json = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@registerForActivityResult
             BackupManager(prefs).fromJson(json)
             Toast.makeText(this, "Settings restored", Toast.LENGTH_SHORT).show()
             finishOnboarding()

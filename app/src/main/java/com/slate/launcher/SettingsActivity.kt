@@ -598,33 +598,33 @@ class SettingsActivity : AppCompatActivity() {
         val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
         val density = resources.displayMetrics.density
 
-        val root = dialog.findViewById<View>(R.id.dialogTitle).parent as android.view.ViewGroup
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
         root.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(bg)
             cornerRadius = density * 12
         }
 
-        dialog.findViewById<TextView>(R.id.dialogTitle).setTextColor(accent)
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.setTextColor(accent)
 
-        dialog.findViewById<TextView>(R.id.dialogBody).apply {
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
             text = "Double-tap to lock uses Android's Accessibility Service to lock your screen.\n\n" +
                     "On the next screen, find \"Slate\" in the list and enable it."
             setTextColor(primary)
         }
 
-        dialog.findViewById<TextView>(R.id.dialogPrivacy).apply {
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
             text = "Slate only uses this permission to lock the screen. " +
                     "No data is collected, read, or sent anywhere."
             setTextColor(secondary)
         }
 
-        dialog.findViewById<TextView>(R.id.btnCancel).apply {
+        dialog.findViewById<TextView>(R.id.btnCancel)?.apply {
             setTextColor(secondary)
             setOnClickListener { dialog.dismiss() }
         }
 
-        dialog.findViewById<TextView>(R.id.btnContinue).apply {
+        dialog.findViewById<TextView>(R.id.btnContinue)?.apply {
             setTextColor(accent)
             setOnClickListener {
                 dialog.dismiss()
@@ -769,7 +769,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun loadBackup(uri: Uri) {
         try {
-            val json = contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: return
+            val json = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return
             BackupManager(prefs).fromJson(json)
             Toast.makeText(this, "Settings restored", Toast.LENGTH_SHORT).show()
             recreate()
@@ -885,36 +885,36 @@ class SettingsActivity : AppCompatActivity() {
         val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
         val density = resources.displayMetrics.density
 
-        val root = dialog.findViewById<View>(R.id.dialogTitle).parent as android.view.ViewGroup
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
         root.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(bg)
             cornerRadius = density * 12
         }
 
-        dialog.findViewById<TextView>(R.id.dialogTitle).apply {
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.apply {
             text = "NOTIFICATION ACCESS"
             setTextColor(accent)
         }
 
-        dialog.findViewById<TextView>(R.id.dialogBody).apply {
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
             text = "Notification highlight reads your active notifications to tint app names on the home screen.\n\n" +
                     "On the next screen, find \"Slate\" and enable it."
             setTextColor(primary)
         }
 
-        dialog.findViewById<TextView>(R.id.dialogPrivacy).apply {
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
             text = "Slate only reads which apps have notifications. " +
                     "Message content is never accessed, stored, or sent anywhere."
             setTextColor(secondary)
         }
 
-        dialog.findViewById<TextView>(R.id.btnCancel).apply {
+        dialog.findViewById<TextView>(R.id.btnCancel)?.apply {
             setTextColor(secondary)
             setOnClickListener { dialog.dismiss() }
         }
 
-        dialog.findViewById<TextView>(R.id.btnContinue).apply {
+        dialog.findViewById<TextView>(R.id.btnContinue)?.apply {
             setTextColor(accent)
             setOnClickListener {
                 dialog.dismiss()
