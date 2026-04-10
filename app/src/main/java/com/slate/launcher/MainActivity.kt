@@ -49,8 +49,9 @@ class MainActivity : AppCompatActivity() {
             val nightMode = resources.configuration.uiMode and
                     android.content.res.Configuration.UI_MODE_NIGHT_MASK
             val isDark = nightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            val targetBg = if (isDark) "#000000" else "#FFFFFF"
-            val targetText = if (isDark) "#808080" else "#333333"
+            // Dark → preset 2 (#101010/#808080), Light → preset 3 (#d0d0d0/#263238)
+            val targetBg = if (isDark) "#101010" else "#d0d0d0"
+            val targetText = if (isDark) "#808080" else "#263238"
             if (prefs.backgroundColor != targetBg || prefs.appTextColor != targetText) {
                 prefs.backgroundColor = targetBg
                 prefs.appTextColor = targetText
