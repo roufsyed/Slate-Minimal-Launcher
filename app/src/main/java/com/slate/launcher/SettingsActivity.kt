@@ -555,13 +555,9 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun applySystemThemeColors() {
-        if (isSystemDarkMode()) {
-            prefs.backgroundColor = "#000000"
-            prefs.appTextColor = "#808080"
-        } else {
-            prefs.backgroundColor = "#FFFFFF"
-            prefs.appTextColor = "#333333"
-        }
+        val preset = if (isSystemDarkMode()) PRESETS[1] else PRESETS[2]
+        prefs.backgroundColor = preset.bg
+        prefs.appTextColor = preset.text
     }
 
     private fun applySystemBarColors(color: Int) {
