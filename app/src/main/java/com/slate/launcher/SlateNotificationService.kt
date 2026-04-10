@@ -11,7 +11,7 @@ class SlateNotificationService : NotificationListenerService() {
         val activePackages: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
 
         /** Called on the service thread whenever the set changes. */
-        var onChange: (() -> Unit)? = null
+        @Volatile var onChange: (() -> Unit)? = null
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {

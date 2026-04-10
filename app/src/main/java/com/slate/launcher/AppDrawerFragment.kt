@@ -630,11 +630,6 @@ class AppDrawerFragment : Fragment() {
         }
 
         if (hasCustomName) {
-            val originalName = try {
-                val info = ctx.packageManager.getApplicationInfo(app.packageName, 0)
-                ctx.packageManager.getApplicationLabel(info).toString()
-            } catch (_: Exception) { app.name }
-
             buttonRow.addView(
                 pillButton("Reset to Default", resetBg, secondary) {
                     prefs.clearAppCustomName(app.packageName)
