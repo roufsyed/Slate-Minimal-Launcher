@@ -10,8 +10,6 @@ class SlateAccessibilityService : AccessibilityService() {
 
         fun lockScreen(): Boolean =
             instance?.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN) ?: false
-
-        fun isConnected(): Boolean = instance != null
     }
 
     override fun onServiceConnected() {
