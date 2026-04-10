@@ -67,19 +67,16 @@ class OnboardingActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode != android.app.Activity.RESULT_OK) {
-            // User dismissed the picker without selecting Slate — stay on onboarding
-            // so they can try again or tap Skip.
             return@registerForActivityResult
         }
-        // Accepted — onResume will confirm and advance.
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = PreferencesManager(this)
 
-        window.statusBarColor = android.graphics.Color.BLACK
-        window.navigationBarColor = android.graphics.Color.BLACK
+        window.statusBarColor = Color.BLACK
+        window.navigationBarColor = Color.BLACK
 
         setContentView(R.layout.activity_onboarding)
         supportActionBar?.hide()
@@ -88,6 +85,7 @@ class OnboardingActivity : AppCompatActivity() {
         cardLight = findViewById(R.id.cardLight)
 
         updateCardStyles()
+        styleActionButton()
 
         cardDark.setOnClickListener {
             selectedTheme = 0
@@ -123,8 +121,6 @@ class OnboardingActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // After returning from the role picker or Home Settings, check if Slate
-        // is now the default launcher and auto-advance if so.
         if (isDefaultLauncher()) {
             finishOnboarding()
         }
@@ -148,17 +144,28 @@ class OnboardingActivity : AppCompatActivity() {
         prefs.appTextColor = theme.textColor
     }
 
+    private fun styleActionButton() {
+        val density = resources.displayMetrics.density
+        findViewById<TextView>(R.id.btnSetDefault).background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 8f * density
+            setColor(Color.TRANSPARENT)
+            setStroke((1.5f * density).toInt(), Color.parseColor("#8888FF"))
+        }
+    }
+
     private fun updateCardStyles() {
         val density = resources.displayMetrics.density
         listOf(cardDark, cardLight).forEachIndexed { index, card ->
             val theme = themes[index]
             val isSelected = index == selectedTheme
             val stroke = if (isSelected) theme.strokeSelected else theme.strokeUnselected
+            val strokeWidth = if (isSelected) 2f else 1f
             card.background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = 12f * density
+                cornerRadius = 16f * density
                 setColor(theme.cardFill)
-                setStroke((if (isSelected) 2 else 1).times(density).toInt(), stroke)
+                setStroke((strokeWidth * density).toInt(), stroke)
             }
         }
     }
@@ -174,7 +181,6 @@ class OnboardingActivity : AppCompatActivity() {
             }
         }
         startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
-        // Don't finish here — onResume will detect acceptance when the user returns.
     }
 
     private fun finishOnboarding() {

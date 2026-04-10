@@ -49,6 +49,14 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.hiddenApps.forEach { hiddenArr.put(it) }
         root.put("hiddenApps", hiddenArr)
 
+        // Pinned apps
+        val pinnedArr = JSONArray()
+        prefs.pinnedApps.forEach { pinnedArr.put(it) }
+        root.put("pinnedApps", pinnedArr)
+
+        // Auto-theme
+        root.put("followSystemTheme", prefs.followSystemTheme)
+
         // Per-app colors
         val colorsObj = JSONObject()
         prefs.getAllAppColors().forEach { (k, v) -> colorsObj.put(k, v) }
@@ -89,6 +97,14 @@ class BackupManager(private val prefs: PreferencesManager) {
         root.optJSONArray("hiddenApps")?.let { arr ->
             prefs.hiddenApps = (0 until arr.length()).map { arr.getString(it) }.toSet()
         }
+
+        // Pinned apps
+        root.optJSONArray("pinnedApps")?.let { arr ->
+            prefs.pinnedApps = (0 until arr.length()).map { arr.getString(it) }.toSet()
+        }
+
+        // Auto-theme
+        prefs.followSystemTheme = root.optBoolean("followSystemTheme", false)
 
         // Gesture actions
         root.optJSONObject("gestureActions")?.let { obj ->

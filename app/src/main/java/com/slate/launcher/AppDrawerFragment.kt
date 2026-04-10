@@ -498,26 +498,33 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun showAppMenu(app: AppInfo, anchor: View) {
+        val isPinned = prefs.isPinned(app.packageName)
+        val pinLabel = if (isPinned) "Unpin" else "Pin to top"
         SlateListDialog(
             context = requireContext(),
             title = app.name,
-            items = listOf("App Info", "Hide", "Uninstall", "Custom color", "Rename"),
+            items = listOf(pinLabel, "App Info", "Hide", "Uninstall", "Custom color", "Rename"),
             bgColor = prefs.backgroundColor
         ) { index, _ ->
             when (index) {
-                0 -> startActivity(
+                0 -> {
+                    if (isPinned) prefs.unpinApp(app.packageName)
+                    else prefs.pinApp(app.packageName)
+                    buildAppList()
+                }
+                1 -> startActivity(
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = Uri.fromParts("package", app.packageName, null)
                     }
                 )
-                1 -> { prefs.hideApp(app.packageName); buildAppList() }
-                2 -> startActivity(
+                2 -> { prefs.hideApp(app.packageName); buildAppList() }
+                3 -> startActivity(
                     Intent(Intent.ACTION_DELETE).apply {
                         data = Uri.fromParts("package", app.packageName, null)
                     }
                 )
-                3 -> showAppColorPicker(app)
-                4 -> showRenameDialog(app)
+                4 -> showAppColorPicker(app)
+                5 -> showRenameDialog(app)
             }
         }.show()
     }
