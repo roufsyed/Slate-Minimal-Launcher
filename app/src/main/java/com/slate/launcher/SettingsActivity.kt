@@ -217,7 +217,8 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchSortByUsage),
             findViewById(R.id.switchLockOrientation),
             findViewById(R.id.switchNotifColor),
-            findViewById(R.id.switchSyncToLockscreen)
+            findViewById(R.id.switchSyncToLockscreen),
+            findViewById(R.id.switchFollowSystemTheme)
         )
     }
 
