@@ -502,7 +502,7 @@ class SettingsActivity : AppCompatActivity() {
         switchFollowSystem.setOnCheckedChangeListener { _, checked ->
             if (checked) {
                 switchFollowSystem.isChecked = false
-                showFollowSystemThemeDialog(switchFollowSystem)
+                this@SettingsActivity.showFollowSystemThemeDialog(switchFollowSystem)
             } else {
                 prefs.followSystemTheme = false
             }
