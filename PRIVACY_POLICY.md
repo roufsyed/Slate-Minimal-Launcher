@@ -12,7 +12,9 @@ The following data is stored locally in the app's private storage:
 |------|---------|
 | App launch counts | Sort apps by usage frequency |
 | Hidden app list | Hide apps from the launcher |
+| Pinned app list | Keep selected apps at the top of the list |
 | Per-app text colors | Custom color assigned by the user |
+| Per-app custom names | Renamed app labels chosen by the user |
 | Gesture assignments | User-configured swipe actions |
 | Visual preferences (font, colors, spacing) | Appearance customization |
 

@@ -28,25 +28,28 @@ Slate removes all of that. It presents your apps as plain text — the same way 
 
 **Appearance**
 - Fully customizable background and text colors with a live color picker
+- Follow system theme — automatically switches between dark and light colors based on system dark mode
 - Apply background to lockscreen — sets your lockscreen wallpaper to the launcher's solid background color for a uniform look
 - Per-app color overrides — highlight only what matters
+- Notification highlight — app names change color when they have a pending notification
 - Typography control: font family (including Google Fonts + import your own), weight, line spacing, word spacing
-- Font size scales with app name length — frequently used apps appear larger
+- Font size scales with usage — frequently used apps appear larger
 - Hide the status bar for a true full-screen experience
 
 **Interaction**
 - Swipe up to search apps
-- Configurable single, two, and three-finger swipe gestures (open any app, notifications, Wi-Fi, Bluetooth, location, and more)
-- Double-tap to lock screen (requires device admin)
-- Long-press an app for per-app options (hide, custom color, info)
+- Configurable single-finger swipe gestures (open any app, notifications, Wi-Fi, Bluetooth, location, camera, and more)
+- Double-tap to lock screen (uses accessibility service)
+- Long-press an app for per-app options (pin to top, app info, hide, uninstall, custom color, rename)
 - Long-press the homescreen to access customization or manage hidden apps
-- Sort apps alphabetically or by most recently used
+- Pin apps to the top of the list regardless of sort order
+- Sort apps alphabetically or by most used
 
 **Control**
 - Lock screen rotation to portrait
 - Optional persistent search bar on the home screen
 - Export and import all settings as a JSON backup
-- Onboarding with dark and light preset themes
+- Import settings during onboarding for returning users
 
 ---
 
