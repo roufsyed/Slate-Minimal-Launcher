@@ -68,6 +68,7 @@ The app requests only the permissions it actively uses:
 - `BIND_ACCESSIBILITY_SERVICE` — declared by the optional accessibility service used solely to lock the screen on double-tap; grants no ability to read screen content or monitor usage
 - `BIND_NOTIFICATION_LISTENER_SERVICE` — declared by the optional notification listener used solely to know which apps have a pending notification, enabling the notification highlight color feature; notification content is never read or stored
 - `SET_WALLPAPER` — used only when the "Apply to lockscreen" toggle is enabled, to set a solid-color wallpaper on the lock screen matching the launcher's background color; never triggered without explicit user action
+- `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` — used only to show a system dialog asking you to exempt Slate from battery optimization, so features like notification highlight and double-tap to lock continue working reliably in the background; only triggered when you tap "Fix this" on the battery restriction warning banner
 
 ---
 

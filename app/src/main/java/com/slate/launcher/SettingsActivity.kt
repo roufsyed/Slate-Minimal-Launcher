@@ -1,5 +1,6 @@
 package com.slate.launcher
 
+import android.app.ActivityManager
 import android.app.Dialog
 import android.app.role.RoleManager
 import android.content.ComponentName
@@ -13,6 +14,7 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.OpenableColumns
 import android.provider.Settings
 import android.text.SpannableString
@@ -31,6 +33,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
+import android.view.accessibility.AccessibilityManager
 import java.io.File
 
 class SettingsActivity : AppCompatActivity() {
@@ -41,8 +44,9 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var openBackupLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var importFontLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var requestRoleLauncher: ActivityResultLauncher<Intent>
-    private var awaitingAccessibilityPermission = false
-    private var awaitingNotificationPermission = false
+    private lateinit var batteryExemptLauncher: ActivityResultLauncher<Intent>
+    // awaitingAccessibilityPermission and awaitingNotificationPermission
+    // are persisted in PreferencesManager to survive process death
 
     companion object {
         private val MIN_SIZES     = (8..24).toList()
@@ -105,6 +109,10 @@ class SettingsActivity : AppCompatActivity() {
             ActivityResultContracts.StartActivityForResult()
         ) { /* result handled; just return to settings */ }
 
+        batteryExemptLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { updateBatteryBanner() }
+
         prefs = PreferencesManager(this)
         setContentView(R.layout.activity_settings)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -120,6 +128,7 @@ class SettingsActivity : AppCompatActivity() {
         setupBackup()
         setupGeneral()
         setupAbout()
+        setupBatteryBanner()
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
@@ -132,43 +141,83 @@ class SettingsActivity : AppCompatActivity() {
         }
         updateDefaultLauncherRow()
         syncPermissionToggles()
+        updateBatteryBanner()
     }
 
     private fun syncPermissionToggles() {
-        // Double tap to lock: if permission was revoked externally, turn off
+        syncAccessibilityToggle()
+        syncNotificationToggle()
+    }
+
+    private fun syncAccessibilityToggle() {
         val accessibilityEnabled = isAccessibilityServiceEnabled()
-        if (prefs.doubleTapToLock && !accessibilityEnabled) {
-            prefs.doubleTapToLock = false
-            switchDoubleTap.setOnCheckedChangeListener(null)
-            switchDoubleTap.isChecked = false
-            setupDoubleTapListener()
-        } else if (awaitingAccessibilityPermission && accessibilityEnabled) {
-            // Only auto-enable when returning from the permission grant flow
+
+        if (prefs.awaitingAccessibilityPermission && accessibilityEnabled) {
+            // Returning from permission grant flow and service is enabled — auto-enable
             prefs.doubleTapToLock = true
             switchDoubleTap.setOnCheckedChangeListener(null)
             switchDoubleTap.isChecked = true
             setupDoubleTapListener()
+            prefs.awaitingAccessibilityPermission = false
+        } else if (prefs.awaitingAccessibilityPermission && !accessibilityEnabled) {
+            // Returned from settings but service not detected yet — retry after delay
+            // (service binding can lag behind the secure setting on some OEMs)
+            prefs.awaitingAccessibilityPermission = false
+            switchDoubleTap.postDelayed({
+                if (isAccessibilityServiceEnabled()) {
+                    prefs.doubleTapToLock = true
+                    switchDoubleTap.setOnCheckedChangeListener(null)
+                    switchDoubleTap.isChecked = true
+                    setupDoubleTapListener()
+                }
+            }, 500)
+        } else if (prefs.doubleTapToLock && !accessibilityEnabled) {
+            // Permission was revoked externally — but give the service a moment
+            // to bind before aggressively disabling the toggle
+            switchDoubleTap.postDelayed({
+                if (!isAccessibilityServiceEnabled()) {
+                    prefs.doubleTapToLock = false
+                    switchDoubleTap.setOnCheckedChangeListener(null)
+                    switchDoubleTap.isChecked = false
+                    setupDoubleTapListener()
+                }
+            }, 500)
         }
-        awaitingAccessibilityPermission = false
+    }
 
-        // Notification highlight: if permission was revoked externally, turn off
+    private fun syncNotificationToggle() {
         val notifEnabled = isNotificationListenerEnabled()
         val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifColor) ?: return
-        if (prefs.notificationColorEnabled && !notifEnabled) {
-            prefs.notificationColorEnabled = false
-            switchNotif.setOnCheckedChangeListener(null)
-            switchNotif.isChecked = false
-            setupNotifListener(switchNotif)
-            findViewById<View>(R.id.rowNotifHighlight).visibility = View.GONE
-        } else if (awaitingNotificationPermission && notifEnabled) {
-            // Only auto-enable when returning from the permission grant flow
+
+        if (prefs.awaitingNotificationPermission && notifEnabled) {
             prefs.notificationColorEnabled = true
             switchNotif.setOnCheckedChangeListener(null)
             switchNotif.isChecked = true
             setupNotifListener(switchNotif)
             findViewById<View>(R.id.rowNotifHighlight).visibility = View.VISIBLE
+            prefs.awaitingNotificationPermission = false
+        } else if (prefs.awaitingNotificationPermission && !notifEnabled) {
+            prefs.awaitingNotificationPermission = false
+            switchNotif.postDelayed({
+                if (isNotificationListenerEnabled()) {
+                    prefs.notificationColorEnabled = true
+                    switchNotif.setOnCheckedChangeListener(null)
+                    switchNotif.isChecked = true
+                    setupNotifListener(switchNotif)
+                    findViewById<View>(R.id.rowNotifHighlight).visibility = View.VISIBLE
+                }
+            }, 500)
+        } else if (prefs.notificationColorEnabled && !notifEnabled) {
+            switchNotif.postDelayed({
+                if (!isNotificationListenerEnabled()) {
+                    prefs.notificationColorEnabled = false
+                    switchNotif.setOnCheckedChangeListener(null)
+                    switchNotif.isChecked = false
+                    setupNotifListener(switchNotif)
+                    findViewById<View>(R.id.rowNotifHighlight).visibility = View.GONE
+                }
+            }, 500)
         }
-        awaitingNotificationPermission = false
     }
 
     private fun updateDefaultLauncherRow() {
@@ -261,6 +310,7 @@ class SettingsActivity : AppCompatActivity() {
                 })
             }
             is android.view.ViewGroup -> {
+                if (view.tag == "no_theme") return
                 for (i in 0 until view.childCount) {
                     applyTextColors(view.getChildAt(i), primary, secondary, accent)
                 }
@@ -726,7 +776,7 @@ class SettingsActivity : AppCompatActivity() {
             setTextColor(accent)
             setOnClickListener {
                 dialog.dismiss()
-                awaitingAccessibilityPermission = true
+                prefs.awaitingAccessibilityPermission = true
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             }
         }
@@ -735,6 +785,19 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
+        // Primary: use AccessibilityManager API (handles OEM quirks and format differences)
+        val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+        if (am != null) {
+            val expected = ComponentName(this, SlateAccessibilityService::class.java)
+            val running = am.getEnabledAccessibilityServiceList(
+                android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+            )
+            for (info in running) {
+                val component = ComponentName.unflattenFromString(info.id)
+                if (expected == component) return true
+            }
+        }
+        // Fallback: check Settings.Secure string directly
         val cn = ComponentName(this, SlateAccessibilityService::class.java)
         val enabled = Settings.Secure.getString(
             contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
@@ -1016,7 +1079,7 @@ class SettingsActivity : AppCompatActivity() {
             setTextColor(accent)
             setOnClickListener {
                 dialog.dismiss()
-                awaitingNotificationPermission = true
+                prefs.awaitingNotificationPermission = true
                 startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
             }
         }
@@ -1062,6 +1125,154 @@ class SettingsActivity : AppCompatActivity() {
             intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
         )
         return info?.activityInfo?.packageName == packageName
+    }
+
+    // ── Battery restriction banner ────────────────────────────────
+
+    private fun isBackgroundRestricted(): Boolean {
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val notIgnoring = pm?.isIgnoringBatteryOptimizations(packageName) == false
+        val explicitlyRestricted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            (getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)
+                ?.isBackgroundRestricted == true
+        } else false
+        return notIgnoring || explicitlyRestricted
+    }
+
+    private fun shouldShowBatteryBanner(): Boolean {
+        if (prefs.batteryBannerDismissedPermanently) return false
+        if (!prefs.doubleTapToLock && !prefs.notificationColorEnabled) return false
+        return isBackgroundRestricted()
+    }
+
+    private fun setupBatteryBanner() {
+        updateBatteryBanner()
+
+        val btnUnrestrict = findViewById<android.widget.TextView>(R.id.btnUnrestrict)
+        val btnDismiss = findViewById<android.widget.TextView>(R.id.btnBatteryDismiss)
+        val banner = findViewById<View>(R.id.batteryBanner)
+
+        btnUnrestrict?.setOnClickListener { requestBatteryExemption() }
+
+        btnDismiss?.setOnClickListener {
+            showBatteryDismissDialog(onDismissOnce = {
+                banner?.visibility = View.GONE
+            })
+        }
+
+        // Style "FIX THIS" button background
+        val density = resources.displayMetrics.density
+        btnUnrestrict?.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 4f * density
+            setColor(Color.parseColor("#33FFFFFF"))
+        }
+    }
+
+    private fun updateBatteryBanner() {
+        val banner = findViewById<View>(R.id.batteryBanner) ?: return
+
+        if (!shouldShowBatteryBanner()) {
+            banner.visibility = View.GONE
+            return
+        }
+
+        banner.visibility = View.VISIBLE
+
+        val oemExtra = when {
+            Build.MANUFACTURER.lowercase().let {
+                it.contains("xiaomi") || it.contains("redmi") || it.contains("huawei") ||
+                it.contains("honor") || it.contains("samsung") || it.contains("oppo") ||
+                it.contains("vivo") || it.contains("oneplus")
+            } -> "\n\nOn your device, you may also need to enable autostart or disable battery optimization in your device's battery settings."
+            else -> ""
+        }
+
+        findViewById<android.widget.TextView>(R.id.batteryBannerMessage)?.text =
+            "Notification highlight and screen lock may stop working.$oemExtra"
+    }
+
+    private fun requestBatteryExemption() {
+        try {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                .setData(Uri.parse("package:$packageName"))
+            batteryExemptLauncher.launch(intent)
+        } catch (_: Exception) {
+            try {
+                batteryExemptLauncher.launch(
+                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                )
+            } catch (_: Exception) {
+                startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        .setData(Uri.parse("package:$packageName"))
+                )
+            }
+        }
+    }
+
+    private fun showBatteryDismissDialog(onDismissOnce: () -> Unit) {
+        val dialog = Dialog(this, R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#CC5500") else Color.parseColor("#FF8C42")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+
+        dialog.findViewById<android.widget.TextView>(R.id.dialogTitle)?.apply {
+            text = "HIDE WARNING"
+            setTextColor(accent)
+        }
+
+        dialog.findViewById<android.widget.TextView>(R.id.dialogBody)?.apply {
+            text = "Would you like to permanently hide this battery restriction warning?"
+            setTextColor(primary)
+        }
+
+        dialog.findViewById<android.widget.TextView>(R.id.dialogPrivacy)?.apply {
+            text = "Features may still stop working if background activity remains restricted. " +
+                    "You can always fix this manually in your device's battery settings."
+            setTextColor(secondary)
+        }
+
+        dialog.findViewById<android.widget.TextView>(R.id.btnCancel)?.apply {
+            text = "Dismiss once"
+            setTextColor(secondary)
+            setOnClickListener {
+                dialog.dismiss()
+                onDismissOnce()
+            }
+        }
+
+        dialog.findViewById<android.widget.TextView>(R.id.btnContinue)?.apply {
+            text = "Don't remind again"
+            setTextColor(accent)
+            setOnClickListener {
+                dialog.dismiss()
+                prefs.batteryBannerDismissedPermanently = true
+                updateBatteryBanner()
+            }
+        }
+
+        dialog.show()
     }
 
     // ── About ─────────────────────────────────────────────────────
