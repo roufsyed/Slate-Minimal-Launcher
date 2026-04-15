@@ -33,6 +33,9 @@ class PreferencesManager(context: Context) {
         private const val KEY_SYNC_TO_LOCKSCREEN = "sync_to_lockscreen"
         private const val KEY_PINNED_APPS = "pinned_apps"
         private const val KEY_FOLLOW_SYSTEM_THEME = "follow_system_theme"
+        private const val KEY_AWAITING_ACCESSIBILITY = "awaiting_accessibility_permission"
+        private const val KEY_AWAITING_NOTIFICATION = "awaiting_notification_permission"
+        private const val KEY_BATTERY_BANNER_DISMISSED = "battery_banner_dismissed_permanently"
 
         const val DEFAULT_FONT_FAMILY = "gf:tex_gyre_adventor_bold"
         const val DEFAULT_FONT_WEIGHT = 400
@@ -139,6 +142,18 @@ class PreferencesManager(context: Context) {
     var followSystemTheme: Boolean
         get() = prefs.getBoolean(KEY_FOLLOW_SYSTEM_THEME, false)
         set(value) = prefs.edit().putBoolean(KEY_FOLLOW_SYSTEM_THEME, value).apply()
+
+    var awaitingAccessibilityPermission: Boolean
+        get() = prefs.getBoolean(KEY_AWAITING_ACCESSIBILITY, false)
+        set(value) = prefs.edit().putBoolean(KEY_AWAITING_ACCESSIBILITY, value).apply()
+
+    var awaitingNotificationPermission: Boolean
+        get() = prefs.getBoolean(KEY_AWAITING_NOTIFICATION, false)
+        set(value) = prefs.edit().putBoolean(KEY_AWAITING_NOTIFICATION, value).apply()
+
+    var batteryBannerDismissedPermanently: Boolean
+        get() = prefs.getBoolean(KEY_BATTERY_BANNER_DISMISSED, false)
+        set(value) = prefs.edit().putBoolean(KEY_BATTERY_BANNER_DISMISSED, value).apply()
 
     // ── Per-app custom names ──────────────────────────────────────
 

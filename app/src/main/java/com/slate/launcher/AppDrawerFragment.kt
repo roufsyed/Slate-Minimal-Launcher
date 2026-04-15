@@ -730,7 +730,7 @@ class AppDrawerFragment : Fragment() {
                 "No. Slate is 100% offline and collects zero data.\n\nThere is no analytics, no crash reporting, no tracking, and no network requests of any kind. All settings, usage counts, and customizations are stored locally on your device using Android's SharedPreferences and never leave it.",
 
             "What other permissions does Slate use?" to
-                "• EXPAND_STATUS_BAR — swipe-down notification panel gesture\n• ACCESS_WIFI_STATE / CHANGE_WIFI_STATE — Wi-Fi toggle gesture (Android 10+: opens system panel)\n• BLUETOOTH / BLUETOOTH_ADMIN — Bluetooth toggle on Android 11 and below\n• QUERY_ALL_PACKAGES — required to list all installed apps (Android 11+)\n• REQUEST_DELETE_PACKAGES — initiates the system uninstall flow when you choose to uninstall an app",
+                "• EXPAND_STATUS_BAR — swipe-down notification panel gesture\n• ACCESS_WIFI_STATE / CHANGE_WIFI_STATE — Wi-Fi toggle gesture (Android 10+: opens system panel)\n• BLUETOOTH / BLUETOOTH_ADMIN — Bluetooth toggle on Android 11 and below\n• QUERY_ALL_PACKAGES — required to list all installed apps (Android 11+)\n• REQUEST_DELETE_PACKAGES — initiates the system uninstall flow when you choose to uninstall an app\n• REQUEST_IGNORE_BATTERY_OPTIMIZATIONS — used only when you tap \"Fix this\" on the battery restriction warning in Settings, to request that the system exempt Slate from battery optimization so background features keep working",
 
             "Is Slate open source?" to
                 "Yes. Slate is open source under the MIT licence.\n\nSource code: github.com/roufsyed/Slate-Minimal-Launcher"

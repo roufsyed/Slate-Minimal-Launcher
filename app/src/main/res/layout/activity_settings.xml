@@ -13,6 +13,75 @@
         android:orientation="vertical"
         android:paddingBottom="40dp">
 
+        <!-- ── Battery restriction banner ── -->
+        <LinearLayout
+            android:id="@+id/batteryBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#CC5500"
+            android:paddingHorizontal="20dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="14dp"
+            android:visibility="gone"
+            android:tag="no_theme">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/batteryBannerTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Background activity restricted"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:tag="no_theme" />
+
+                <TextView
+                    android:id="@+id/btnBatteryDismiss"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="&#x2715;"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:padding="8dp"
+                    android:tag="no_theme" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/batteryBannerMessage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Notification highlight and screen lock may stop working."
+                android:textColor="#FFD5A8"
+                android:textSize="13sp"
+                android:paddingTop="3dp"
+                android:paddingBottom="10dp"
+                android:lineSpacingMultiplier="1.35"
+                android:tag="no_theme" />
+
+            <TextView
+                android:id="@+id/btnUnrestrict"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="FIX THIS"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:tag="no_theme" />
+
+        </LinearLayout>
+
         <!-- ── General ── -->
         <LinearLayout
             android:layout_width="match_parent"

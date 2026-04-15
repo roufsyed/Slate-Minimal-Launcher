@@ -30,6 +30,12 @@ Slate requests permission to read active notifications solely to highlight app l
 
 Slate requests accessibility service permission solely to perform the screen lock action when the user assigns it to a double-tap or swipe gesture. The service does not observe, record, or transmit any on-screen content or user interactions.
 
+## Battery optimization
+
+Slate checks whether the app is exempt from battery optimization using `PowerManager.isIgnoringBatteryOptimizations` and, on Android 9+, `ActivityManager.isBackgroundRestricted`. This check reads a device state only — no data is collected, stored, or transmitted. If a restriction is detected and a background-dependent feature (notification highlight or double-tap to lock) is enabled, a warning banner is shown in Settings.
+
+Tapping "Fix this" on the banner launches a standard system dialog (`ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) that lets you exempt Slate from battery optimization. The outcome of that dialog stays on your device and is not reported to Slate.
+
 ## No third-party sharing
 
 Slate has no analytics, no crash reporting, no advertising SDKs, and no network communication of any kind.
