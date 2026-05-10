@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Slate — A text-only Android launcher</title>
+<meta name="description" content="Slate is a minimal, text-only Android home screen built for focus. No icons. No widgets. No feeds. Just your apps." />
+
+<!-- Open Graph / social previews -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Slate — A text-only Android launcher" />
+<meta property="og:description" content="A minimal, text-only home screen for Android. No icons, no widgets, no feeds. Just your apps." />
+<meta property="og:url" content="https://roufsyed.github.io/Slate-Minimal-Launcher/" />
+<meta property="og:image" content="https://roufsyed.github.io/Slate-Minimal-Launcher/assets/slate_home_white.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Slate — A text-only Android launcher" />
+<meta name="twitter:description" content="A minimal, text-only home screen for Android. No icons, no widgets, no feeds. Just your apps." />
+<meta name="twitter:image" content="https://roufsyed.github.io/Slate-Minimal-Launcher/assets/slate_home_white.jpg" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --paper: #f6f4ef;
+    --paper-2: #ecebe4;
+    --ink: #0d0d0d;
+    --ink-2: #2a2a2a;
+    --mute: #6b6960;
+    --rule: #d9d6cb;
+    --navy: #0f2c5c;
+    --navy-soft: #d6dde9;
+
+    /* live theme — controlled by [data-theme] */
+    --bg: var(--paper);
+    --fg: var(--ink);
+    --fg-mute: var(--mute);
+    --rule-c: var(--rule);
+    --accent: var(--navy);
+
+    --maxw: 1240px;
+    --pad: clamp(20px, 4vw, 56px);
+  }
+
+  [data-theme="black"] {
+    --bg: #0a0a0a;
+    --fg: #d9d9d6;
+    --fg-mute: #6e6e6a;
+    --rule-c: #1f1f1f;
+    --accent: #d9d9d6;
+  }
+  [data-theme="navy"] {
+    --bg: #0f2c5c;
+    --fg: #d6dde9;
+    --fg-mute: #8298b6;
+    --rule-c: #1d3c70;
+    --accent: #d6dde9;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Geist", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-size: 16px;
+    line-height: 1.55;
+    transition: background 480ms ease, color 480ms ease;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  a { color: inherit; text-decoration: none; }
+  a:hover { color: var(--accent); }
+  [data-theme] a:hover { color: var(--fg); }
+
+  .wrap {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 var(--pad);
+  }
+
+  /* ───────── Top bar ───────── */
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--rule-c) 60%, transparent);
+    transition: background 480ms ease, border-color 480ms ease;
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 0;
+  }
+  .brand {
+    display: inline-flex; align-items: baseline; gap: 10px;
+    font-family: "Newsreader", serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+  }
+  .brand .dot {
+    display: inline-block; width: 6px; height: 6px;
+    background: var(--fg);
+    transform: translateY(-2px);
+    border-radius: 1px;
+  }
+  .nav {
+    display: flex; gap: 28px; align-items: center;
+    font-size: 14px; color: var(--fg-mute);
+  }
+  .nav a { transition: color .2s; }
+  .nav a:hover { color: var(--fg); }
+  .nav .ghbtn {
+    color: var(--fg);
+    border: 1px solid var(--rule-c);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: background .2s, border-color .2s;
+  }
+  .nav .ghbtn:hover { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+  .nav .ghbtn svg { width: 14px; height: 14px; }
+  @media (max-width: 720px) {
+    .nav .nav-link { display: none; }
+  }
+
+  /* ───────── Hero ───────── */
+  .hero {
+    padding: clamp(40px, 8vw, 96px) 0 clamp(60px, 10vw, 140px);
+    position: relative;
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: clamp(40px, 6vw, 96px);
+    align-items: center;
+  }
+  @media (max-width: 920px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 56px; }
+  }
+
+  .eyebrow {
+    font-family: "Geist Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg-mute);
+    display: inline-flex; align-items: center; gap: 10px;
+    margin-bottom: 36px;
+  }
+  .eyebrow::before {
+    content: ""; display: inline-block;
+    width: 28px; height: 1px; background: currentColor;
+  }
+
+  h1.display {
+    font-family: "Newsreader", serif;
+    font-weight: 400;
+    font-size: clamp(54px, 8.4vw, 124px);
+    line-height: 0.94;
+    letter-spacing: -0.025em;
+    margin: 0 0 28px;
+    text-wrap: balance;
+  }
+  h1.display em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--fg-mute);
+  }
+  .hero-sub {
+    font-size: clamp(17px, 1.6vw, 19px);
+    line-height: 1.5;
+    color: var(--fg-mute);
+    max-width: 46ch;
+    margin: 0 0 40px;
+  }
+  .hero-sub strong {
+    color: var(--fg);
+    font-weight: 500;
+  }
+
+  .cta-row {
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 22px;
+    border-radius: 999px;
+    font-size: 14.5px;
+    font-weight: 500;
+    transition: transform .2s, background .2s, color .2s, border-color .2s;
+    cursor: pointer;
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: var(--fg);
+    color: var(--bg);
+  }
+  .btn-primary:hover { transform: translateY(-1px); color: var(--bg); }
+  .btn-ghost {
+    border-color: var(--rule-c);
+    color: var(--fg);
+  }
+  .btn-ghost:hover { border-color: var(--fg); color: var(--fg); }
+  .btn svg { width: 16px; height: 16px; }
+
+  .hero-meta {
+    margin-top: 48px;
+    display: flex; flex-wrap: wrap;
+    gap: 28px 40px;
+    font-family: "Geist Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--fg-mute);
+  }
+  .hero-meta strong {
+    color: var(--fg);
+    font-weight: 500;
+    margin-right: 8px;
+  }
+
+  /* ───────── Phone preview ───────── */
+  .phone-stage {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 0;
+  }
+  .phone {
+    --phone-w: clamp(260px, 32vw, 340px);
+    width: var(--phone-w);
+    aspect-ratio: 9 / 19.5;
+    border-radius: 44px;
+    background: var(--phone-bg, #0a0a0a);
+    color: var(--phone-fg, #d9d9d6);
+    box-shadow:
+      0 0 0 1.5px color-mix(in srgb, var(--fg) 20%, transparent),
+      0 60px 80px -40px rgba(0,0,0,.35),
+      0 30px 50px -30px rgba(0,0,0,.3);
+    position: relative;
+    overflow: hidden;
+    transition: background 480ms ease, color 480ms ease, box-shadow 480ms ease;
+    font-family: "Geist", sans-serif;
+  }
+  .phone[data-pt="black"] { --phone-bg: #0a0a0a; --phone-fg: #8c8c89; }
+  .phone[data-pt="navy"]  { --phone-bg: #0f2c5c; --phone-fg: #c5cfe0; }
+  .phone[data-pt="white"] { --phone-bg: #d6d6cf; --phone-fg: #1a1a1a; }
+
+  .phone .notch {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: 92px; height: 24px; border-radius: 999px;
+    background: rgba(0,0,0,.55);
+  }
+  .phone[data-pt="white"] .notch { background: rgba(0,0,0,.18); }
+  .phone .status {
+    position: absolute; top: 14px; left: 22px; right: 22px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: "Geist Mono", monospace;
+    font-size: 11px;
+    color: color-mix(in srgb, var(--phone-fg) 90%, transparent);
+    letter-spacing: 0.02em;
+  }
+  .phone .status .right { display: inline-flex; gap: 6px; align-items: center; opacity: .9; }
+  .phone .status .pill {
+    border: 1px solid currentColor; border-radius: 4px;
+    padding: 1px 4px; font-size: 9px; opacity: .7;
+  }
+
+  .applist {
+    position: absolute;
+    inset: 60px 0 18px 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 0 14px;
+    font-weight: 500;
+    line-height: 1.55;
+    word-spacing: 6px;
+    color: var(--phone-fg);
+    font-size: clamp(14px, 1.6vw, 16px);
+    transition: color 480ms ease;
+  }
+  .applist .row {
+    display: flex; flex-wrap: wrap; gap: 0 14px;
+    justify-content: center;
+  }
+  .applist .row span {
+    transition: color .25s;
+  }
+  .applist .row span.hi {
+    color: var(--accent-app, #b71c1c);
+  }
+  .phone[data-pt="white"] { --accent-app: #b71c1c; }
+  .phone[data-pt="navy"]  { --accent-app: #f0c969; }
+  .phone[data-pt="black"] { --accent-app: #b71c1c; }
+
+  /* tap label floating next to phone */
+  .phone-hint {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: -36px;
+    font-family: "Geist Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg-mute);
+    display: flex; gap: 10px; align-items: center;
+  }
+  .swatches {
+    display: inline-flex; gap: 8px;
+  }
+  .swatch {
+    width: 22px; height: 22px; border-radius: 999px;
+    border: 1.5px solid color-mix(in srgb, var(--fg) 35%, transparent);
+    cursor: pointer;
+    transition: transform .2s, border-color .2s;
+    padding: 0;
+  }
+  .swatch:hover { transform: scale(1.1); }
+  .swatch.active { border-color: var(--fg); box-shadow: 0 0 0 2px var(--bg) inset; }
+  .swatch[data-c="black"] { background: #0a0a0a; }
+  .swatch[data-c="navy"] { background: #0f2c5c; }
+  .swatch[data-c="white"] { background: #d6d6cf; }
+
+  /* ───────── Section atoms ───────── */
+  section {
+    padding: clamp(70px, 10vw, 140px) 0;
+    position: relative;
+  }
+  .section-rule {
+    border-top: 1px solid var(--rule-c);
+  }
+  .sec-head {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 40px;
+    margin-bottom: clamp(40px, 5vw, 70px);
+    align-items: end;
+  }
+  @media (max-width: 720px) {
+    .sec-head { grid-template-columns: 1fr; gap: 16px; }
+  }
+  .sec-num {
+    font-family: "Geist Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--fg-mute);
+  }
+  .sec-title {
+    font-family: "Newsreader", serif;
+    font-weight: 400;
+    font-size: clamp(34px, 4.6vw, 60px);
+    line-height: 1.02;
+    letter-spacing: -0.022em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .sec-title em { font-style: italic; color: var(--fg-mute); }
+
+  /* ───────── Manifesto ───────── */
+  .manifesto {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(30px, 6vw, 90px);
+  }
+  @media (max-width: 820px) { .manifesto { grid-template-columns: 1fr; } }
+  .manifesto p {
+    font-size: clamp(17px, 1.5vw, 20px);
+    line-height: 1.5;
+    color: var(--fg);
+    margin: 0 0 18px;
+    max-width: 50ch;
+  }
+  .manifesto p.lead {
+    font-family: "Newsreader", serif;
+    font-style: italic;
+    font-size: clamp(22px, 2.4vw, 30px);
+    line-height: 1.25;
+    color: var(--fg);
+    letter-spacing: -0.01em;
+  }
+  .manifesto p em { color: var(--fg-mute); font-style: italic; }
+  .pull {
+    border-left: 2px solid var(--fg);
+    padding: 4px 0 4px 22px;
+    margin: 30px 0;
+    font-family: "Newsreader", serif;
+    font-style: italic;
+    font-size: clamp(20px, 2vw, 26px);
+    line-height: 1.3;
+    max-width: 24ch;
+  }
+
+  /* ───────── Features ───────── */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(20px, 3vw, 50px);
+  }
+  @media (max-width: 920px) { .features { grid-template-columns: 1fr; } }
+  .fcol h3 {
+    font-family: "Newsreader", serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 28px;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    margin: 0 0 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--rule-c);
+  }
+  .fcol ul {
+    list-style: none; padding: 0; margin: 0;
+  }
+  .fcol li {
+    padding: 14px 0;
+    border-bottom: 1px dashed color-mix(in srgb, var(--rule-c) 80%, transparent);
+    font-size: 15.5px;
+    line-height: 1.45;
+    color: var(--fg);
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 10px;
+    align-items: baseline;
+  }
+  .fcol li:last-child { border-bottom: none; }
+  .fcol li .n {
+    font-family: "Geist Mono", monospace;
+    font-size: 11px;
+    color: var(--fg-mute);
+    letter-spacing: 0.04em;
+    padding-top: 2px;
+  }
+  .fcol li .d {
+    color: var(--fg-mute);
+    display: block;
+    margin-top: 4px;
+    font-size: 14px;
+  }
+
+  /* ───────── Big quote / strip ───────── */
+  .strip {
+    padding: clamp(60px, 9vw, 130px) 0;
+    text-align: center;
+  }
+  .strip blockquote {
+    font-family: "Newsreader", serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(34px, 5.4vw, 76px);
+    line-height: 1.04;
+    letter-spacing: -0.022em;
+    margin: 0 auto;
+    max-width: 22ch;
+    text-wrap: balance;
+  }
+  .strip blockquote span { color: var(--fg-mute); }
+  .strip cite {
+    display: block;
+    margin-top: 32px;
+    font-family: "Geist Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg-mute);
+    font-style: normal;
+  }
+
+  /* ───────── Privacy ───────── */
+  .privacy-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: clamp(30px, 5vw, 80px);
+    align-items: start;
+  }
+  @media (max-width: 920px) { .privacy-grid { grid-template-columns: 1fr; } }
+  .privacy-stat {
+    font-family: "Newsreader", serif;
+    font-size: clamp(72px, 10vw, 140px);
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    margin: 0 0 24px;
+  }
+  .privacy-stat em { font-style: italic; color: var(--fg-mute); }
+  .privacy-list {
+    border-top: 1px solid var(--rule-c);
+  }
+  .perm {
+    display: grid;
+    grid-template-columns: 230px 1fr;
+    gap: 24px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--rule-c);
+    align-items: baseline;
+  }
+  @media (max-width: 720px) {
+    .perm { grid-template-columns: 1fr; gap: 4px; padding: 16px 0; }
+  }
+  .perm code {
+    font-family: "Geist Mono", monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    color: var(--fg);
+    word-break: break-word;
+  }
+  .perm p {
+    margin: 0;
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--fg-mute);
+  }
+
+  /* ───────── Settings preview ───────── */
+  .settings-preview {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(20px, 4vw, 60px);
+    align-items: center;
+  }
+  @media (max-width: 820px) { .settings-preview { grid-template-columns: 1fr; } }
+  .settings-preview .copy h3 {
+    font-family: "Newsreader", serif;
+    font-weight: 400;
+    font-style: italic;
+    font-size: clamp(28px, 3vw, 40px);
+    margin: 0 0 18px;
+    line-height: 1.05;
+  }
+  .settings-preview .copy p {
+    font-size: 16px; color: var(--fg-mute); max-width: 44ch; line-height: 1.55;
+  }
+  .settings-shots {
+    display: flex; gap: 18px; justify-content: center;
+  }
+  .settings-shots img {
+    width: 47%;
+    max-width: 280px;
+    border-radius: 28px;
+    border: 1px solid var(--rule-c);
+    box-shadow: 0 30px 50px -30px rgba(0,0,0,.3);
+    transition: transform .4s ease;
+  }
+  .settings-shots img:hover { transform: translateY(-6px); }
+
+  /* ───────── CTA ───────── */
+  .cta {
+    text-align: center;
+    padding: clamp(80px, 12vw, 160px) 0;
+  }
+  .cta h2 {
+    font-family: "Newsreader", serif;
+    font-weight: 400;
+    font-size: clamp(44px, 7vw, 96px);
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+    margin: 0 0 28px;
+    text-wrap: balance;
+  }
+  .cta h2 em { font-style: italic; color: var(--fg-mute); }
+  .cta p {
+    color: var(--fg-mute);
+    max-width: 44ch;
+    margin: 0 auto 36px;
+    font-size: 17px;
+    line-height: 1.5;
+  }
+  .install-block {
+    margin-top: 36px;
+    border: 1px solid var(--rule-c);
+    border-radius: 18px;
+    padding: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    font-family: "Geist Mono", monospace;
+    font-size: 13px;
+    color: var(--fg);
+  }
+  .install-block .label {
+    padding: 8px 14px;
+    color: var(--fg-mute);
+  }
+  .install-block .cmd {
+    background: color-mix(in srgb, var(--fg) 6%, transparent);
+    padding: 8px 14px;
+    border-radius: 12px;
+  }
+
+  /* ───────── Footer ───────── */
+  footer {
+    border-top: 1px solid var(--rule-c);
+    padding: 40px 0 56px;
+    color: var(--fg-mute);
+    font-size: 13px;
+  }
+  .foot-row {
+    display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+    align-items: center;
+  }
+  .foot-row a:hover { color: var(--fg); }
+  .foot-links { display: flex; gap: 22px; flex-wrap: wrap; }
+
+  /* utilities */
+  .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity .8s ease, transform .8s ease;
+  }
+  .reveal.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    * { transition: none !important; }
+  }
+
+  /* Utility classes (replacing former inline styles for cleaner markup) */
+  .privacy-stat-lead {
+    font-size: 17px;
+    max-width: 34ch;
+    margin: 0 0 14px;
+    color: var(--fg);
+  }
+  .privacy-note {
+    color: var(--fg-mute);
+    font-size: 15px;
+    max-width: 36ch;
+  }
+  .privacy-note code {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px;
+  }
+  .muted {
+    opacity: 0.6;
+  }
+  .cta-row--center {
+    justify-content: center;
+  }
+</style>
+</head>
+<body id="top" data-theme="black">
+
+<!-- Top bar -->
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="#top" aria-label="Slate, home">
+      <span class="dot" aria-hidden="true"></span>
+      <span>Slate</span>
+    </a>
+    <nav class="nav">
+      <a class="nav-link" href="#why">Why</a>
+      <a class="nav-link" href="#features">Features</a>
+      <a class="nav-link" href="#privacy">Privacy</a>
+      <a class="ghbtn" href="https://github.com/roufsyed/Slate-Minimal-Launcher" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.69-.01-1.36-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.01.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.11.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </nav>
+  </div>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <div class="eyebrow">A minimal Android launcher</div>
+        <h1 class="display">Less&nbsp;screen,<br/><em>more&nbsp;life.</em></h1>
+        <p class="hero-sub"><strong>Slate</strong> is a text-only home screen for Android. No icons. No widgets. No algorithmic feeds competing for your attention&nbsp;— just your apps, listed by name.</p>
+
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/roufsyed/Slate-Minimal-Launcher/releases" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3v13m0 0l-5-5m5 5l5-5M4 21h16"/></svg>
+            Download APK
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/roufsyed/Slate-Minimal-Launcher" target="_blank" rel="noopener">
+            View source
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 17L17 7M17 7H9M17 7v8"/></svg>
+          </a>
+        </div>
+
+        <div class="hero-meta">
+          <div><strong>Free</strong>&nbsp;and open source</div>
+          <div><strong>MIT</strong>&nbsp;licensed</div>
+          <div><strong>Zero</strong>&nbsp;analytics, zero network</div>
+        </div>
+      </div>
+
+      <div class="phone-stage">
+        <div class="phone" id="phone" data-pt="black" aria-label="Slate home screen preview">
+          <div class="notch" aria-hidden="true"></div>
+          <div class="status">
+            <span id="phoneTime">9:41</span>
+            <span class="right">
+              <span aria-hidden="true">●●●</span>
+              <span class="pill">82</span>
+            </span>
+          </div>
+          <div class="applist" aria-hidden="true">
+            <div class="row"><span>1Password</span><span>Amazon</span></div>
+            <div class="row"><span>Authenticator</span><span>Axis Mobile</span></div>
+            <div class="row"><span>Calculator</span><span>Calendar</span></div>
+            <div class="row"><span>Camera</span><span>ChatGPT</span></div>
+            <div class="row"><span>Clock</span><span>Contacts</span></div>
+            <div class="row"><span>Drive</span><span>Files</span><span>Firefox</span></div>
+            <div class="row"><span>Gallery</span><span>Gmail</span></div>
+            <div class="row"><span>Maps</span><span>Messages</span></div>
+            <div class="row"><span>Phone</span><span>Photos</span></div>
+            <div class="row"><span>Settings</span><span>Signal</span></div>
+            <div class="row"><span>Spotify</span><span>Uber</span></div>
+            <div class="row"><span class="hi">WhatsApp</span><span>YouTube</span></div>
+          </div>
+        </div>
+        <div class="phone-hint">
+          <span>Theme</span>
+          <span class="swatches" role="radiogroup" aria-label="Choose theme">
+            <button class="swatch active" data-c="black" role="radio" aria-checked="true" aria-label="Black"></button>
+            <button class="swatch" data-c="navy" role="radio" aria-checked="false" aria-label="Navy"></button>
+            <button class="swatch" data-c="white" role="radio" aria-checked="false" aria-label="White"></button>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Why -->
+<section id="why" class="section-rule">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-num">01 — Philosophy</div>
+      <h2 class="sec-title">A phone that <em>waits</em> for you, not the other way around.</h2>
+    </div>
+
+    <div class="manifesto reveal">
+      <div>
+        <p class="lead">Most launchers are designed to keep you on your phone.</p>
+        <p>Colorful icons trigger recognition without thought. Notification badges manufacture urgency. Recommendation widgets are tuned for engagement, not intent.</p>
+        <p><em>Slate removes all of that.</em></p>
+      </div>
+      <div>
+        <p>It presents your apps as plain text — the same way a to-do list presents tasks. You open the app you meant to open, not the one that looked the most appealing.</p>
+        <div class="pull">Phone use becomes deliberate. Less reflexive. Quieter.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Strip quote -->
+<section class="strip section-rule">
+  <div class="wrap">
+    <blockquote>“The home screen <span>should not</span> be a feed.”</blockquote>
+    <cite>— The Slate principle</cite>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features" class="section-rule">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-num">02 — Features</div>
+      <h2 class="sec-title">Quietly powerful. <em>Surprisingly tweakable.</em></h2>
+    </div>
+
+    <div class="features reveal">
+      <div class="fcol">
+        <h3>Appearance</h3>
+        <ul>
+          <li><span class="n">01</span><span><strong>Live color picker</strong><span class="d">Background and text — any color, any time.</span></span></li>
+          <li><span class="n">02</span><span><strong>Follow system theme</strong><span class="d">Dark and light pairs that switch with the OS.</span></span></li>
+          <li><span class="n">03</span><span><strong>Per-app overrides</strong><span class="d">Highlight only the apps that actually matter.</span></span></li>
+          <li><span class="n">04</span><span><strong>Notification highlight</strong><span class="d">App names recolor when something is waiting.</span></span></li>
+          <li><span class="n">05</span><span><strong>Typography control</strong><span class="d">Family, weight, line gap, word gap. Google Fonts or your own.</span></span></li>
+          <li><span class="n">06</span><span><strong>Usage-scaled size</strong><span class="d">Apps you open often quietly grow larger.</span></span></li>
+          <li><span class="n">07</span><span><strong>Apply to lockscreen</strong><span class="d">Solid color wallpaper that matches the launcher.</span></span></li>
+        </ul>
+      </div>
+
+      <div class="fcol">
+        <h3>Interaction</h3>
+        <ul>
+          <li><span class="n">01</span><span><strong>Swipe up to search</strong><span class="d">A keyboard. A list. That’s the search.</span></span></li>
+          <li><span class="n">02</span><span><strong>Single-finger gestures</strong><span class="d">Map any direction to any app — or notifications, Wi-Fi, Bluetooth, location, camera.</span></span></li>
+          <li><span class="n">03</span><span><strong>Double-tap to lock</strong><span class="d">Optional. Uses the accessibility service.</span></span></li>
+          <li><span class="n">04</span><span><strong>Long-press an app</strong><span class="d">Pin, hide, rename, recolor, uninstall — without leaving home.</span></span></li>
+          <li><span class="n">05</span><span><strong>Long-press the screen</strong><span class="d">Open settings or manage hidden apps.</span></span></li>
+          <li><span class="n">06</span><span><strong>Pin to top</strong><span class="d">Keep favorites above the alphabet.</span></span></li>
+          <li><span class="n">07</span><span><strong>Sort A→Z or by usage</strong><span class="d">Whichever way your hand already knows.</span></span></li>
+        </ul>
+      </div>
+
+      <div class="fcol">
+        <h3>Control</h3>
+        <ul>
+          <li><span class="n">01</span><span><strong>Lock to portrait</strong><span class="d">Stop accidental rotation.</span></span></li>
+          <li><span class="n">02</span><span><strong>Hide the status bar</strong><span class="d">A truly empty page. Swipe down to peek.</span></span></li>
+          <li><span class="n">03</span><span><strong>Persistent search bar</strong><span class="d">Optional. Always one tap away.</span></span></li>
+          <li><span class="n">04</span><span><strong>JSON backup</strong><span class="d">Export and import every preference, plain text.</span></span></li>
+          <li><span class="n">05</span><span><strong>Onboarding import</strong><span class="d">Returning user? Drop in your file and you’re back.</span></span></li>
+          <li><span class="n">06</span><span><strong>System launcher picker</strong><span class="d">Set as default in two taps from inside Slate.</span></span></li>
+          <li><span class="n">07</span><span><strong>No account, no sign-in</strong><span class="d">Install and use. Nothing to register.</span></span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Settings preview -->
+<section id="settings" class="section-rule">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-num">03 — Settings</div>
+      <h2 class="sec-title">Every detail, <em>one screen away.</em></h2>
+    </div>
+    <div class="settings-preview reveal">
+      <div class="copy">
+        <h3>Tune typography, color, and gestures from a single, scrollable settings page.</h3>
+        <p>No nested menus. Sort, theme, fonts, color presets, sizing, gestures — all flat, all immediate, all live-previewed against your home screen.</p>
+      </div>
+      <div class="settings-shots">
+        <img src="assets/slate_settings_1.jpg" alt="Slate settings — general and text size" loading="lazy" />
+        <img src="assets/slate_settings_2.jpg" alt="Slate settings — typography, colors and gestures" loading="lazy" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Privacy -->
+<section id="privacy" class="section-rule">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-num">04 — Privacy</div>
+      <h2 class="sec-title">It doesn’t phone home. <em>Ever.</em></h2>
+    </div>
+
+    <div class="privacy-grid">
+      <div class="reveal">
+        <p class="privacy-stat"><em>0</em></p>
+        <p class="privacy-stat-lead">Bytes of data Slate collects, transmits, or shares.</p>
+        <p class="privacy-note">No analytics. No crash reporting. No network activity of any kind. Preferences live in <code>SharedPreferences</code> on your device. Usage counts never leave it.</p>
+      </div>
+
+      <div class="privacy-list reveal" aria-label="Permissions used by Slate">
+        <div class="perm">
+          <code>EXPAND_STATUS_BAR</code>
+          <p>Swipe-down gesture to expand the system notification panel.</p>
+        </div>
+        <div class="perm">
+          <code>ACCESS_WIFI_STATE / CHANGE_WIFI_STATE</code>
+          <p>Wi-Fi gesture toggle. On Android 10+ this opens the system internet panel.</p>
+        </div>
+        <div class="perm">
+          <code>BLUETOOTH / BLUETOOTH_ADMIN</code>
+          <p>Bluetooth gesture toggle on Android 11 and below. Not requested on 12+.</p>
+        </div>
+        <div class="perm">
+          <code>QUERY_ALL_PACKAGES</code>
+          <p>Required on Android 11+ to enumerate installed apps so they appear in the launcher.</p>
+        </div>
+        <div class="perm">
+          <code>REQUEST_DELETE_PACKAGES</code>
+          <p>Opens the system uninstall confirmation when you choose Uninstall from the long-press menu.</p>
+        </div>
+        <div class="perm">
+          <code>BIND_ACCESSIBILITY_SERVICE</code>
+          <p>Optional. Used solely to lock the screen on double-tap. Cannot read screen content or monitor usage.</p>
+        </div>
+        <div class="perm">
+          <code>BIND_NOTIFICATION_LISTENER_SERVICE</code>
+          <p>Optional. Knows <em>which</em> apps have a pending notification — never reads or stores content.</p>
+        </div>
+        <div class="perm">
+          <code>SET_WALLPAPER</code>
+          <p>Only when “Apply to lockscreen” is on. Sets a solid-color wallpaper matching the launcher.</p>
+        </div>
+        <div class="perm">
+          <code>REQUEST_IGNORE_BATTERY_OPTIMIZATIONS</code>
+          <p>Asks the system to exempt Slate so background features stay reliable. Only triggered from “Fix this”.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta section-rule" id="install">
+  <div class="wrap">
+    <h2>Try it for a week.<br/><em>You won’t go back.</em></h2>
+    <p>Side-load the latest APK from GitHub Releases, or build from source. Always free. Always open.</p>
+
+    <div class="cta-row cta-row--center">
+      <a class="btn btn-primary" href="https://github.com/roufsyed/Slate-Minimal-Launcher/releases" target="_blank" rel="noopener">
+        Download latest release
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 12h14m0 0l-6-6m6 6l-6 6"/></svg>
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/roufsyed/Slate-Minimal-Launcher" target="_blank" rel="noopener">
+        Browse on GitHub
+      </a>
+    </div>
+
+    <div class="install-block" role="note">
+      <span class="label">$</span>
+      <span class="cmd">git clone https://github.com/roufsyed/Slate-Minimal-Launcher</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-row">
+    <div>© 2026 Slate. <span class="muted">Made for quiet phones.</span></div>
+    <div class="foot-links">
+      <a href="https://github.com/roufsyed/Slate-Minimal-Launcher" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/roufsyed/Slate-Minimal-Launcher/blob/HEAD/PRIVACY_POLICY.md" target="_blank" rel="noopener">Privacy policy</a>
+      <a href="https://github.com/roufsyed/Slate-Minimal-Launcher/blob/HEAD/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      <a href="https://github.com/roufsyed/Slate-Minimal-Launcher/issues" target="_blank" rel="noopener">Report an issue</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Theme switcher (page + phone)
+  const swatches = document.querySelectorAll('.swatch');
+  const phone = document.getElementById('phone');
+  const body = document.body;
+  swatches.forEach(s => {
+    s.addEventListener('click', () => {
+      const c = s.dataset.c;
+      swatches.forEach(x => {
+        const on = x === s;
+        x.classList.toggle('active', on);
+        x.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+      phone.dataset.pt = c;
+      // also re-skin the page subtly
+      if (c === 'black') body.dataset.theme = 'black';
+      else if (c === 'navy') body.dataset.theme = 'navy';
+      else body.removeAttribute('data-theme');
+    });
+  });
+
+  // Live time in phone status bar
+  function tick() {
+    const d = new Date();
+    const h = d.getHours().toString().padStart(2,'0');
+    const m = d.getMinutes().toString().padStart(2,'0');
+    const el = document.getElementById('phoneTime');
+    if (el) el.textContent = `${h}:${m}`;
+  }
+  tick(); setInterval(tick, 30_000);
+
+  // Reveal on scroll
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
