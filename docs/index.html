@@ -652,6 +652,16 @@
   .cta-row--center {
     justify-content: center;
   }
+
+  /* Phone-specific: enlarge touch targets and tighten margins below 480px.
+     Desktop layout is untouched — these rules only fire on actual phone widths. */
+  @media (max-width: 480px) {
+    .swatch { width: 44px; height: 44px; }
+    .swatches { gap: 12px; }
+    .nav .ghbtn { padding: 12px 16px; font-size: 14px; }
+    .brand { padding: 6px 0; }
+    .foot-links a { padding: 6px 0; display: inline-block; }
+  }
 </style>
 </head>
 <body id="top" data-theme="black">
@@ -681,7 +691,7 @@
     <div class="hero-grid">
       <div class="hero-copy">
         <div class="eyebrow">A minimal Android launcher</div>
-        <h1 class="display">Less&nbsp;screen,<br/><em>more&nbsp;life.</em></h1>
+        <h1 class="display">Less screen,<br/><em>more life.</em></h1>
         <p class="hero-sub"><strong>Slate</strong> is a text-only home screen for Android. No icons. No widgets. No algorithmic feeds competing for your attention&nbsp;— just your apps, listed by name.</p>
 
         <div class="cta-row">
