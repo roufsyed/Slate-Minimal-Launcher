@@ -2,6 +2,8 @@
 
 A text-only Android home screen built for focus. No icons, no widgets, no algorithmic feeds competing for your attention — just your apps, listed by name.
 
+**Website:** [roufsyed.github.io/Slate-Minimal-Launcher](https://roufsyed.github.io/Slate-Minimal-Launcher/)
+
 ---
 
 ## Screenshots
