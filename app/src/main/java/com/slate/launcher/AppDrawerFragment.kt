@@ -421,7 +421,14 @@ class AppDrawerFragment : Fragment() {
     private fun renderListMode(apps: List<AppInfo>) {
         flowLayout.flexDirection = FlexDirection.COLUMN
         flowLayout.flexWrap = FlexWrap.NOWRAP
-        flowLayout.alignItems = AlignItems.STRETCH
+        // Wrap-to-content alignment (NOT STRETCH) so each TextView's touch area covers only the
+        // text + padding, leaving the rest of the row as true blank space that propagates the
+        // long-press to the ScrollView → home long-press dialog (Customize / Hidden Apps / FAQ).
+        flowLayout.alignItems = when (prefs.textAlignment) {
+            "left" -> AlignItems.FLEX_START
+            "right" -> AlignItems.FLEX_END
+            else -> AlignItems.CENTER
+        }
         flowLayout.justifyContent = JustifyContent.FLEX_START
 
         val density = resources.displayMetrics.density
@@ -430,11 +437,6 @@ class AppDrawerFragment : Fragment() {
         val notifColor = parseColorSafe(prefs.notificationHighlightColor)
         val typeface = buildTypeface()
         val fontSize = prefs.maxFontSize.toFloat()
-        val gravity = when (prefs.textAlignment) {
-            "left" -> Gravity.START or Gravity.CENTER_VERTICAL
-            "right" -> Gravity.END or Gravity.CENTER_VERTICAL
-            else -> Gravity.CENTER
-        }
         val hPad = (prefs.wordSpacing * density).toInt()
         val vPad = (prefs.lineSpacing * density).toInt()
 
@@ -446,7 +448,7 @@ class AppDrawerFragment : Fragment() {
                 typeface = typeface,
                 hPad = hPad,
                 vPad = vPad,
-                gravity = gravity
+                gravity = Gravity.CENTER_VERTICAL
             )
             flowLayout.addView(tv)
         }
