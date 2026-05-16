@@ -28,6 +28,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.ViewCompat
@@ -63,6 +64,8 @@ class AppDrawerFragment : Fragment() {
     private var statusBarHeight = 0
     private var bottomInset = 0
     private lateinit var singleFingerDetector: GestureDetector
+    /** Null = main view; non-null = home is showing the contents of that folder. */
+    private var currentFolderId: String? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -165,6 +168,7 @@ class AppDrawerFragment : Fragment() {
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
                     if (isSearchOpen) closeSearch()
+                    else if (currentFolderId != null) exitFolder()
                     // Launcher never exits
                 }
             }
@@ -209,6 +213,9 @@ class AppDrawerFragment : Fragment() {
             isSearchOpen = false
             searchContainer.visibility = View.GONE
         }
+        // Always land on the main list when returning to home — folder state is a transient
+        // navigation, not a persisted view.
+        currentFolderId = null
         buildAppList()
         quickStrip?.let {
             it.bind()
@@ -340,11 +347,25 @@ class AppDrawerFragment : Fragment() {
 
     private fun filterApps(query: String) {
         val all = repository.getAllApps(forceAlphabetical = useFastScroll())
-        val apps = if (query.isEmpty()) all
-                   else all.filter { it.name.contains(query, ignoreCase = true) }
-        renderApps(apps, allAppsForUsage = all)
-        // Fast-scroll only makes sense over the unfiltered list
-        if (query.isEmpty()) configureFastScroll(all) else fastScroll.visibility = View.GONE
+        // Starting to type drops folder context entirely — the user is now searching globally,
+        // and clearing the query should restore the main list rather than a half-remembered
+        // folder view. This makes "type → clear" a predictable round-trip.
+        if (query.isNotEmpty() && currentFolderId != null) {
+            currentFolderId = null
+        }
+        if (query.isEmpty()) {
+            buildAppList()
+            return
+        }
+        // Active filter: search GLOBAL apps. Also surface matching folder names so the user can
+        // jump into a folder by name.
+        val matchedApps = all.filter { it.name.contains(query, ignoreCase = true) }
+        val matchedFolders = FolderStore.all(prefs)
+            .filter { it.name.contains(query, ignoreCase = true) }
+        val items: List<HomeItem> = matchedFolders.map { HomeItem.FolderItem(it) } +
+            matchedApps.map { HomeItem.AppItem(it) }
+        renderItems(items, all)
+        fastScroll.visibility = View.GONE
     }
 
     // ── Gesture execution ─────────────────────────────────────────
@@ -383,26 +404,32 @@ class AppDrawerFragment : Fragment() {
     // ── App list ──────────────────────────────────────────────────
 
     private fun buildAppList() {
-        val apps = repository.getAllApps(forceAlphabetical = useFastScroll())
-        renderApps(apps, allAppsForUsage = apps)
-        configureFastScroll(apps)
+        val items = repository.getHomeItems(folderId = currentFolderId)
+        // For Flow-mode size scaling we want maxUsage relative to all installed apps, not just
+        // the items currently in view (so size is stable across folder-enter/exit and matches
+        // pre-folders behaviour).
+        val allAppsForUsage = repository.getAllApps()
+        renderItems(items, allAppsForUsage)
+        // Fast scroll only makes sense for the flat main list; hide it inside folders.
+        if (currentFolderId == null) configureFastScroll(allAppsForUsage)
+        else fastScroll.visibility = View.GONE
     }
 
     /** Dispatch to the appropriate renderer based on the current view-mode pref. */
-    private fun renderApps(apps: List<AppInfo>, allAppsForUsage: List<AppInfo>) {
+    private fun renderItems(items: List<HomeItem>, allAppsForUsage: List<AppInfo>) {
         flowLayout.removeAllViews()
         if (prefs.homescreenView == PreferencesManager.VIEW_LIST) {
-            renderListMode(apps)
+            renderListMode(items)
         } else {
             val maxUsage = allAppsForUsage
                 .maxOfOrNull { prefs.getUsageCount(it.packageName) }
                 ?.takeIf { it > 0 } ?: 1
-            renderFlowMode(apps, maxUsage)
+            renderFlowMode(items, maxUsage)
         }
     }
 
     /** Original word-cloud rendering: row wrap, font size scales with usage. */
-    private fun renderFlowMode(apps: List<AppInfo>, maxUsage: Int) {
+    private fun renderFlowMode(items: List<HomeItem>, maxUsage: Int) {
         flowLayout.flexDirection = FlexDirection.ROW
         flowLayout.flexWrap = FlexWrap.WRAP
         flowLayout.alignItems = AlignItems.CENTER
@@ -420,23 +447,23 @@ class AppDrawerFragment : Fragment() {
         val hPad = (prefs.wordSpacing * density).toInt()
         val vPad = (prefs.lineSpacing * density).toInt()
 
-        apps.forEach { app ->
-            val usage = prefs.getUsageCount(app.packageName)
-            val tv = createAppTextView(
-                app = app,
-                size = computeFontSize(usage, maxUsage),
-                color = colorForApp(app, defaultTextColor, notifEnabled, notifColor),
+        items.forEach { item ->
+            val tv = buildItemView(
+                item = item,
+                size = sizeForItem(item, maxUsage),
+                defaultTextColor = defaultTextColor,
+                notifEnabled = notifEnabled,
+                notifColor = notifColor,
                 typeface = typeface,
-                hPad = hPad,
-                vPad = vPad,
+                hPad = hPad, vPad = vPad,
                 gravity = Gravity.CENTER
             )
             flowLayout.addView(tv)
         }
     }
 
-    /** Minimal list rendering: one app per line at a uniform size (= maxFontSize). */
-    private fun renderListMode(apps: List<AppInfo>) {
+    /** Minimal list rendering: one item per line at a uniform size (= maxFontSize). */
+    private fun renderListMode(items: List<HomeItem>) {
         flowLayout.flexDirection = FlexDirection.COLUMN
         flowLayout.flexWrap = FlexWrap.NOWRAP
         // Wrap-to-content alignment (NOT STRETCH) so each TextView's touch area covers only the
@@ -458,18 +485,134 @@ class AppDrawerFragment : Fragment() {
         val hPad = (prefs.wordSpacing * density).toInt()
         val vPad = (prefs.lineSpacing * density).toInt()
 
-        apps.forEach { app ->
-            val tv = createAppTextView(
-                app = app,
+        items.forEach { item ->
+            val tv = buildItemView(
+                item = item,
                 size = fontSize,
-                color = colorForApp(app, defaultTextColor, notifEnabled, notifColor),
+                defaultTextColor = defaultTextColor,
+                notifEnabled = notifEnabled,
+                notifColor = notifColor,
                 typeface = typeface,
-                hPad = hPad,
-                vPad = vPad,
+                hPad = hPad, vPad = vPad,
                 gravity = Gravity.CENTER_VERTICAL
             )
             flowLayout.addView(tv)
         }
+    }
+
+    /** Resolve the font size for an item in Flow mode (folders weighted by aggregate usage). */
+    private fun sizeForItem(item: HomeItem, maxUsage: Int): Float = when (item) {
+        is HomeItem.AppItem -> computeFontSize(prefs.getUsageCount(item.info.packageName), maxUsage)
+        is HomeItem.FolderItem ->
+            computeFontSize(item.folder.packages.sumOf { prefs.getUsageCount(it) }, maxUsage)
+        // "‹ back" is an affordance, not a data row — render at the minimum size so it doesn't
+        // dominate the paragraph.
+        HomeItem.BackOut -> prefs.minFontSize.toFloat()
+    }
+
+    /** Dispatcher that produces a TextView for any [HomeItem]. */
+    private fun buildItemView(
+        item: HomeItem,
+        size: Float,
+        defaultTextColor: Int,
+        notifEnabled: Boolean,
+        notifColor: Int,
+        typeface: Typeface,
+        hPad: Int,
+        vPad: Int,
+        gravity: Int
+    ): TextView = when (item) {
+        is HomeItem.AppItem -> createAppTextView(
+            app = item.info,
+            size = size,
+            color = colorForApp(item.info, defaultTextColor, notifEnabled, notifColor),
+            typeface = typeface,
+            hPad = hPad, vPad = vPad, gravity = gravity
+        )
+        is HomeItem.FolderItem -> createFolderTextView(
+            folder = item.folder,
+            size = size,
+            defaultColor = defaultTextColor,
+            typeface = typeface,
+            hPad = hPad, vPad = vPad, gravity = gravity
+        )
+        HomeItem.BackOut -> createBackOutTextView(
+            size = size,
+            color = defaultTextColor,
+            typeface = typeface,
+            hPad = hPad, vPad = vPad, gravity = gravity
+        )
+    }
+
+    private fun createFolderTextView(
+        folder: Folder,
+        size: Float,
+        defaultColor: Int,
+        typeface: Typeface,
+        hPad: Int,
+        vPad: Int,
+        gravity: Int
+    ): TextView = TextView(requireContext()).apply {
+        // NBSP keeps the chevron glued to the folder name even when Flow wraps to a new line.
+        text = "${folder.name} ›"
+        textSize = size
+        val color = folder.color?.let { parseColorSafe(it, defaultColor) } ?: defaultColor
+        setTextColor(color)
+        this.typeface = typeface
+        this.gravity = gravity
+        setPadding(hPad, vPad, hPad, vPad)
+        setOnClickListener { enterFolder(folder.id) }
+        setOnLongClickListener { showFolderMenu(folder, this); true }
+        setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = true
+            singleFingerDetector.onTouchEvent(event)
+            false
+        }
+    }
+
+    private fun createBackOutTextView(
+        size: Float,
+        color: Int,
+        typeface: Typeface,
+        hPad: Int,
+        vPad: Int,
+        gravity: Int
+    ): TextView = TextView(requireContext()).apply {
+        text = "‹ back"
+        textSize = size
+        setTextColor(color)
+        this.typeface = typeface
+        this.gravity = gravity
+        alpha = 0.7f
+        setPadding(hPad, vPad, hPad, vPad)
+        setOnClickListener { exitFolder() }
+        // No long-press menu — back is purely an affordance.
+        setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = true
+            singleFingerDetector.onTouchEvent(event)
+            false
+        }
+    }
+
+    private fun enterFolder(folderId: String) {
+        currentFolderId = folderId
+        // Close transient search overlay; for an always-visible search bar, just clear the text
+        // so the user doesn't see a stale query above the folder contents.
+        if (isSearchOpen && !prefs.showSearchBarOnHome) {
+            closeSearch()
+        } else if (searchInput.text.isNotEmpty()) {
+            // Detach the watcher briefly so clearing text doesn't re-trigger filterApps and
+            // bounce us back out of the folder we just entered.
+            searchInput.setText("")
+        }
+        buildAppList()
+        scrollView.scrollTo(0, 0)
+    }
+
+    private fun exitFolder() {
+        currentFolderId = null
+        buildAppList()
+        scrollView.scrollTo(0, 0)
     }
 
     private fun colorForApp(
@@ -549,7 +692,9 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun computeFontSize(usage: Int, maxUsage: Int): Float {
-        val ratio = usage.toFloat() / maxUsage
+        // Folders' aggregate usage can exceed any single app's maxUsage; clamp so neither folders
+        // nor unusually-pinned items ever render above the user's chosen maxFontSize.
+        val ratio = (usage.toFloat() / maxUsage).coerceIn(0f, 1f)
         return prefs.minFontSize + ratio * (prefs.maxFontSize - prefs.minFontSize)
     }
 
@@ -637,33 +782,300 @@ class AppDrawerFragment : Fragment() {
     private fun showAppMenu(app: AppInfo, anchor: View) {
         val isPinned = prefs.isPinned(app.packageName)
         val pinLabel = if (isPinned) "Unpin" else "Pin to top"
+        val containingFolder = FolderStore.folderContaining(prefs, app.packageName)
+        // Build the menu dynamically so folder entries appear only where relevant. Dispatching
+        // on the chosen label avoids fragile index-based branching as items shift.
+        val items = buildList {
+            add(pinLabel)
+            add("App Info")
+            add("Hide")
+            add("Uninstall")
+            if (containingFolder != null) {
+                add("Move to another folder")
+                add("Remove from folder")
+            } else {
+                add("Move to folder")
+            }
+            add("Custom color")
+            add("Rename")
+        }
         SlateListDialog(
             context = requireContext(),
             title = app.name,
-            items = listOf(pinLabel, "App Info", "Hide", "Uninstall", "Custom color", "Rename"),
+            items = items,
             bgColor = prefs.backgroundColor
-        ) { index, _ ->
-            when (index) {
-                0 -> {
-                    if (isPinned) prefs.unpinApp(app.packageName)
-                    else prefs.pinApp(app.packageName)
+        ) { _, label ->
+            when (label) {
+                "Pin to top" -> {
+                    // Remove from folder FIRST so the "pinned ⊥ in-folder" invariant holds at
+                    // every persistence intermediate, never just at the end of the sequence.
+                    FolderStore.removeAppFromFolder(prefs, app.packageName)
+                    prefs.pinApp(app.packageName)
                     buildAppList()
                 }
-                1 -> startActivity(
+                "Unpin" -> { prefs.unpinApp(app.packageName); buildAppList() }
+                "App Info" -> startActivity(
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = Uri.fromParts("package", app.packageName, null)
                     }
                 )
-                2 -> { prefs.hideApp(app.packageName); buildAppList() }
-                3 -> startActivity(
+                "Hide" -> { prefs.hideApp(app.packageName); buildAppList() }
+                "Uninstall" -> startActivity(
                     Intent(Intent.ACTION_DELETE).apply {
                         data = Uri.fromParts("package", app.packageName, null)
                     }
                 )
-                4 -> showAppColorPicker(app)
-                5 -> showRenameDialog(app)
+                "Move to folder", "Move to another folder" -> showMoveToFolderDialog(app)
+                "Remove from folder" -> {
+                    FolderStore.removeAppFromFolder(prefs, app.packageName)
+                    // If we were inside the now-empty folder, exitFolder navigates back; otherwise
+                    // a plain rebuild is enough.
+                    if (currentFolderId != null && FolderStore.find(prefs, currentFolderId!!) == null) {
+                        exitFolder()
+                    } else {
+                        buildAppList()
+                    }
+                }
+                "Custom color" -> showAppColorPicker(app)
+                "Rename" -> showRenameDialog(app)
             }
         }.show()
+    }
+
+    /** Sub-menu listing existing folders + a "+ New folder" entry. */
+    private fun showMoveToFolderDialog(app: AppInfo) {
+        val existing = FolderStore.all(prefs)
+        val items = existing.map { it.name } + "+ New folder"
+        SlateListDialog(
+            context = requireContext(),
+            title = "Move to folder",
+            items = items,
+            bgColor = prefs.backgroundColor
+        ) { index, _ ->
+            if (index < existing.size) {
+                FolderStore.addAppToFolder(prefs, existing[index].id, app.packageName)
+                buildAppList()
+            } else {
+                showCreateFolderDialog { newName ->
+                    val folder = FolderStore.createEmpty(prefs, newName)
+                    FolderStore.addAppToFolder(prefs, folder.id, app.packageName)
+                    buildAppList()
+                }
+            }
+        }.show()
+    }
+
+    /** Long-press on a folder label — Rename / Delete / Custom color. */
+    private fun showFolderMenu(folder: Folder, anchor: View) {
+        SlateListDialog(
+            context = requireContext(),
+            title = folder.name,
+            items = listOf("Rename", "Custom color", "Delete folder"),
+            bgColor = prefs.backgroundColor
+        ) { _, label ->
+            when (label) {
+                "Rename" -> showRenameFolderDialog(folder)
+                "Custom color" -> showFolderColorPicker(folder)
+                "Delete folder" -> showDeleteFolderConfirm(folder)
+            }
+        }.show()
+    }
+
+    /** Reusable text-input dialog used by folder creation and folder rename. */
+    private fun showFolderNameDialog(
+        title: String,
+        initial: String = "",
+        confirmLabel: String = "Save",
+        onConfirm: (String) -> Unit
+    ) {
+        val ctx = requireContext()
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#888888")
+        val density = ctx.resources.displayMetrics.density
+        val hPad = (24 * density).toInt()
+        val vPad = (14 * density).toInt()
+
+        val root = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(bg)
+                cornerRadius = 12f * density
+            }
+        }
+        root.addView(TextView(ctx).apply {
+            text = title
+            textSize = 15f
+            setTextColor(accent)
+            setPadding(hPad, vPad, hPad, vPad)
+        })
+
+        val inputFill = if (isLight) Color.parseColor("#EBEBEB") else Color.parseColor("#1E1E1E")
+        val inputStroke = if (isLight) Color.parseColor("#CCCCCC") else Color.parseColor("#4A4A4A")
+        val input = android.widget.EditText(ctx).apply {
+            setText(initial)
+            textSize = 17f
+            setTextColor(primary)
+            setHintTextColor(secondary)
+            hint = "Folder name"
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(inputFill)
+                setStroke((1f * density).toInt(), inputStroke)
+                cornerRadius = 8f * density
+            }
+            val inputHPad = (14 * density).toInt()
+            val inputVPad = (12 * density).toInt()
+            setPadding(inputHPad, inputVPad, inputHPad, inputVPad)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also {
+                it.marginStart = hPad; it.marginEnd = hPad
+                it.topMargin = (12 * density).toInt(); it.bottomMargin = (12 * density).toInt()
+            }
+            selectAll()
+        }
+        root.addView(input)
+
+        val dialog = Dialog(ctx, R.style.SlateDialogTheme)
+        val bHPad = (20 * density).toInt()
+        val bVPad = (15 * density).toInt()
+        val buttonRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            setPadding(hPad, 0, hPad, (16 * density).toInt())
+        }
+        buttonRow.addView(TextView(ctx).apply {
+            text = "Cancel"
+            textSize = 15f
+            setTextColor(secondary)
+            setPadding(bHPad, bVPad, bHPad, bVPad)
+            setOnClickListener { dialog.dismiss() }
+        })
+        buttonRow.addView(TextView(ctx).apply {
+            text = confirmLabel
+            textSize = 15f
+            setTextColor(accent)
+            setPadding(bHPad, bVPad, bHPad, bVPad)
+            setOnClickListener {
+                val typed = input.text.toString().trim()
+                if (typed.isEmpty()) {
+                    Toast.makeText(ctx, "Name can't be empty", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                dialog.dismiss()
+                onConfirm(typed)
+            }
+        })
+        root.addView(buttonRow)
+
+        dialog.setContentView(root)
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = ctx.resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        // Tell the window manager to bring the IME up alongside the dialog. The postDelayed
+        // showSoftInput is a belt-and-suspenders fallback for OEMs that ignore the soft-input
+        // mode hint.
+        dialog.window?.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
+        )
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.show()
+        input.requestFocus()
+        input.postDelayed({
+            val imm = ctx.getSystemService(Context.INPUT_METHOD_SERVICE)
+                as android.view.inputmethod.InputMethodManager
+            imm.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        }, 100)
+    }
+
+    private fun showCreateFolderDialog(onCreated: (String) -> Unit) {
+        showFolderNameDialog(title = "New folder", confirmLabel = "Create", onConfirm = onCreated)
+    }
+
+    private fun showRenameFolderDialog(folder: Folder) {
+        showFolderNameDialog(
+            title = "Rename folder",
+            initial = folder.name,
+            confirmLabel = "Save"
+        ) { newName ->
+            FolderStore.rename(prefs, folder.id, newName)
+            buildAppList()
+        }
+    }
+
+    private fun showFolderColorPicker(folder: Folder) {
+        ColorPickerDialog(
+            context = requireContext(),
+            title = "Folder color",
+            initialColor = folder.color ?: prefs.appTextColor,
+            bgColor = prefs.backgroundColor
+        ) { hex ->
+            FolderStore.setColor(prefs, folder.id, hex)
+            buildAppList()
+        }.show()
+    }
+
+    private fun showDeleteFolderConfirm(folder: Folder) {
+        // Reuses the accessibility-info dialog layout (title / body / two buttons) so the
+        // confirm is unambiguous and doesn't render the body as a tappable list row.
+        val dialog = Dialog(requireContext(), R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(
+            android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+        )
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup
+            ?: return
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.apply {
+            text = "DELETE FOLDER"
+            setTextColor(accent)
+        }
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
+            text = "Delete \"${folder.name}\"? Its apps will return to the main list."
+            setTextColor(primary)
+        }
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.visibility = View.GONE
+        dialog.findViewById<TextView>(R.id.btnCancel)?.apply {
+            setTextColor(secondary)
+            setOnClickListener { dialog.dismiss() }
+        }
+        dialog.findViewById<TextView>(R.id.btnContinue)?.apply {
+            text = "Delete"
+            setTextColor(accent)
+            setOnClickListener {
+                dialog.dismiss()
+                FolderStore.delete(prefs, folder.id)
+                if (currentFolderId == folder.id) exitFolder() else buildAppList()
+            }
+        }
+        dialog.show()
     }
 
     private fun showRenameDialog(app: AppInfo) {

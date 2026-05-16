@@ -45,4 +45,98 @@ class AppRepository(private val context: Context, private val prefs: Preferences
         // Pinned apps float to the top, preserving sort order within each group
         return sorted.sortedByDescending { it.packageName in pinned }
     }
+
+    /**
+     * Build the home-screen list with folder awareness.
+     *   - When [folderId] is null: returns pinned apps first, then a merged sort of
+     *     non-foldered apps interleaved with folder entries by the global sort rule.
+     *   - When [folderId] points to a folder: returns a [HomeItem.BackOut] header followed by
+     *     the folder's apps (filtered for hidden / uninstalled). If the folder is missing,
+     *     falls back to the main view rather than rendering nothing.
+     *
+     * Folders containing no currently-visible apps (everything inside is hidden or uninstalled)
+     * are omitted from the main view — we'd otherwise render a folder row that expands to an
+     * empty list. Reconciliation against the live install set also prunes stale package entries
+     * from each folder's persisted list.
+     */
+    fun getHomeItems(folderId: String? = null): List<HomeItem> {
+        val allApps = getAllApps()
+        // Reconcile uses the FULL install set, not the hidden-filtered set, so hidden apps
+        // retain their folder membership and reappear inside the folder when unhidden.
+        val installedPackages = queryAllInstalledLauncherPackages()
+        FolderStore.reconcile(prefs, installedPackages)
+
+        if (folderId != null) {
+            val folder = FolderStore.find(prefs, folderId)
+                ?: return getHomeItems(null)  // gracefully fall back if the folder vanished
+            val folderApps = allApps.filter { it.packageName in folder.packages }
+            val sorted = if (prefs.sortByUsage) {
+                folderApps.sortedByDescending { prefs.getUsageCount(it.packageName) }
+            } else {
+                folderApps.sortedBy { it.name.lowercase() }
+            }
+            return listOf(HomeItem.BackOut) + sorted.map { HomeItem.AppItem(it) }
+        }
+
+        val pinned = prefs.pinnedApps
+        val pinnedItems = allApps.filter { it.packageName in pinned }.map { HomeItem.AppItem(it) }
+
+        val packagesInFolders = FolderStore.packagesInAnyFolder(prefs)
+        val nonPinnedFlatApps = allApps.filter {
+            it.packageName !in pinned && it.packageName !in packagesInFolders
+        }
+        // A folder shows on the main list if it has at least one *visible* (not-hidden) app.
+        // A folder containing only hidden apps stays in the data model but is omitted from
+        // render — so unhiding a member restores the folder cleanly.
+        val visiblePackages = allApps.mapTo(HashSet()) { it.packageName }
+        val visibleFolders = FolderStore.all(prefs).filter { folder ->
+            folder.packages.any { pkg -> pkg in visiblePackages }
+        }
+
+        // Interleave apps + folders under the same sort rule.
+        val mixedItems: List<HomeItem> =
+            nonPinnedFlatApps.map { HomeItem.AppItem(it) } +
+            visibleFolders.map { HomeItem.FolderItem(it) }
+
+        val sortedMixed = if (prefs.sortByUsage) {
+            mixedItems.sortedByDescending { item ->
+                when (item) {
+                    is HomeItem.AppItem -> prefs.getUsageCount(item.info.packageName)
+                    // Folder weight is the sum of contained apps' usage counts.
+                    is HomeItem.FolderItem ->
+                        item.folder.packages.sumOf { prefs.getUsageCount(it) }
+                    HomeItem.BackOut -> 0
+                }
+            }
+        } else {
+            mixedItems.sortedBy { item ->
+                when (item) {
+                    is HomeItem.AppItem -> item.info.name.lowercase()
+                    is HomeItem.FolderItem -> item.folder.name.lowercase()
+                    HomeItem.BackOut -> ""
+                }
+            }
+        }
+
+        return pinnedItems + sortedMixed
+    }
+
+    /**
+     * Set of every launcher-visible package on the device, ignoring the user's hidden-apps
+     * preference. Used by [FolderStore.reconcile] so a folder containing a hidden app doesn't
+     * get its membership pruned — unhiding must restore the original folder layout.
+     */
+    private fun queryAllInstalledLauncherPackages(): Set<String> {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+        val pm = context.packageManager
+        val infos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(intent, 0)
+        }
+        return infos.mapTo(HashSet()) { it.activityInfo.packageName }
+    }
 }
