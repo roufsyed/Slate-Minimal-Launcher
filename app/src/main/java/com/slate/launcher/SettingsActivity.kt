@@ -368,6 +368,21 @@ class SettingsActivity : AppCompatActivity() {
         wordSeekBar.setOnSeekBarChangeListener(seekBarListener { p ->
             prefs.wordSpacing = WORD_SPACINGS[p]; wordLabel.text = "${WORD_SPACINGS[p]}dp"
         })
+
+        applyHomescreenViewToTextSize()
+    }
+
+    /**
+     * In Flow mode both Min and Max sliders are meaningful (scale by usage). In Minimal List mode
+     * every app is one uniform size, driven by `prefs.maxFontSize`, so the Min slider is hidden
+     * and the Max slider's label reads "Size" instead of "Maximum".
+     */
+    private fun applyHomescreenViewToTextSize() {
+        val isList = prefs.homescreenView == PreferencesManager.VIEW_LIST
+        findViewById<View>(R.id.rowMinFontSize)?.visibility =
+            if (isList) View.GONE else View.VISIBLE
+        findViewById<TextView>(R.id.labelMaximum)?.text =
+            if (isList) "Size" else "Maximum"
     }
 
     private fun seekBarListener(onChanged: (Int) -> Unit) = object : SeekBar.OnSeekBarChangeListener {
@@ -1034,6 +1049,7 @@ class SettingsActivity : AppCompatActivity() {
                 homescreenViewValue.text = label
                 rowAlphaFastScroll.visibility =
                     if (prefs.homescreenView == PreferencesManager.VIEW_LIST) View.VISIBLE else View.GONE
+                applyHomescreenViewToTextSize()
             }.show()
         }
 
