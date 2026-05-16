@@ -51,6 +51,7 @@ Slate removes all of that. It presents your apps as plain text — the same way 
 **Control**
 - Lock screen rotation to portrait
 - Optional persistent search bar on the home screen
+- Lock the hidden apps list behind a PIN (4–8 digits, PBKDF2-hashed) with optional biometric unlock
 - Export and import all settings as a JSON backup
 - Import settings during onboarding for returning users
 
@@ -72,6 +73,7 @@ The app requests only the permissions it actively uses:
 - `BIND_NOTIFICATION_LISTENER_SERVICE` — declared by the optional notification listener used solely to know which apps have a pending notification, enabling the notification highlight color feature; notification content is never read or stored
 - `SET_WALLPAPER` — used only when the "Apply to lockscreen" toggle is enabled, to set a solid-color wallpaper on the lock screen matching the launcher's background color; never triggered without explicit user action
 - `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` — used only to show a system dialog asking you to exempt Slate from battery optimization, so features like notification highlight and double-tap to lock continue working reliably in the background; only triggered when you tap "Fix this" on the battery restriction warning banner
+- `USE_BIOMETRIC` — declared by the AndroidX Biometric library and only requested when you opt into biometric unlock for hidden apps in Settings → Security. Biometric data is handled by the OS via `BiometricPrompt`; Slate only receives a success/fail signal.
 
 ---
 

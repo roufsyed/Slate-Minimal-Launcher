@@ -38,6 +38,14 @@ class PreferencesManager(context: Context) {
         private const val KEY_BATTERY_BANNER_DISMISSED = "battery_banner_dismissed_permanently"
         private const val KEY_HOMESCREEN_VIEW = "homescreen_view"
         private const val KEY_ALPHA_FAST_SCROLL = "alpha_fast_scroll"
+        private const val KEY_HIDDEN_APPS_SECURITY = "hidden_apps_security_enabled"
+        private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
+        private const val KEY_PIN_HASH = "pin_hash"
+        private const val KEY_PIN_SALT = "pin_salt"
+        private const val KEY_PIN_ITERATIONS = "pin_iterations"
+        private const val KEY_PIN_FAILED_ATTEMPTS = "pin_failed_attempts"
+        private const val KEY_PIN_LOCKOUT_UNTIL = "pin_lockout_until_epoch_ms"
+        private const val KEY_PIN_LOCKOUT_UNTIL_ELAPSED = "pin_lockout_until_elapsed_ms"
 
         const val VIEW_FLOW = "flow"
         const val VIEW_LIST = "list"
@@ -168,6 +176,47 @@ class PreferencesManager(context: Context) {
     var alphabeticalFastScroll: Boolean
         get() = prefs.getBoolean(KEY_ALPHA_FAST_SCROLL, false)
         set(value) = prefs.edit().putBoolean(KEY_ALPHA_FAST_SCROLL, value).apply()
+
+    // ── Hidden apps security ───────────────────────────────────────
+
+    var hiddenAppsSecurityEnabled: Boolean
+        get() = prefs.getBoolean(KEY_HIDDEN_APPS_SECURITY, false)
+        set(value) = prefs.edit().putBoolean(KEY_HIDDEN_APPS_SECURITY, value).apply()
+
+    var biometricEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC_ENABLED, value).apply()
+
+    /** Base64-encoded PBKDF2 hash of the user's PIN. */
+    var pinHash: String?
+        get() = prefs.getString(KEY_PIN_HASH, null)
+        set(value) = prefs.edit().run {
+            if (value == null) remove(KEY_PIN_HASH) else putString(KEY_PIN_HASH, value)
+        }.apply()
+
+    /** Base64-encoded per-user random salt. */
+    var pinSalt: String?
+        get() = prefs.getString(KEY_PIN_SALT, null)
+        set(value) = prefs.edit().run {
+            if (value == null) remove(KEY_PIN_SALT) else putString(KEY_PIN_SALT, value)
+        }.apply()
+
+    var pinIterations: Int
+        get() = prefs.getInt(KEY_PIN_ITERATIONS, 0)
+        set(value) = prefs.edit().putInt(KEY_PIN_ITERATIONS, value).apply()
+
+    var pinFailedAttempts: Int
+        get() = prefs.getInt(KEY_PIN_FAILED_ATTEMPTS, 0)
+        set(value) = prefs.edit().putInt(KEY_PIN_FAILED_ATTEMPTS, value).apply()
+
+    var pinLockoutUntilEpochMs: Long
+        get() = prefs.getLong(KEY_PIN_LOCKOUT_UNTIL, 0L)
+        set(value) = prefs.edit().putLong(KEY_PIN_LOCKOUT_UNTIL, value).apply()
+
+    /** Lockout deadline expressed in SystemClock.elapsedRealtime (monotonic, defeats clock rollback). */
+    var pinLockoutUntilElapsedMs: Long
+        get() = prefs.getLong(KEY_PIN_LOCKOUT_UNTIL_ELAPSED, 0L)
+        set(value) = prefs.edit().putLong(KEY_PIN_LOCKOUT_UNTIL_ELAPSED, value).apply()
 
     // ── Per-app custom names ──────────────────────────────────────
 

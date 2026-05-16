@@ -30,6 +30,16 @@ Slate requests permission to read active notifications solely to highlight app l
 
 Slate requests accessibility service permission solely to perform the screen lock action when the user assigns it to a double-tap or swipe gesture. The service does not observe, record, or transmit any on-screen content or user interactions.
 
+## Hidden apps security
+
+When the "Lock hidden apps" toggle in Settings → Security is enabled, Slate stores a one-way verifier of your PIN — a salted PBKDF2-HMAC-SHA256 hash with 120,000 iterations and a per-device 16-byte random salt — in the app's private SharedPreferences. The plain-text PIN is never written to disk and is zeroed in memory immediately after hashing.
+
+If you opt into biometric unlock, Slate calls Android's standard `BiometricPrompt` (BIOMETRIC_STRONG class). Biometric templates are stored and matched entirely inside the Android OS / secure hardware; Slate only receives a success or failure callback and has no access to fingerprint or face data.
+
+After 5 wrong PIN attempts the app is locked out for 30 seconds; 10 wrong for 5 minutes; 15 wrong for 15 minutes. Lockout state is local and never reported anywhere. There is no remote PIN recovery — clearing app data is the only reset.
+
+JSON backups include the PIN hash, salt, and iteration count so a restored backup keeps working. The hash is a verifier, not the PIN itself, but you should still keep backup files in trusted storage.
+
 ## Battery optimization
 
 Slate checks whether the app is exempt from battery optimization using `PowerManager.isIgnoringBatteryOptimizations` and, on Android 9+, `ActivityManager.isBackgroundRestricted`. This check reads a device state only — no data is collected, stored, or transmitted. If a restriction is detected and a background-dependent feature (notification highlight or double-tap to lock) is enabled, a warning banner is shown in Settings.

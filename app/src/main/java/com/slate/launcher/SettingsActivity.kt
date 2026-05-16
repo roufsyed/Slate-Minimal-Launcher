@@ -127,6 +127,7 @@ class SettingsActivity : AppCompatActivity() {
         setupSearch()
         setupBackup()
         setupGeneral()
+        setupSecurity()
         setupAbout()
         setupBatteryBanner()
     }
@@ -254,7 +255,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val dividerColor = if (isLight) Color.parseColor("#22000000") else Color.parseColor("#22FFFFFF")
         listOf(R.id.divider0, R.id.divider1, R.id.divider1b, R.id.divider2,
-               R.id.divider3, R.id.divider4, R.id.divider5).forEach { id ->
+               R.id.divider3, R.id.divider4, R.id.divider5, R.id.divider6).forEach { id ->
             findViewById<View>(id)?.setBackgroundColor(dividerColor)
         }
 
@@ -268,7 +269,9 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchNotifColor),
             findViewById(R.id.switchSyncToLockscreen),
             findViewById(R.id.switchFollowSystemTheme),
-            findViewById(R.id.switchAlphaFastScroll)
+            findViewById(R.id.switchAlphaFastScroll),
+            findViewById(R.id.switchHiddenAppsSecurity),
+            findViewById(R.id.switchBiometric)
         )
     }
 
@@ -1161,6 +1164,134 @@ class SettingsActivity : AppCompatActivity() {
             intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
         )
         return info?.activityInfo?.packageName == packageName
+    }
+
+    // ── Hidden apps security ──────────────────────────────────────
+
+    private fun setupSecurity() {
+        val pinManager = PinManager(prefs)
+        val switchMaster = findViewById<MaterialSwitch>(R.id.switchHiddenAppsSecurity)
+        val switchBio = findViewById<MaterialSwitch>(R.id.switchBiometric)
+        val rowBio = findViewById<View>(R.id.rowBiometric)
+        val rowChangePin = findViewById<View>(R.id.rowChangePin)
+        val labelBioSub = findViewById<TextView>(R.id.labelBiometricSub)
+
+        fun applyVisibility() {
+            val active = prefs.hiddenAppsSecurityEnabled && pinManager.hasPin()
+            rowBio.visibility = if (active) View.VISIBLE else View.GONE
+            rowChangePin.visibility = if (active) View.VISIBLE else View.GONE
+            val bioAvailable = AuthGate.canUseBiometric(this)
+            switchBio.isEnabled = bioAvailable
+            labelBioSub.text = if (bioAvailable) {
+                "Unlock with fingerprint or face; PIN remains as fallback"
+            } else {
+                "No biometric enrolled on this device"
+            }
+        }
+
+        // Mutually-recursive listener setup so we can re-attach after a silent revert.
+        var attachMaster: () -> Unit = {}
+        var attachBio: () -> Unit = {}
+
+        fun setMasterSilently(value: Boolean) {
+            switchMaster.setOnCheckedChangeListener(null)
+            switchMaster.isChecked = value
+            attachMaster()
+        }
+        fun setBioSilently(value: Boolean) {
+            switchBio.setOnCheckedChangeListener(null)
+            switchBio.isChecked = value
+            attachBio()
+        }
+
+        attachMaster = {
+            switchMaster.setOnCheckedChangeListener { _, checked ->
+                if (checked) {
+                    PinFlow.setupNew(
+                        activity = this,
+                        prefs = prefs,
+                        pinManager = pinManager,
+                        onComplete = {
+                            prefs.hiddenAppsSecurityEnabled = true
+                            setMasterSilently(true)
+                            applyVisibility()
+                        },
+                        onCancel = { setMasterSilently(false) }
+                    )
+                } else {
+                    PinFlow.verifyExisting(
+                        activity = this,
+                        prefs = prefs,
+                        pinManager = pinManager,
+                        title = "Disable Lock",
+                        onSuccess = {
+                            prefs.hiddenAppsSecurityEnabled = false
+                            prefs.biometricEnabled = false
+                            pinManager.clear()
+                            setBioSilently(false)
+                            setMasterSilently(false)
+                            applyVisibility()
+                        },
+                        onCancel = { setMasterSilently(true) }
+                    )
+                }
+            }
+        }
+
+        attachBio = {
+            switchBio.setOnCheckedChangeListener { _, checked ->
+                if (checked) {
+                    if (!AuthGate.canUseBiometric(this)) {
+                        Toast.makeText(this, "No biometric enrolled on this device", Toast.LENGTH_SHORT).show()
+                        setBioSilently(false)
+                        return@setOnCheckedChangeListener
+                    }
+                    // Require PIN before enabling biometric. Without this, anyone holding the
+                    // unlocked phone could add their own biometric and gain ongoing access.
+                    PinFlow.verifyExisting(
+                        activity = this,
+                        prefs = prefs,
+                        pinManager = pinManager,
+                        title = "Enable biometric",
+                        onSuccess = {
+                            AuthGate.verifyBiometric(
+                                activity = this,
+                                title = "Enable biometric",
+                                subtitle = "Confirm biometric to enable",
+                                onSuccess = {
+                                    prefs.biometricEnabled = true
+                                    setBioSilently(true)
+                                },
+                                onCancel = { setBioSilently(false) }
+                            )
+                        },
+                        onCancel = { setBioSilently(false) }
+                    )
+                } else {
+                    prefs.biometricEnabled = false
+                }
+            }
+        }
+
+        // Initial state — sync UI with prefs and attach listeners
+        switchMaster.setOnCheckedChangeListener(null)
+        switchMaster.isChecked = prefs.hiddenAppsSecurityEnabled && pinManager.hasPin()
+        switchBio.setOnCheckedChangeListener(null)
+        switchBio.isChecked = prefs.biometricEnabled
+        applyVisibility()
+        attachMaster()
+        attachBio()
+
+        rowChangePin.setOnClickListener {
+            PinFlow.changePin(
+                activity = this,
+                prefs = prefs,
+                pinManager = pinManager,
+                onComplete = {
+                    Toast.makeText(this, "PIN changed", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
     }
 
     // ── Battery restriction banner ────────────────────────────────

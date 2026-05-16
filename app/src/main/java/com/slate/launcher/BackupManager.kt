@@ -70,6 +70,14 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.getAllAppCustomNames().forEach { (k, v) -> namesObj.put(k, v) }
         root.put("appCustomNames", namesObj)
 
+        // Hidden apps security — the PIN hash is a verifier, not a secret. Including it lets a
+        // restored backup keep working without forcing the user to re-set the PIN.
+        root.put("hiddenAppsSecurityEnabled", prefs.hiddenAppsSecurityEnabled)
+        root.put("biometricEnabled", prefs.biometricEnabled)
+        prefs.pinHash?.let { root.put("pinHash", it) }
+        prefs.pinSalt?.let { root.put("pinSalt", it) }
+        if (prefs.pinIterations > 0) root.put("pinIterations", prefs.pinIterations)
+
         return root.toString(2)
     }
 
@@ -124,5 +132,21 @@ class BackupManager(private val prefs: PreferencesManager) {
         root.optJSONObject("appCustomNames")?.let { obj ->
             obj.keys().forEach { pkg -> prefs.setAppCustomName(pkg, obj.getString(pkg)) }
         }
+
+        // Hidden apps security — restore PIN verifier so backup is usable on a new device.
+        // Reset failed-attempt counters since they are device-local state, not user data.
+        prefs.pinHash       = root.optString("pinHash").takeIf { it.isNotEmpty() }
+        prefs.pinSalt       = root.optString("pinSalt").takeIf { it.isNotEmpty() }
+        prefs.pinIterations = root.optInt("pinIterations", 0)
+        val pinFullyPresent = prefs.pinHash != null && prefs.pinSalt != null && prefs.pinIterations > 0
+        // If the backup claims security is on but the PIN bundle is missing/partial, drop the
+        // claim — otherwise AuthGate would short-circuit to success and silently bypass the gate.
+        prefs.hiddenAppsSecurityEnabled = pinFullyPresent &&
+                root.optBoolean("hiddenAppsSecurityEnabled", false)
+        prefs.biometricEnabled = pinFullyPresent &&
+                root.optBoolean("biometricEnabled", false)
+        prefs.pinFailedAttempts        = 0
+        prefs.pinLockoutUntilEpochMs   = 0L
+        prefs.pinLockoutUntilElapsedMs = 0L
     }
 }
