@@ -36,6 +36,11 @@ class PreferencesManager(context: Context) {
         private const val KEY_AWAITING_ACCESSIBILITY = "awaiting_accessibility_permission"
         private const val KEY_AWAITING_NOTIFICATION = "awaiting_notification_permission"
         private const val KEY_BATTERY_BANNER_DISMISSED = "battery_banner_dismissed_permanently"
+        private const val KEY_HOMESCREEN_VIEW = "homescreen_view"
+        private const val KEY_ALPHA_FAST_SCROLL = "alpha_fast_scroll"
+
+        const val VIEW_FLOW = "flow"
+        const val VIEW_LIST = "list"
 
         const val DEFAULT_FONT_FAMILY = "gf:tex_gyre_adventor_bold"
         const val DEFAULT_FONT_WEIGHT = 400
@@ -154,6 +159,15 @@ class PreferencesManager(context: Context) {
     var batteryBannerDismissedPermanently: Boolean
         get() = prefs.getBoolean(KEY_BATTERY_BANNER_DISMISSED, false)
         set(value) = prefs.edit().putBoolean(KEY_BATTERY_BANNER_DISMISSED, value).apply()
+
+    /** "flow" (default, word-cloud) or "list" (minimal one-per-line). */
+    var homescreenView: String
+        get() = prefs.getString(KEY_HOMESCREEN_VIEW, VIEW_FLOW) ?: VIEW_FLOW
+        set(value) = prefs.edit().putString(KEY_HOMESCREEN_VIEW, value).apply()
+
+    var alphabeticalFastScroll: Boolean
+        get() = prefs.getBoolean(KEY_ALPHA_FAST_SCROLL, false)
+        set(value) = prefs.edit().putBoolean(KEY_ALPHA_FAST_SCROLL, value).apply()
 
     // ── Per-app custom names ──────────────────────────────────────
 

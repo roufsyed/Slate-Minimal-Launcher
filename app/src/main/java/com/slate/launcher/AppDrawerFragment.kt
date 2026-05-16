@@ -34,6 +34,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import com.google.android.flexbox.AlignItems
+import com.google.android.flexbox.FlexDirection
 import com.google.android.flexbox.FlexboxLayout
 import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.JustifyContent
@@ -49,6 +50,8 @@ class AppDrawerFragment : Fragment() {
     private lateinit var searchContainer: LinearLayout
     private lateinit var searchInput: EditText
     private lateinit var searchClose: TextView
+    private lateinit var fastScroll: AlphaFastScroll
+    private lateinit var fastScrollBubble: TextView
     private lateinit var prefs: PreferencesManager
     private lateinit var repository: AppRepository
 
@@ -73,12 +76,11 @@ class AppDrawerFragment : Fragment() {
         searchContainer = view.findViewById(R.id.searchContainer)
         searchInput = view.findViewById(R.id.searchInput)
         searchClose = view.findViewById(R.id.searchClose)
-
-        flowLayout.flexWrap = FlexWrap.WRAP
-        flowLayout.justifyContent = JustifyContent.CENTER
-        flowLayout.alignItems = AlignItems.CENTER
+        fastScroll = view.findViewById(R.id.fastScroll)
+        fastScrollBubble = view.findViewById(R.id.fastScrollBubble)
 
         setupSearch()
+        setupFastScroll()
 
         // Single-finger: long press, double tap, directional fling
         singleFingerDetector = GestureDetector(
@@ -209,6 +211,7 @@ class AppDrawerFragment : Fragment() {
     override fun onPause() {
         super.onPause()
         SlateNotificationService.onChange = null
+        fastScrollBubble.animate().cancel()
     }
 
     // ── Search ────────────────────────────────────────────────────
@@ -318,51 +321,12 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun filterApps(query: String) {
-        flowLayout.justifyContent = when {
-            prefs.textAlignment == "left" -> JustifyContent.FLEX_START
-            prefs.textAlignment == "right" -> JustifyContent.FLEX_END
-            else -> JustifyContent.CENTER
-        }
-        flowLayout.removeAllViews()
-        val all = repository.getAllApps()
+        val all = repository.getAllApps(forceAlphabetical = useFastScroll())
         val apps = if (query.isEmpty()) all
                    else all.filter { it.name.contains(query, ignoreCase = true) }
-
-        val maxUsage = all.maxOfOrNull { prefs.getUsageCount(it.packageName) }
-            ?.takeIf { it > 0 } ?: 1
-        val density = resources.displayMetrics.density
-        val defaultTextColor = parseColorSafe(prefs.appTextColor, Color.GRAY)
-        val notifEnabled = prefs.notificationColorEnabled
-        val notifColor = parseColorSafe(prefs.notificationHighlightColor)
-        val typeface = buildTypeface()
-
-        apps.forEach { app ->
-            val usage = prefs.getUsageCount(app.packageName)
-            val appColor = prefs.getAppTextColor(app.packageName)
-            val hasNotif = notifEnabled && app.packageName in SlateNotificationService.activePackages
-            val textColor = when {
-                hasNotif -> notifColor
-                appColor != null -> parseColorSafe(appColor)
-                else -> defaultTextColor
-            }
-            val tv = TextView(requireContext()).apply {
-                text = app.name
-                textSize = computeFontSize(usage, maxUsage)
-                setTextColor(textColor)
-                this.typeface = typeface
-                val hPad = (prefs.wordSpacing * density).toInt()
-                val vPad = (prefs.lineSpacing * density).toInt()
-                setPadding(hPad, vPad, hPad, vPad)
-                setOnClickListener { launchApp(app) }
-                setOnLongClickListener { showAppMenu(app, this); true }
-                setOnTouchListener { _, event ->
-                    if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = true
-                    singleFingerDetector.onTouchEvent(event)
-                    false
-                }
-            }
-            flowLayout.addView(tv)
-        }
+        renderApps(apps, allAppsForUsage = all)
+        // Fast-scroll only makes sense over the unfiltered list
+        if (query.isEmpty()) configureFastScroll(all) else fastScroll.visibility = View.GONE
     }
 
     // ── Gesture execution ─────────────────────────────────────────
@@ -401,49 +365,131 @@ class AppDrawerFragment : Fragment() {
     // ── App list ──────────────────────────────────────────────────
 
     private fun buildAppList() {
-        flowLayout.justifyContent = when {
-            prefs.textAlignment == "left" -> JustifyContent.FLEX_START
-            prefs.textAlignment == "right" -> JustifyContent.FLEX_END
+        val apps = repository.getAllApps(forceAlphabetical = useFastScroll())
+        renderApps(apps, allAppsForUsage = apps)
+        configureFastScroll(apps)
+    }
+
+    /** Dispatch to the appropriate renderer based on the current view-mode pref. */
+    private fun renderApps(apps: List<AppInfo>, allAppsForUsage: List<AppInfo>) {
+        flowLayout.removeAllViews()
+        if (prefs.homescreenView == PreferencesManager.VIEW_LIST) {
+            renderListMode(apps)
+        } else {
+            val maxUsage = allAppsForUsage
+                .maxOfOrNull { prefs.getUsageCount(it.packageName) }
+                ?.takeIf { it > 0 } ?: 1
+            renderFlowMode(apps, maxUsage)
+        }
+    }
+
+    /** Original word-cloud rendering: row wrap, font size scales with usage. */
+    private fun renderFlowMode(apps: List<AppInfo>, maxUsage: Int) {
+        flowLayout.flexDirection = FlexDirection.ROW
+        flowLayout.flexWrap = FlexWrap.WRAP
+        flowLayout.alignItems = AlignItems.CENTER
+        flowLayout.justifyContent = when (prefs.textAlignment) {
+            "left" -> JustifyContent.FLEX_START
+            "right" -> JustifyContent.FLEX_END
             else -> JustifyContent.CENTER
         }
-        flowLayout.removeAllViews()
-        val apps = repository.getAllApps()
-        val maxUsage = apps.maxOfOrNull { prefs.getUsageCount(it.packageName) }
-            ?.takeIf { it > 0 } ?: 1
+
         val density = resources.displayMetrics.density
         val defaultTextColor = parseColorSafe(prefs.appTextColor, Color.GRAY)
         val notifEnabled = prefs.notificationColorEnabled
         val notifColor = parseColorSafe(prefs.notificationHighlightColor)
         val typeface = buildTypeface()
+        val hPad = (prefs.wordSpacing * density).toInt()
+        val vPad = (prefs.lineSpacing * density).toInt()
 
         apps.forEach { app ->
             val usage = prefs.getUsageCount(app.packageName)
-            val appColor = prefs.getAppTextColor(app.packageName)
-            val hasNotif = notifEnabled && app.packageName in SlateNotificationService.activePackages
-            val textColor = when {
-                hasNotif -> notifColor
-                appColor != null -> parseColorSafe(appColor)
-                else -> defaultTextColor
-            }
-            val tv = TextView(requireContext()).apply {
-                text = app.name
-                textSize = computeFontSize(usage, maxUsage)
-                setTextColor(textColor)
-                this.typeface = typeface
-                val hPad = (prefs.wordSpacing * density).toInt()
-                val vPad = (prefs.lineSpacing * density).toInt()
-                setPadding(hPad, vPad, hPad, vPad)
-                setOnClickListener { launchApp(app) }
-                setOnLongClickListener { showAppMenu(app, this); true }
-                setOnTouchListener { _, event ->
-                    if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = true
-                    singleFingerDetector.onTouchEvent(event)
-                    false
-                }
-            }
+            val tv = createAppTextView(
+                app = app,
+                size = computeFontSize(usage, maxUsage),
+                color = colorForApp(app, defaultTextColor, notifEnabled, notifColor),
+                typeface = typeface,
+                hPad = hPad,
+                vPad = vPad,
+                gravity = Gravity.CENTER
+            )
             flowLayout.addView(tv)
         }
     }
+
+    /** Minimal list rendering: one app per line at a uniform size (= maxFontSize). */
+    private fun renderListMode(apps: List<AppInfo>) {
+        flowLayout.flexDirection = FlexDirection.COLUMN
+        flowLayout.flexWrap = FlexWrap.NOWRAP
+        flowLayout.alignItems = AlignItems.STRETCH
+        flowLayout.justifyContent = JustifyContent.FLEX_START
+
+        val density = resources.displayMetrics.density
+        val defaultTextColor = parseColorSafe(prefs.appTextColor, Color.GRAY)
+        val notifEnabled = prefs.notificationColorEnabled
+        val notifColor = parseColorSafe(prefs.notificationHighlightColor)
+        val typeface = buildTypeface()
+        val fontSize = prefs.maxFontSize.toFloat()
+        val gravity = when (prefs.textAlignment) {
+            "left" -> Gravity.START or Gravity.CENTER_VERTICAL
+            "right" -> Gravity.END or Gravity.CENTER_VERTICAL
+            else -> Gravity.CENTER
+        }
+        val hPad = (prefs.wordSpacing * density).toInt()
+        val vPad = (prefs.lineSpacing * density).toInt()
+
+        apps.forEach { app ->
+            val tv = createAppTextView(
+                app = app,
+                size = fontSize,
+                color = colorForApp(app, defaultTextColor, notifEnabled, notifColor),
+                typeface = typeface,
+                hPad = hPad,
+                vPad = vPad,
+                gravity = gravity
+            )
+            flowLayout.addView(tv)
+        }
+    }
+
+    private fun colorForApp(
+        app: AppInfo,
+        defaultTextColor: Int,
+        notifEnabled: Boolean,
+        notifColor: Int
+    ): Int {
+        val hasNotif = notifEnabled && app.packageName in SlateNotificationService.activePackages
+        if (hasNotif) return notifColor
+        val appColor = prefs.getAppTextColor(app.packageName)
+        return if (appColor != null) parseColorSafe(appColor) else defaultTextColor
+    }
+
+    private fun createAppTextView(
+        app: AppInfo,
+        size: Float,
+        color: Int,
+        typeface: Typeface,
+        hPad: Int,
+        vPad: Int,
+        gravity: Int
+    ): TextView = TextView(requireContext()).apply {
+        text = app.name
+        textSize = size
+        setTextColor(color)
+        this.typeface = typeface
+        this.gravity = gravity
+        setPadding(hPad, vPad, hPad, vPad)
+        setOnClickListener { launchApp(app) }
+        setOnLongClickListener { showAppMenu(app, this); true }
+        setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = true
+            singleFingerDetector.onTouchEvent(event)
+            false
+        }
+    }
+
+    private fun useFastScroll(): Boolean =
+        prefs.homescreenView == PreferencesManager.VIEW_LIST && prefs.alphabeticalFastScroll
 
     private fun buildTypeface(): Typeface {
         val family = prefs.fontFamily
@@ -485,6 +531,77 @@ class AppDrawerFragment : Fragment() {
     private fun computeFontSize(usage: Int, maxUsage: Int): Float {
         val ratio = usage.toFloat() / maxUsage
         return prefs.minFontSize + ratio * (prefs.maxFontSize - prefs.minFontSize)
+    }
+
+    // ── Fast scroll ───────────────────────────────────────────────
+
+    private fun setupFastScroll() {
+        fastScroll.onLetterTouched = { letter ->
+            fastScrollBubble.text = letter.toString()
+            scrollToLetter(letter)
+        }
+        fastScroll.onTouchStateChanged = { active ->
+            if (active) {
+                fastScrollBubble.animate().cancel()
+                fastScrollBubble.alpha = 1f
+                fastScrollBubble.visibility = View.VISIBLE
+            } else {
+                fastScrollBubble.animate()
+                    .alpha(0f)
+                    .setDuration(150)
+                    .withEndAction { fastScrollBubble.visibility = View.GONE }
+                    .start()
+            }
+        }
+    }
+
+    private fun configureFastScroll(apps: List<AppInfo>) {
+        if (!useFastScroll()) {
+            fastScroll.visibility = View.GONE
+            return
+        }
+        val letters = apps
+            .mapNotNull { it.name.firstOrNull()?.uppercaseChar() }
+            .filter { it in 'A'..'Z' }
+            .distinct()
+            .sorted()
+        if (letters.size < 3) {
+            fastScroll.visibility = View.GONE
+            return
+        }
+        val color = parseColorSafe(prefs.appTextColor, Color.GRAY)
+        fastScroll.textColor = color
+        fastScrollBubble.setTextColor(color)
+        fastScroll.setLetters(letters)
+        fastScroll.visibility = View.VISIBLE
+    }
+
+    /** Scroll the ScrollView so the first app whose name starts with [letter] is at the top. */
+    private fun scrollToLetter(letter: Char) {
+        // Children are added after layout has completed when buildAppList runs in onResume;
+        // post ensures we read measured positions.
+        flowLayout.post {
+            for (i in 0 until flowLayout.childCount) {
+                val child = flowLayout.getChildAt(i) as? TextView ?: continue
+                val first = child.text?.firstOrNull()?.uppercaseChar() ?: continue
+                if (first == letter) {
+                    scrollView.smoothScrollTo(0, yOffsetInScrollView(child))
+                    return@post
+                }
+            }
+        }
+    }
+
+    /** Walks up parents from [child] until [scrollView], summing top offsets. */
+    private fun yOffsetInScrollView(child: View): Int {
+        var y = 0
+        var v: View = child
+        while (v !== scrollView) {
+            y += v.top
+            val parentView = v.parent as? View ?: break
+            v = parentView
+        }
+        return y
     }
 
     private fun launchApp(app: AppInfo) {

@@ -29,13 +29,14 @@ Slate removes all of that. It presents your apps as plain text — the same way 
 ## Features
 
 **Appearance**
+- Two homescreen layouts — Flow (apps wrap like text, sized by usage) or Minimal List (one app per line with optional side alphabetical fast-scroll)
 - Fully customizable background and text colors with a live color picker
 - Follow system theme — automatically switches between dark and light colors based on system dark mode
 - Apply background to lockscreen — sets your lockscreen wallpaper to the launcher's solid background color for a uniform look
 - Per-app color overrides — highlight only what matters
 - Notification highlight — app names change color when they have a pending notification
 - Typography control: font family (including Google Fonts + import your own), weight, line spacing, word spacing
-- Font size scales with usage — frequently used apps appear larger
+- Font size scales with usage in Flow view — frequently used apps appear larger
 - Hide the status bar for a true full-screen experience
 
 **Interaction**

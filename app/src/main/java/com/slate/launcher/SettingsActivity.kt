@@ -267,7 +267,8 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchLockOrientation),
             findViewById(R.id.switchNotifColor),
             findViewById(R.id.switchSyncToLockscreen),
-            findViewById(R.id.switchFollowSystemTheme)
+            findViewById(R.id.switchFollowSystemTheme),
+            findViewById(R.id.switchAlphaFastScroll)
         )
     }
 
@@ -1008,10 +1009,45 @@ class SettingsActivity : AppCompatActivity() {
             prefs.hideStatusBar = checked
         }
 
+        // Homescreen view + alphabetical fast scroll sub-option
+        val homescreenViewValue = findViewById<TextView>(R.id.homescreenViewValue)
+        val rowAlphaFastScroll = findViewById<View>(R.id.rowAlphaFastScroll)
+        val switchAlphaFastScroll = findViewById<MaterialSwitch>(R.id.switchAlphaFastScroll)
+
+        homescreenViewValue.setTextColor(secondary)
+        homescreenViewValue.text = homescreenViewLabel(prefs.homescreenView)
+        rowAlphaFastScroll.visibility =
+            if (prefs.homescreenView == PreferencesManager.VIEW_LIST) View.VISIBLE else View.GONE
+
+        findViewById<View>(R.id.rowHomescreenView).setOnClickListener {
+            SlateListDialog(
+                context = this,
+                title = "Homescreen view",
+                items = listOf("Flow", "Minimal List"),
+                bgColor = prefs.backgroundColor
+            ) { index, label ->
+                prefs.homescreenView =
+                    if (index == 0) PreferencesManager.VIEW_FLOW else PreferencesManager.VIEW_LIST
+                homescreenViewValue.text = label
+                rowAlphaFastScroll.visibility =
+                    if (prefs.homescreenView == PreferencesManager.VIEW_LIST) View.VISIBLE else View.GONE
+            }.show()
+        }
+
+        switchAlphaFastScroll.isChecked = prefs.alphabeticalFastScroll
+        switchAlphaFastScroll.setOnCheckedChangeListener { _, checked ->
+            prefs.alphabeticalFastScroll = checked
+        }
+
         // Default launcher row
         findViewById<View>(R.id.rowDefaultLauncher).setOnClickListener {
             requestDefaultLauncher()
         }
+    }
+
+    private fun homescreenViewLabel(mode: String): String = when (mode) {
+        PreferencesManager.VIEW_LIST -> "Minimal List"
+        else -> "Flow"
     }
 
     private fun setupNotifListener(switchNotif: MaterialSwitch) {
