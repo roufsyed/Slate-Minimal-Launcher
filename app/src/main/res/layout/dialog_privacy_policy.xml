@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/bg_slate_dialog"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/privacyDialogTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="PRIVACY POLICY"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.12"
+        android:textAllCaps="true"
+        android:paddingBottom="16dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:scrollbars="vertical"
+        android:fadeScrollbars="false">
+
+        <TextView
+            android:id="@+id/privacyDialogBody"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:lineSpacingMultiplier="1.4"
+            android:textIsSelectable="true" />
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end"
+        android:paddingTop="20dp">
+
+        <TextView
+            android:id="@+id/btnPrivacyClose"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Close"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="10dp" />
+    </LinearLayout>
+
+</LinearLayout>

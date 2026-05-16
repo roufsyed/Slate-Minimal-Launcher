@@ -69,6 +69,26 @@ android {
     }
 }
 
+// Keep the bundled in-app privacy policy in lockstep with the canonical repo-root copy.
+// Runs before any asset/resource merging so a stale or missing assets/PRIVACY_POLICY.md cannot
+// ship in an APK. Declares inputs/outputs explicitly so Gradle's up-to-date check and the
+// configuration cache both work correctly; fails fast if the source file is missing rather than
+// silently shipping an APK with no in-app privacy policy.
+val privacyPolicySource = rootProject.file("PRIVACY_POLICY.md")
+val privacyPolicyDest = layout.projectDirectory.file("src/main/assets/PRIVACY_POLICY.md")
+val copyPrivacyPolicy by tasks.registering(Copy::class) {
+    doFirst {
+        check(privacyPolicySource.exists()) {
+            "Privacy policy source missing at $privacyPolicySource — cannot build without it."
+        }
+    }
+    from(privacyPolicySource)
+    into(privacyPolicyDest.asFile.parentFile)
+    inputs.file(privacyPolicySource)
+    outputs.file(privacyPolicyDest)
+}
+tasks.named("preBuild").configure { dependsOn(copyPrivacyPolicy) }
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

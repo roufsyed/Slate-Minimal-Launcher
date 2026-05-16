@@ -179,13 +179,45 @@
             android:layout_height="0dp"
             android:layout_weight="1" />
 
+        <!-- ── Privacy policy consent (gates all three exit paths) ── -->
+
+        <LinearLayout
+            android:id="@+id/rowPrivacyCheck"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="32dp">
+
+            <com.google.android.material.checkbox.MaterialCheckBox
+                android:id="@+id/checkPrivacy"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:buttonTint="#8888FF"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:paddingStart="0dp"
+                android:contentDescription="I have read the privacy policy" />
+
+            <TextView
+                android:id="@+id/labelPrivacyAcceptance"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="14sp"
+                android:textColor="#999999"
+                android:layout_marginStart="6dp"
+                android:lineSpacingMultiplier="1.3"
+                android:labelFor="@+id/checkPrivacy" />
+        </LinearLayout>
+
         <!-- ── Actions ── -->
 
         <TextView
             android:id="@+id/btnSetDefault"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
+            android:layout_marginTop="20dp"
             android:text="Set as default launcher"
             android:textSize="16sp"
             android:textColor="#FFFFFF"
@@ -229,17 +261,6 @@
             android:textSize="12sp"
             android:textColor="#444444"
             android:gravity="center" />
-
-        <TextView
-            android:id="@+id/btnPrivacyPolicy"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Privacy Policy"
-            android:textSize="12sp"
-            android:textColor="#333333"
-            android:gravity="center"
-            android:paddingVertical="8dp" />
 
     </LinearLayout>
 
