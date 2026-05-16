@@ -49,6 +49,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_QUICK_STRIP_ENABLED = "quick_strip_enabled"
         private const val KEY_QUICK_STRIP_WIDGETS = "quick_strip_widgets"
         private const val KEY_CONTACT_SHORTCUTS = "contact_shortcuts"
+        private const val KEY_FOLDERS = "folders_v1"
         // Comma-separated ordered list of widget ids — small payload, simple format.
         const val DEFAULT_QUICK_STRIP_WIDGETS = "clock,battery"
 
@@ -239,6 +240,11 @@ class PreferencesManager(context: Context) {
     var contactShortcutsJson: String
         get() = prefs.getString(KEY_CONTACT_SHORTCUTS, "[]") ?: "[]"
         set(value) = prefs.edit().putString(KEY_CONTACT_SHORTCUTS, value).apply()
+
+    /** Raw JSON for user-created folders. Parsed by FolderStore. */
+    var foldersJson: String
+        get() = prefs.getString(KEY_FOLDERS, "[]") ?: "[]"
+        set(value) = prefs.edit().putString(KEY_FOLDERS, value).apply()
 
     // ── Per-app custom names ──────────────────────────────────────
 

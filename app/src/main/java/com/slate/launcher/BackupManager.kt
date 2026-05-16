@@ -87,6 +87,9 @@ class BackupManager(private val prefs: PreferencesManager) {
         // backup remains human-readable and round-trips through json libraries cleanly.
         root.put("contactShortcuts", JSONArray(prefs.contactShortcutsJson))
 
+        // User-created folders. Same human-readable strategy as contactShortcuts.
+        root.put("folders", JSONArray(prefs.foldersJson))
+
         return root.toString(2)
     }
 
@@ -165,6 +168,9 @@ class BackupManager(private val prefs: PreferencesManager) {
         }
         root.optJSONArray("contactShortcuts")?.let { arr ->
             prefs.contactShortcutsJson = arr.toString()
+        }
+        root.optJSONArray("folders")?.let { arr ->
+            prefs.foldersJson = arr.toString()
         }
     }
 }
