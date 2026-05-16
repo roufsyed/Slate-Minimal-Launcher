@@ -3,25 +3,40 @@ package com.slate.launcher
 import android.app.role.RoleManager
 import android.content.Intent
 import android.graphics.Color
-import android.net.Uri
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.TextPaint
+import android.text.method.LinkMovementMethod
+import android.text.style.ClickableSpan
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.checkbox.MaterialCheckBox
 
 class OnboardingActivity : AppCompatActivity() {
 
     private lateinit var prefs: PreferencesManager
     private lateinit var cardDark: LinearLayout
     private lateinit var cardLight: LinearLayout
+    private lateinit var checkPrivacy: MaterialCheckBox
+    private lateinit var btnSetDefault: TextView
+    private lateinit var btnSkip: TextView
+    private lateinit var btnImport: TextView
 
     // 0 = dark selected, 1 = light selected
     private var selectedTheme = 0
+
+    companion object {
+        private const val STATE_PRIVACY_CHECKED = "privacy_checked"
+        private const val LINK_COLOR = "#8888FF"
+    }
 
     private data class Theme(
         val bgColor: String,
@@ -52,6 +67,12 @@ class OnboardingActivity : AppCompatActivity() {
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri == null) return@registerForActivityResult
+        // Re-verify consent — the picker callback can fire after the user has unchecked the box
+        // (e.g., they backgrounded onboarding while the picker was open).
+        if (!hasAcceptedPrivacy()) {
+            Toast.makeText(this, "Please accept the privacy policy first", Toast.LENGTH_SHORT).show()
+            return@registerForActivityResult
+        }
         try {
             val json = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@registerForActivityResult
             BackupManager(prefs).fromJson(json)
@@ -61,6 +82,9 @@ class OnboardingActivity : AppCompatActivity() {
             Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
+
+    private fun hasAcceptedPrivacy(): Boolean =
+        ::checkPrivacy.isInitialized && checkPrivacy.isChecked
 
     // onResume detects acceptance; callback handles denial (user backed out without selecting).
     private val requestRoleLauncher = registerForActivityResult(
@@ -97,33 +121,86 @@ class OnboardingActivity : AppCompatActivity() {
             updateCardStyles()
         }
 
-        findViewById<TextView>(R.id.btnSetDefault).setOnClickListener {
+        btnSetDefault = findViewById(R.id.btnSetDefault)
+        btnSkip = findViewById(R.id.btnSkip)
+        btnImport = findViewById(R.id.btnImportSettings)
+
+        btnSetDefault.setOnClickListener {
             applySelectedTheme()
             requestDefaultLauncher()
         }
 
-        findViewById<TextView>(R.id.btnSkip).setOnClickListener {
+        btnSkip.setOnClickListener {
             applySelectedTheme()
             finishOnboarding()
         }
 
-        findViewById<TextView>(R.id.btnImportSettings).setOnClickListener {
+        btnImport.setOnClickListener {
             openBackupLauncher.launch(arrayOf("application/json", "*/*"))
         }
 
-        findViewById<TextView>(R.id.btnPrivacyPolicy).setOnClickListener {
-            startActivity(
-                Intent(Intent.ACTION_VIEW,
-                    Uri.parse("https://github.com/roufsyed/Slate-Minimal-Launcher/blob/master/PRIVACY_POLICY.md"))
-            )
+        setupPrivacyConsent(savedInstanceState)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (::checkPrivacy.isInitialized) {
+            outState.putBoolean(STATE_PRIVACY_CHECKED, checkPrivacy.isChecked)
+        }
+    }
+
+    private fun setupPrivacyConsent(savedInstanceState: Bundle?) {
+        checkPrivacy = findViewById(R.id.checkPrivacy)
+        val label = findViewById<TextView>(R.id.labelPrivacyAcceptance)
+
+        val text = "I've read the Privacy Policy"
+        val linkStart = text.indexOf("Privacy Policy")
+        val span = SpannableString(text)
+        span.setSpan(object : ClickableSpan() {
+            override fun onClick(widget: View) {
+                PrivacyPolicyDialog.show(this@OnboardingActivity)
+            }
+            override fun updateDrawState(ds: TextPaint) {
+                super.updateDrawState(ds)
+                ds.color = Color.parseColor(LINK_COLOR)
+                ds.isUnderlineText = true
+            }
+        }, linkStart, linkStart + "Privacy Policy".length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        label.text = span
+        label.movementMethod = LinkMovementMethod.getInstance()
+
+        val initialChecked = savedInstanceState?.getBoolean(STATE_PRIVACY_CHECKED, false) ?: false
+        checkPrivacy.isChecked = initialChecked
+        updateActionsEnabled(initialChecked)
+
+        checkPrivacy.setOnCheckedChangeListener { _, isChecked ->
+            updateActionsEnabled(isChecked)
+        }
+    }
+
+    private fun updateActionsEnabled(enabled: Boolean) {
+        val targets = listOf(btnSetDefault, btnSkip, btnImport)
+        targets.forEach {
+            it.isEnabled = enabled
+            it.alpha = if (enabled) 1f else 0.4f
         }
     }
 
     override fun onResume() {
         super.onResume()
-        if (isDefaultLauncher()) {
+        // Gate auto-completion on the consent checkbox so users who set Slate as default outside
+        // our flow (Android Settings) — or who back-out of the role picker after unchecking the
+        // box — still have to accept the policy before onboarding completes.
+        if (isDefaultLauncher() && hasAcceptedPrivacy()) {
             finishOnboarding()
         }
+    }
+
+    override fun onDestroy() {
+        // Prevent android.view.WindowLeaked if the privacy dialog is open during rotation /
+        // configuration change.
+        PrivacyPolicyDialog.dismissActive()
+        super.onDestroy()
     }
 
     private fun isDefaultLauncher(): Boolean {
