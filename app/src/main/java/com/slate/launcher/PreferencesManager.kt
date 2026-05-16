@@ -46,6 +46,11 @@ class PreferencesManager(context: Context) {
         private const val KEY_PIN_FAILED_ATTEMPTS = "pin_failed_attempts"
         private const val KEY_PIN_LOCKOUT_UNTIL = "pin_lockout_until_epoch_ms"
         private const val KEY_PIN_LOCKOUT_UNTIL_ELAPSED = "pin_lockout_until_elapsed_ms"
+        private const val KEY_QUICK_STRIP_ENABLED = "quick_strip_enabled"
+        private const val KEY_QUICK_STRIP_WIDGETS = "quick_strip_widgets"
+        private const val KEY_CONTACT_SHORTCUTS = "contact_shortcuts"
+        // Comma-separated ordered list of widget ids — small payload, simple format.
+        const val DEFAULT_QUICK_STRIP_WIDGETS = "clock,battery"
 
         const val VIEW_FLOW = "flow"
         const val VIEW_LIST = "list"
@@ -217,6 +222,23 @@ class PreferencesManager(context: Context) {
     var pinLockoutUntilElapsedMs: Long
         get() = prefs.getLong(KEY_PIN_LOCKOUT_UNTIL_ELAPSED, 0L)
         set(value) = prefs.edit().putLong(KEY_PIN_LOCKOUT_UNTIL_ELAPSED, value).apply()
+
+    // ── Quick toggles strip ──────────────────────────────────────
+
+    var quickStripEnabled: Boolean
+        get() = prefs.getBoolean(KEY_QUICK_STRIP_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_QUICK_STRIP_ENABLED, value).apply()
+
+    /** Ordered list of widget ids the user has enabled. Empty list = strip hidden. */
+    var quickStripWidgets: List<String>
+        get() = (prefs.getString(KEY_QUICK_STRIP_WIDGETS, DEFAULT_QUICK_STRIP_WIDGETS) ?: "")
+            .split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        set(value) = prefs.edit().putString(KEY_QUICK_STRIP_WIDGETS, value.joinToString(",")).apply()
+
+    /** Raw JSON for the contact-shortcut library. Parsed by ContactShortcutStore. */
+    var contactShortcutsJson: String
+        get() = prefs.getString(KEY_CONTACT_SHORTCUTS, "[]") ?: "[]"
+        set(value) = prefs.edit().putString(KEY_CONTACT_SHORTCUTS, value).apply()
 
     // ── Per-app custom names ──────────────────────────────────────
 

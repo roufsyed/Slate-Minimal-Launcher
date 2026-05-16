@@ -78,6 +78,15 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.pinSalt?.let { root.put("pinSalt", it) }
         if (prefs.pinIterations > 0) root.put("pinIterations", prefs.pinIterations)
 
+        // Quick toggles strip
+        root.put("quickStripEnabled", prefs.quickStripEnabled)
+        val quickStripWidgetsArr = JSONArray()
+        prefs.quickStripWidgets.forEach { quickStripWidgetsArr.put(it) }
+        root.put("quickStripWidgets", quickStripWidgetsArr)
+        // Embed the contact-shortcut library as a parsed JSON array (not a string) so the
+        // backup remains human-readable and round-trips through json libraries cleanly.
+        root.put("contactShortcuts", JSONArray(prefs.contactShortcutsJson))
+
         return root.toString(2)
     }
 
@@ -148,5 +157,14 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.pinFailedAttempts        = 0
         prefs.pinLockoutUntilEpochMs   = 0L
         prefs.pinLockoutUntilElapsedMs = 0L
+
+        // Quick toggles strip
+        prefs.quickStripEnabled = root.optBoolean("quickStripEnabled", false)
+        root.optJSONArray("quickStripWidgets")?.let { arr ->
+            prefs.quickStripWidgets = (0 until arr.length()).map { arr.getString(it) }
+        }
+        root.optJSONArray("contactShortcuts")?.let { arr ->
+            prefs.contactShortcutsJson = arr.toString()
+        }
     }
 }

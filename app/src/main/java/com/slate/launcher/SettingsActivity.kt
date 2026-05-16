@@ -33,6 +33,9 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
+import com.slate.launcher.widgets.ContactShortcut
+import com.slate.launcher.widgets.ContactShortcutStore
+import com.slate.launcher.widgets.WidgetPickerDialog
 import android.view.accessibility.AccessibilityManager
 import java.io.File
 
@@ -45,6 +48,10 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var importFontLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var requestRoleLauncher: ActivityResultLauncher<Intent>
     private lateinit var batteryExemptLauncher: ActivityResultLauncher<Intent>
+    private lateinit var pickContactLauncher: ActivityResultLauncher<Intent>
+    // Tracks whether the user is currently adding a "call" or "sms" shortcut so the picker
+    // callback knows which widget kind to construct.
+    private var pendingShortcutType: ContactShortcut.Type? = null
     // awaitingAccessibilityPermission and awaitingNotificationPermission
     // are persisted in PreferencesManager to survive process death
 
@@ -113,6 +120,20 @@ class SettingsActivity : AppCompatActivity() {
             ActivityResultContracts.StartActivityForResult()
         ) { updateBatteryBanner() }
 
+        // Picker on Phone.CONTENT_URI returns a URI directly to the selected Phone row, with a
+        // one-shot read grant. This avoids needing READ_CONTACTS (the system grants temporary
+        // access to that exact row), and naturally resolves contacts with multiple numbers since
+        // the user picks the specific number in the picker UI.
+        pickContactLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == android.app.Activity.RESULT_OK) {
+                result.data?.data?.let { onContactPicked(it) }
+            } else {
+                pendingShortcutType = null
+            }
+        }
+
         prefs = PreferencesManager(this)
         setContentView(R.layout.activity_settings)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -127,12 +148,20 @@ class SettingsActivity : AppCompatActivity() {
         setupSearch()
         setupBackup()
         setupGeneral()
+        setupQuickStrip()
         setupSecurity()
         setupAbout()
         setupBatteryBanner()
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
+
+    override fun onDestroy() {
+        // Prevent android.view.WindowLeaked if the widget picker is showing during rotation /
+        // configuration change.
+        com.slate.launcher.widgets.WidgetPickerDialog.dismissActive()
+        super.onDestroy()
+    }
 
     override fun onResume() {
         super.onResume()
@@ -255,7 +284,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val dividerColor = if (isLight) Color.parseColor("#22000000") else Color.parseColor("#22FFFFFF")
         listOf(R.id.divider0, R.id.divider1, R.id.divider1b, R.id.divider2,
-               R.id.divider3, R.id.divider4, R.id.divider5, R.id.divider6).forEach { id ->
+               R.id.divider3, R.id.divider3b, R.id.divider4, R.id.divider5, R.id.divider6).forEach { id ->
             findViewById<View>(id)?.setBackgroundColor(dividerColor)
         }
 
@@ -271,7 +300,8 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchFollowSystemTheme),
             findViewById(R.id.switchAlphaFastScroll),
             findViewById(R.id.switchHiddenAppsSecurity),
-            findViewById(R.id.switchBiometric)
+            findViewById(R.id.switchBiometric),
+            findViewById(R.id.switchQuickStrip)
         )
     }
 
@@ -1180,6 +1210,114 @@ class SettingsActivity : AppCompatActivity() {
             intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
         )
         return info?.activityInfo?.packageName == packageName
+    }
+
+    // ── Quick toggles strip ───────────────────────────────────────
+
+    private fun setupQuickStrip() {
+        val switch = findViewById<MaterialSwitch>(R.id.switchQuickStrip)
+        val rowChooseWidgets = findViewById<View>(R.id.rowChooseWidgets)
+        val labelChooseValue = findViewById<TextView>(R.id.labelChooseWidgetsValue)
+
+        fun isLight() = isColorLight(parseColorSafe(prefs.backgroundColor))
+        fun secondary() =
+            if (isLight()) Color.parseColor("#555555") else Color.parseColor("#AAAAAA")
+
+        fun refreshChooseValueLabel() {
+            val count = prefs.quickStripWidgets.size
+            labelChooseValue.text = when (count) {
+                0 -> "None selected"
+                1 -> "1 widget enabled"
+                else -> "$count widgets enabled"
+            }
+            labelChooseValue.setTextColor(secondary())
+        }
+
+        fun applyVisibility() {
+            rowChooseWidgets.visibility =
+                if (prefs.quickStripEnabled) View.VISIBLE else View.GONE
+        }
+
+        refreshChooseValueLabel()
+        applyVisibility()
+
+        switch.setOnCheckedChangeListener(null)
+        switch.isChecked = prefs.quickStripEnabled
+        switch.setOnCheckedChangeListener { _, checked ->
+            prefs.quickStripEnabled = checked
+            applyVisibility()
+        }
+
+        rowChooseWidgets.setOnClickListener {
+            WidgetPickerDialog(
+                context = this,
+                prefs = prefs,
+                onChanged = { refreshChooseValueLabel() },
+                onAddShortcut = { type -> launchContactPickerFor(type) }
+            ).show()
+        }
+    }
+
+    /** Launch the system contact picker pre-filtered on Phone rows. */
+    private fun launchContactPickerFor(type: ContactShortcut.Type) {
+        pendingShortcutType = type
+        val intent = Intent(
+            Intent.ACTION_PICK,
+            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+        )
+        runCatching { pickContactLauncher.launch(intent) }
+            .onFailure {
+                pendingShortcutType = null
+                Toast.makeText(this, "No contacts app available", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    /**
+     * Resolve the URI returned by `Intent(ACTION_PICK, Phone.CONTENT_URI)` into a phone number and
+     * display name, then persist a new [ContactShortcut] and auto-enable it in the strip. The URI
+     * carries a temporary read grant, so this query works without `READ_CONTACTS`.
+     */
+    private fun onContactPicked(uri: android.net.Uri) {
+        val type = pendingShortcutType ?: return
+        pendingShortcutType = null
+        val projection = arrayOf(
+            android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER,
+            android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            android.provider.ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY
+        )
+        val (number, displayName, lookupKey) = runCatching {
+            contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                if (!cursor.moveToFirst()) return@runCatching Triple<String?, String?, String?>(null, null, null)
+                Triple(
+                    cursor.getString(0),
+                    cursor.getString(1),
+                    cursor.getString(2)
+                )
+            } ?: Triple<String?, String?, String?>(null, null, null)
+        }.getOrDefault(Triple(null, null, null))
+
+        if (number.isNullOrBlank() || displayName.isNullOrBlank() || lookupKey.isNullOrBlank()) {
+            Toast.makeText(this, "Couldn't read the selected contact", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val shortcut = ContactShortcut(
+            type = type,
+            // The contact lookup_key is stable across edits, merges, syncs; we use it as the
+            // widget's identity rather than the volatile row _ID.
+            lookupUri = lookupKey,
+            displayName = displayName,
+            number = number
+        )
+        ContactShortcutStore.add(prefs, shortcut)
+
+        // Auto-enable the new shortcut in the strip so the user immediately sees it.
+        val current = prefs.quickStripWidgets.toMutableList()
+        if (!current.contains(shortcut.id)) {
+            current.add(shortcut.id)
+            prefs.quickStripWidgets = current
+        }
+        WidgetPickerDialog.refreshActive()
     }
 
     // ── Hidden apps security ──────────────────────────────────────

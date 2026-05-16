@@ -1023,6 +1023,103 @@
             android:layout_marginStart="28dp"
             android:layout_marginEnd="28dp" />
 
+        <!-- ── Quick toggles ── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="28dp"
+            android:paddingTop="28dp"
+            android:paddingBottom="24dp">
+
+            <TextView
+                style="@style/SectionLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Quick toggles" />
+
+            <!-- Master toggle -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="10dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Show toggles strip"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="A row of status/quick-toggle labels at the bottom of home"
+                        android:textSize="13sp"
+                        android:alpha="0.6" />
+                </LinearLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchQuickStrip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <!-- Choose widgets (sub-row, only when master is on) -->
+            <LinearLayout
+                android:id="@+id/rowChooseWidgets"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="12dp"
+                android:paddingStart="16dp"
+                android:background="?attr/selectableItemBackground"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Choose widgets"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:id="@+id/labelChooseWidgetsValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="13sp"
+                        android:alpha="0.6" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="→"
+                    android:textSize="17sp" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <View
+            android:id="@+id/divider3b"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginStart="28dp"
+            android:layout_marginEnd="28dp" />
+
         <!-- ── Backup ── -->
         <LinearLayout
             android:layout_width="match_parent"
