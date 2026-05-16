@@ -38,6 +38,7 @@ import com.google.android.flexbox.FlexDirection
 import com.google.android.flexbox.FlexboxLayout
 import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.JustifyContent
+import com.slate.launcher.widgets.QuickStripManager
 import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
 import java.io.File
@@ -54,6 +55,7 @@ class AppDrawerFragment : Fragment() {
     private lateinit var fastScrollBubble: TextView
     private lateinit var prefs: PreferencesManager
     private lateinit var repository: AppRepository
+    private var quickStrip: QuickStripManager? = null
 
     private var isSearchOpen = false
     private var touchStartedOnApp = false
@@ -78,6 +80,8 @@ class AppDrawerFragment : Fragment() {
         searchClose = view.findViewById(R.id.searchClose)
         fastScroll = view.findViewById(R.id.fastScroll)
         fastScrollBubble = view.findViewById(R.id.fastScrollBubble)
+
+        quickStrip = QuickStripManager(view.findViewById(R.id.quickStripContainer), prefs)
 
         setupSearch()
         setupFastScroll()
@@ -206,12 +210,26 @@ class AppDrawerFragment : Fragment() {
             searchContainer.visibility = View.GONE
         }
         buildAppList()
+        quickStrip?.let {
+            it.bind()
+            it.start()
+        }
     }
 
     override fun onPause() {
         super.onPause()
         SlateNotificationService.onChange = null
         fastScrollBubble.animate().cancel()
+        quickStrip?.stop()
+    }
+
+    override fun onDestroyView() {
+        // Drop the QuickStripManager's reference to the (now-defunct) FlexboxLayout, and make
+        // sure any straggling observers are unregistered. onPause should always have fired first,
+        // but defensive cleanup costs nothing.
+        quickStrip?.stop()
+        quickStrip = null
+        super.onDestroyView()
     }
 
     // ── Search ────────────────────────────────────────────────────
