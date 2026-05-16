@@ -8,7 +8,7 @@ import android.os.Build
 
 class AppRepository(private val context: Context, private val prefs: PreferencesManager) {
 
-    fun getAllApps(): List<AppInfo> {
+    fun getAllApps(forceAlphabetical: Boolean = false): List<AppInfo> {
         val intent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
@@ -36,7 +36,8 @@ class AppRepository(private val context: Context, private val prefs: Preferences
             }
 
         val pinned = prefs.pinnedApps
-        val sorted = if (prefs.sortByUsage) {
+        val sortByUsage = !forceAlphabetical && prefs.sortByUsage
+        val sorted = if (sortByUsage) {
             apps.sortedByDescending { prefs.getUsageCount(it.packageName) }
         } else {
             apps.sortedBy { it.name.lowercase() }
