@@ -52,6 +52,17 @@ class PreferencesManager(context: Context) {
         private const val KEY_FOLDERS = "folders_v1"
         private const val KEY_GUIDED_TOUR_STEP = "guided_tour_step_index"
         private const val KEY_GUIDED_TOUR_VERSION_SEEN = "guided_tour_version_seen"
+        private const val KEY_FOLDER_STYLE = "folder_style"
+
+        // How folder labels appear on the home screen. Default `chevron` preserves the
+        // out-of-the-box behaviour; any unknown stored value also falls back to chevron at
+        // render time so renaming or removing a style is safe.
+        const val FOLDER_STYLE_CHEVRON = "chevron"     // "Work ›"
+        const val FOLDER_STYLE_SLASH = "slash"         // "Work/"
+        const val FOLDER_STYLE_BULLET = "bullet"       // "• Work"
+        const val FOLDER_STYLE_BRACKETS = "brackets"   // "[Work]"
+        const val FOLDER_STYLE_COUNT = "count"         // "Work (5)"
+        const val FOLDER_STYLE_PLAIN = "plain"         // "Work"
         // Comma-separated ordered list of widget ids — small payload, simple format.
         const val DEFAULT_QUICK_STRIP_WIDGETS = "clock,battery"
 
@@ -260,6 +271,11 @@ class PreferencesManager(context: Context) {
     var guidedTourSeenVersion: Int
         get() = prefs.getInt(KEY_GUIDED_TOUR_VERSION_SEEN, 0)
         set(value) = prefs.edit().putInt(KEY_GUIDED_TOUR_VERSION_SEEN, value).apply()
+
+    /** One of the `FOLDER_STYLE_*` constants. Default is chevron — matches current behaviour. */
+    var folderStyle: String
+        get() = prefs.getString(KEY_FOLDER_STYLE, FOLDER_STYLE_CHEVRON) ?: FOLDER_STYLE_CHEVRON
+        set(value) = prefs.edit().putString(KEY_FOLDER_STYLE, value).apply()
 
     // ── Per-app custom names ──────────────────────────────────────
 

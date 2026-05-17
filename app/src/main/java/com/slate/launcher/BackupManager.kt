@@ -94,6 +94,9 @@ class BackupManager(private val prefs: PreferencesManager) {
         // NOT re-trigger the tour. Don't persist `stepIndex`; mid-tour state is device-local.
         root.put("guidedTourSeenVersion", prefs.guidedTourSeenVersion)
 
+        // Folder display style (chevron/slash/bullet/brackets/count/plain).
+        root.put("folderStyle", prefs.folderStyle)
+
         return root.toString(2)
     }
 
@@ -182,6 +185,12 @@ class BackupManager(private val prefs: PreferencesManager) {
         if (root.has("guidedTourSeenVersion")) {
             prefs.guidedTourSeenVersion = root.optInt("guidedTourSeenVersion", 0)
             prefs.guidedTourStepIndex = -1
+        }
+
+        // Folder display style; absence or empty falls back to the chevron default at read time.
+        if (root.has("folderStyle")) {
+            val style = root.optString("folderStyle")
+            if (style.isNotEmpty()) prefs.folderStyle = style
         }
     }
 }
