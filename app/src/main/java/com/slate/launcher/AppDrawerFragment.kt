@@ -362,8 +362,12 @@ class AppDrawerFragment : Fragment() {
         val matchedApps = all.filter { it.name.contains(query, ignoreCase = true) }
         val matchedFolders = FolderStore.all(prefs)
             .filter { it.name.contains(query, ignoreCase = true) }
-        val items: List<HomeItem> = matchedFolders.map { HomeItem.FolderItem(it) } +
-            matchedApps.map { HomeItem.AppItem(it) }
+        // Compute visibleCount per matched folder so the Count style renders the same number
+        // search results show as the main view would.
+        val visiblePackages = all.mapTo(HashSet()) { it.packageName }
+        val items: List<HomeItem> = matchedFolders.map { folder ->
+            HomeItem.FolderItem(folder, folder.packages.count { it in visiblePackages })
+        } + matchedApps.map { HomeItem.AppItem(it) }
         renderItems(items, all)
         fastScroll.visibility = View.GONE
     }
@@ -531,6 +535,7 @@ class AppDrawerFragment : Fragment() {
         )
         is HomeItem.FolderItem -> createFolderTextView(
             folder = item.folder,
+            visibleCount = item.visibleCount,
             size = size,
             defaultColor = defaultTextColor,
             typeface = typeface,
@@ -546,6 +551,7 @@ class AppDrawerFragment : Fragment() {
 
     private fun createFolderTextView(
         folder: Folder,
+        visibleCount: Int,
         size: Float,
         defaultColor: Int,
         typeface: Typeface,
@@ -553,8 +559,9 @@ class AppDrawerFragment : Fragment() {
         vPad: Int,
         gravity: Int
     ): TextView = TextView(requireContext()).apply {
-        // NBSP keeps the chevron glued to the folder name even when Flow wraps to a new line.
-        text = "${folder.name} ›"
+        // Marker style is user-selectable; folderLabel composes the final string. The NBSP in
+        // the chevron form keeps the marker glued to the name when Flow wraps mid-paragraph.
+        text = folderLabel(folder, visibleCount)
         textSize = size
         val color = folder.color?.let { parseColorSafe(it, defaultColor) } ?: defaultColor
         setTextColor(color)
@@ -569,6 +576,22 @@ class AppDrawerFragment : Fragment() {
             false
         }
     }
+
+    /**
+     * Compose the folder label per [PreferencesManager.folderStyle]. Any unrecognised stored
+     * value (e.g., from a future style we later remove) falls through to the chevron default
+     * rather than rendering an empty marker — never breaks the layout. NBSP (U+00A0) keeps the
+     * chevron glued to the name when Flow wraps mid-paragraph.
+     */
+    private fun folderLabel(folder: Folder, visibleCount: Int): String =
+        when (prefs.folderStyle) {
+            PreferencesManager.FOLDER_STYLE_SLASH    -> "${folder.name}/"
+            PreferencesManager.FOLDER_STYLE_BULLET   -> "• ${folder.name}"
+            PreferencesManager.FOLDER_STYLE_BRACKETS -> "[${folder.name}]"
+            PreferencesManager.FOLDER_STYLE_COUNT    -> "${folder.name} ($visibleCount)"
+            PreferencesManager.FOLDER_STYLE_PLAIN    -> folder.name
+            else                                     -> "${folder.name} ›"
+        }
 
     private fun createBackOutTextView(
         size: Float,
@@ -1291,7 +1314,7 @@ class AppDrawerFragment : Fragment() {
                 "Turning on \"Lock hidden apps\" in Settings → Security asks you to set a 4–8 digit PIN. After that, opening the Hidden Apps dialog from the home long-press menu requires PIN (or biometric, if you opt in).\n\nYour PIN is never stored in plain text. Slate stores a salted PBKDF2-HMAC-SHA256 hash with 120,000 iterations and a per-device random 16-byte salt. The hash is a one-way verifier — even with the file, an attacker would have to brute-force the PIN.\n\nBiometric is optional. When enabled, Slate uses Android's BiometricPrompt to show the standard fingerprint/face dialog. Biometric data stays inside the OS and Slate only sees a success/fail signal.\n\nAfter 5 wrong PIN attempts you're locked out for 30 seconds; 10 wrong for 5 minutes; 15 wrong for 15 minutes. There is no PIN recovery — clearing app data is the only reset.",
 
             "How do folders work?" to
-                "Long-press any app and choose \"Move to folder\" to add it to an existing folder, or pick \"+ New folder\" to create one on the spot. Folders appear on the home screen as a text label ending in a small ›. Tap to expand inline — the home list is replaced by the folder's apps with a leading ‹ back row. Tap back (or press the system back gesture) to return.\n\nEach app lives in at most one folder. Apps inside a folder are hidden from the main list to reduce clutter — search still finds them globally, and the folder name itself also appears in search results.\n\nLong-press a folder label to rename, set a custom color, or delete. Deleting a folder returns its apps to the main list; the apps themselves are never removed. Pinning an app automatically removes it from any folder it was in. If you uninstall an app, it disappears from its folder; empty folders are pruned automatically.",
+                "Long-press any app and choose \"Move to folder\" to add it to an existing folder, or pick \"+ New folder\" to create one on the spot. Folders appear on the home screen with a marker (chevron, bullet, brackets, slash, count, or plain — pick your style in Settings → Typography → Folder style). Tap to expand inline — the home list is replaced by the folder's apps with a leading ‹ back row. Tap back (or press the system back gesture) to return.\n\nEach app lives in at most one folder. Apps inside a folder are hidden from the main list to reduce clutter — search still finds them globally, and the folder name itself also appears in search results.\n\nLong-press a folder label to rename, set a custom color, or delete. Deleting a folder returns its apps to the main list; the apps themselves are never removed. Pinning an app automatically removes it from any folder it was in. If you uninstall an app, it disappears from its folder; empty folders are pruned automatically.",
 
             "Is Slate open source?" to
                 "Yes. Slate is open source under the MIT licence.\n\nSource code: github.com/roufsyed/Slate-Minimal-Launcher"

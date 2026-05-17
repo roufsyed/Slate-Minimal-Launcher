@@ -93,10 +93,14 @@ class AppRepository(private val context: Context, private val prefs: Preferences
             folder.packages.any { pkg -> pkg in visiblePackages }
         }
 
-        // Interleave apps + folders under the same sort rule.
+        // Interleave apps + folders under the same sort rule. visibleCount is computed against
+        // the user's visible-app set so the "count" folder-style marker matches what the user
+        // sees on expand (hidden / uninstalled members aren't counted).
         val mixedItems: List<HomeItem> =
             nonPinnedFlatApps.map { HomeItem.AppItem(it) } +
-            visibleFolders.map { HomeItem.FolderItem(it) }
+            visibleFolders.map { folder ->
+                HomeItem.FolderItem(folder, folder.packages.count { it in visiblePackages })
+            }
 
         val sortedMixed = if (prefs.sortByUsage) {
             mixedItems.sortedByDescending { item ->

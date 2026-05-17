@@ -95,6 +95,17 @@ class SettingsActivity : AppCompatActivity() {
             ColorPreset("#d0d0d0", "#263238"),
             ColorPreset("#0f3460", "#d0d0d0"),
         )
+
+        // (pref value, picker label) — order here drives picker order and the default-on-unknown
+        // fallback in `folderStyleDisplayLabel`. Keep Chevron first so it doubles as the default.
+        val FOLDER_STYLE_LABELS: List<Pair<String, String>> = listOf(
+            PreferencesManager.FOLDER_STYLE_CHEVRON  to "Chevron",
+            PreferencesManager.FOLDER_STYLE_SLASH    to "Slash",
+            PreferencesManager.FOLDER_STYLE_BULLET   to "Bullet",
+            PreferencesManager.FOLDER_STYLE_BRACKETS to "Brackets",
+            PreferencesManager.FOLDER_STYLE_COUNT    to "Count",
+            PreferencesManager.FOLDER_STYLE_PLAIN    to "Plain",
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -484,7 +495,29 @@ class SettingsActivity : AppCompatActivity() {
                 weightValue.text = label
             }.show()
         }
+
+        // Folder style — picker maps human labels to the FOLDER_STYLE_* pref values.
+        val folderStyleValue = findViewById<TextView>(R.id.folderStyleValue)
+        folderStyleValue.setTextColor(secondary)
+        folderStyleValue.text = folderStyleDisplayLabel(prefs.folderStyle)
+
+        findViewById<android.view.View>(R.id.rowFolderStyle).setOnClickListener {
+            SlateListDialog(
+                context = this,
+                title = "Folder style",
+                items = FOLDER_STYLE_LABELS.map { it.second },
+                bgColor = prefs.backgroundColor
+            ) { index, label ->
+                prefs.folderStyle = FOLDER_STYLE_LABELS[index].first
+                folderStyleValue.text = label
+            }.show()
+        }
     }
+
+    /** Resolve the persisted pref value to the user-visible row label. */
+    private fun folderStyleDisplayLabel(value: String): String =
+        FOLDER_STYLE_LABELS.firstOrNull { it.first == value }?.second
+            ?: FOLDER_STYLE_LABELS.first().second
 
     private var _fontValueRef: TextView? = null
 

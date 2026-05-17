@@ -7,6 +7,11 @@ package com.slate.launcher
  */
 sealed class HomeItem {
     data class AppItem(val info: AppInfo) : HomeItem()
-    data class FolderItem(val folder: Folder) : HomeItem()
+    /**
+     * @param visibleCount how many of the folder's packages are currently visible (i.e., not
+     * hidden, not uninstalled). Surfaced by the `count` folder-style marker `Work (n)` so the
+     * number matches what the user sees on expand; ignored by the other styles.
+     */
+    data class FolderItem(val folder: Folder, val visibleCount: Int) : HomeItem()
     data object BackOut : HomeItem()
 }
