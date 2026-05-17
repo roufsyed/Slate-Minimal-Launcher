@@ -84,7 +84,21 @@ class AppDrawerFragment : Fragment() {
         fastScroll = view.findViewById(R.id.fastScroll)
         fastScrollBubble = view.findViewById(R.id.fastScrollBubble)
 
-        quickStrip = QuickStripManager(view.findViewById(R.id.quickStripContainer), prefs)
+        // Forward touches that begin on the strip into the home gesture detector so swipes
+        // starting on the chrome execute the user's configured 1-finger gestures (instead of
+        // dying because the strip has no scroll/gesture handlers of its own). Clearing the
+        // `touchStartedOnApp` flag on DOWN matches the blank-home-space semantics — long-press
+        // on the strip then opens the home long-press menu, not an app menu. The lambda reads
+        // `singleFingerDetector` lazily; the detector is initialised later in this same
+        // onViewCreated but always before any touch fires.
+        quickStrip = QuickStripManager(
+            container = view.findViewById(R.id.quickStripContainer),
+            prefs = prefs,
+            touchForwarder = { event ->
+                if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = false
+                singleFingerDetector.onTouchEvent(event)
+            }
+        )
 
         setupSearch()
         setupFastScroll()

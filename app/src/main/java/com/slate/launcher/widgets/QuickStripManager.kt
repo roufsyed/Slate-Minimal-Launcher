@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.widget.TextView
 import com.google.android.flexbox.AlignItems
@@ -26,7 +27,14 @@ import com.slate.launcher.PreferencesManager
  */
 class QuickStripManager(
     private val container: FlexboxLayout,
-    private val prefs: PreferencesManager
+    private val prefs: PreferencesManager,
+    /**
+     * Called for every touch event on the strip (both on individual widgets and on empty space
+     * between them). Lets the host fragment forward the event into its single-finger gesture
+     * detector so swipes that start on the strip fire the user's configured gestures instead of
+     * dying on the chrome. May be null in non-fragment contexts (tests, previews).
+     */
+    private val touchForwarder: ((MotionEvent) -> Unit)? = null
 ) {
 
     private val context: Context = container.context
@@ -40,6 +48,21 @@ class QuickStripManager(
         container.flexWrap = FlexWrap.WRAP
         container.justifyContent = JustifyContent.CENTER
         container.alignItems = AlignItems.CENTER
+        installContainerTouchForwarder()
+    }
+
+    /**
+     * Forward touches that land on the strip container's blank space (no widget hit) into the
+     * gesture detector. Returns true on every event to claim the touch sequence — a
+     * non-clickable ViewGroup that returns false on ACTION_DOWN never receives subsequent
+     * MOVE/UP events, which would break swipe-from-empty-strip-space gestures.
+     */
+    private fun installContainerTouchForwarder() {
+        val forwarder = touchForwarder ?: return
+        container.setOnTouchListener { _, event ->
+            forwarder(event)
+            true
+        }
     }
 
     /** Resolve the configured widget set; build the views. Safe to call repeatedly. */
@@ -122,6 +145,18 @@ class QuickStripManager(
             isFocusable = true
             setOnClickListener {
                 runCatching { widget.onTap(context) }
+            }
+            // Forward all touches to the host fragment's gesture detector. Returning false from
+            // the touch listener lets the TextView's own onTouchEvent process click/long-click
+            // normally (the View is `clickable=true`, so it consumes the sequence and we
+            // continue receiving MOVE/UP events). Android's click semantics ignore events with
+            // significant movement, so a swipe across this widget fires the gesture without
+            // also triggering the click listener.
+            touchForwarder?.let { fwd ->
+                setOnTouchListener { _, event ->
+                    fwd(event)
+                    false
+                }
             }
         }
     }
