@@ -362,6 +362,7 @@
                         android:textSize="17sp" />
 
                     <TextView
+                        android:id="@+id/labelAlphaFastScrollSub"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Side index to jump letters (sorts A–Z)"

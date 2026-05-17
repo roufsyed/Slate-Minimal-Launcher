@@ -1054,12 +1054,13 @@ class SettingsActivity : AppCompatActivity() {
         val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#AAAAAA")
         val density = resources.displayMetrics.density
 
-        // Sort by usage
+        // Sort by usage — also gates Alphabetical fast scroll (see refreshAlphaFastScrollGate
+        // below). Local closures are used to keep the cross-row dependency explicit and
+        // co-located with both setters.
         val switchSortUsage = findViewById<MaterialSwitch>(R.id.switchSortByUsage)
         switchSortUsage.isChecked = prefs.sortByUsage
-        switchSortUsage.setOnCheckedChangeListener { _, checked ->
-            prefs.sortByUsage = checked
-        }
+        // Listener registered AFTER the gate closure is declared below so the listener can
+        // call refreshAlphaFastScrollGate() — see below.
 
         // Lock orientation
         val switchLockOrientation = findViewById<MaterialSwitch>(R.id.switchLockOrientation)
@@ -1120,11 +1121,33 @@ class SettingsActivity : AppCompatActivity() {
         val homescreenViewValue = findViewById<TextView>(R.id.homescreenViewValue)
         val rowAlphaFastScroll = findViewById<View>(R.id.rowAlphaFastScroll)
         val switchAlphaFastScroll = findViewById<MaterialSwitch>(R.id.switchAlphaFastScroll)
+        val labelAlphaFastScrollSub = findViewById<TextView>(R.id.labelAlphaFastScrollSub)
 
         homescreenViewValue.setTextColor(secondary)
         homescreenViewValue.text = homescreenViewLabel(prefs.homescreenView)
-        rowAlphaFastScroll.visibility =
-            if (prefs.homescreenView == PreferencesManager.VIEW_LIST) View.VISIBLE else View.GONE
+
+        // Cross-row gate for "Alphabetical fast scroll":
+        //   - HIDDEN when homescreenView != list (the feature is list-only).
+        //   - VISIBLE + DISABLED + greyed when sortByUsage is on, because alphabetical fast
+        //     scroll only makes sense over an alphabetical list. The sub-label changes to tell
+        //     the user how to enable it. Keeping the row visible (rather than hiding it again)
+        //     preserves discoverability — if we hid it on `sortByUsage`, users who enable
+        //     sort-by-usage would think the feature vanished.
+        //   - VISIBLE + ENABLED otherwise.
+        // The pref value `alphabeticalFastScroll` is PRESERVED across both transitions so the
+        // toggle re-lights at the user's previous position when they switch back to alphabetical
+        // sort. Matches how `notificationHighlightColor` persists when highlight is off.
+        val defaultSubLabel = "Side index to jump letters (sorts A–Z)"
+        val blockedSubLabel = "Turn off Sort by most used to enable"
+        fun refreshAlphaFastScrollGate() {
+            val isList = prefs.homescreenView == PreferencesManager.VIEW_LIST
+            rowAlphaFastScroll.visibility = if (isList) View.VISIBLE else View.GONE
+            if (!isList) return
+            val blocked = prefs.sortByUsage
+            switchAlphaFastScroll.isEnabled = !blocked
+            rowAlphaFastScroll.alpha = if (blocked) 0.4f else 1f
+            labelAlphaFastScrollSub.text = if (blocked) blockedSubLabel else defaultSubLabel
+        }
 
         findViewById<View>(R.id.rowHomescreenView).setOnClickListener {
             SlateListDialog(
@@ -1136,8 +1159,7 @@ class SettingsActivity : AppCompatActivity() {
                 prefs.homescreenView =
                     if (index == 0) PreferencesManager.VIEW_FLOW else PreferencesManager.VIEW_LIST
                 homescreenViewValue.text = label
-                rowAlphaFastScroll.visibility =
-                    if (prefs.homescreenView == PreferencesManager.VIEW_LIST) View.VISIBLE else View.GONE
+                refreshAlphaFastScrollGate()
                 applyHomescreenViewToTextSize()
             }.show()
         }
@@ -1146,6 +1168,17 @@ class SettingsActivity : AppCompatActivity() {
         switchAlphaFastScroll.setOnCheckedChangeListener { _, checked ->
             prefs.alphabeticalFastScroll = checked
         }
+
+        // Wire the Sort-by-usage listener here (the switch was declared earlier; we register the
+        // listener now because it must also refresh the fast-scroll gate, whose closure lives in
+        // this scope).
+        switchSortUsage.setOnCheckedChangeListener { _, checked ->
+            prefs.sortByUsage = checked
+            refreshAlphaFastScrollGate()
+        }
+
+        // Initial state for the gate — covers a fresh open of Settings.
+        refreshAlphaFastScrollGate()
 
         // Default launcher row
         findViewById<View>(R.id.rowDefaultLauncher).setOnClickListener {
