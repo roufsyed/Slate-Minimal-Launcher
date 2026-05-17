@@ -373,6 +373,15 @@ class SettingsActivity : AppCompatActivity() {
         val maxSeekBar = findViewById<SeekBar>(R.id.maxFontSeekBar)
         val maxLabel = findViewById<TextView>(R.id.maxFontLabel)
 
+        // Normalize any inverted Min/Max that may have been persisted (e.g., from a backup
+        // imported before the cross-clamp listeners shipped, or from a much older app version
+        // that allowed inversion). Pull Max up to Min so the slider state is always valid by
+        // the time the sliders render. The overlap zone 20–24 sp is present in both MIN_SIZES
+        // (8–24) and MAX_SIZES (20–60), so this assignment always lands on a valid index.
+        if (prefs.maxFontSize < prefs.minFontSize) {
+            prefs.maxFontSize = prefs.minFontSize
+        }
+
         minSeekBar.max = MIN_SIZES.size - 1
         minSeekBar.progress = MIN_SIZES.indexOf(prefs.minFontSize)
             .takeIf { it >= 0 } ?: MIN_SIZES.indexOf(PreferencesManager.DEFAULT_MIN_FONT_SIZE).coerceAtLeast(0)
@@ -383,11 +392,35 @@ class SettingsActivity : AppCompatActivity() {
             .takeIf { it >= 0 } ?: MAX_SIZES.indexOf(PreferencesManager.DEFAULT_MAX_FONT_SIZE).coerceAtLeast(0)
         maxLabel.text = "${prefs.maxFontSize}sp"
 
+        // Cross-clamp: when the user drags Min above Max (or Max below Min), pull the other
+        // slider along visibly. The two slider ranges overlap in 20–24 sp, so the indexOf
+        // lookup on the paired list always succeeds for any reachable cross-point.
+        //
+        // The programmatic `progress = …` does NOT recursively fire the paired listener:
+        // `seekBarListener` guards on `fromUser`, so user-initiated and programmatic updates
+        // are distinguishable. No feedback loop, no debouncing needed.
+        //
+        // Updating the pref BEFORE the visual progress so any other reader (e.g., the home
+        // renderer if it ever woke up mid-update) sees the consistent state.
         minSeekBar.setOnSeekBarChangeListener(seekBarListener { p ->
-            prefs.minFontSize = MIN_SIZES[p]; minLabel.text = "${MIN_SIZES[p]}sp"
+            val newMin = MIN_SIZES[p]
+            prefs.minFontSize = newMin
+            minLabel.text = "${newMin}sp"
+            if (newMin > prefs.maxFontSize) {
+                prefs.maxFontSize = newMin
+                maxSeekBar.progress = MAX_SIZES.indexOf(newMin).coerceAtLeast(0)
+                maxLabel.text = "${newMin}sp"
+            }
         })
         maxSeekBar.setOnSeekBarChangeListener(seekBarListener { p ->
-            prefs.maxFontSize = MAX_SIZES[p]; maxLabel.text = "${MAX_SIZES[p]}sp"
+            val newMax = MAX_SIZES[p]
+            prefs.maxFontSize = newMax
+            maxLabel.text = "${newMax}sp"
+            if (newMax < prefs.minFontSize) {
+                prefs.minFontSize = newMax
+                minSeekBar.progress = MIN_SIZES.indexOf(newMax).coerceAtLeast(0)
+                minLabel.text = "${newMax}sp"
+            }
         })
 
         val lineSeekBar = findViewById<SeekBar>(R.id.lineSpacingSeekBar)
