@@ -754,8 +754,16 @@ class AppDrawerFragment : Fragment() {
         }
     }
 
+    // Fast scroll only operates over an alphabetical list, so it's mutually exclusive with
+    // Sort by usage. We preserve `prefs.alphabeticalFastScroll` even when Sort by usage is on
+    // (so the toggle re-lights at the user's previous position when they switch sort modes),
+    // but this getter is the single source of truth for the render path — returning false here
+    // suppresses both the fast-scroll widget and the forced-alphabetical override in
+    // AppRepository, so Sort by usage takes effect immediately when the user enables it.
     private fun useFastScroll(): Boolean =
-        prefs.homescreenView == PreferencesManager.VIEW_LIST && prefs.alphabeticalFastScroll
+        prefs.homescreenView == PreferencesManager.VIEW_LIST &&
+        prefs.alphabeticalFastScroll &&
+        !prefs.sortByUsage
 
     private fun buildTypeface(): Typeface {
         val family = prefs.fontFamily
