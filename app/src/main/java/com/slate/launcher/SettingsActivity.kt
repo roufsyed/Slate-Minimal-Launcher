@@ -157,9 +157,10 @@ class SettingsActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
 
     override fun onDestroy() {
-        // Prevent android.view.WindowLeaked if the widget picker is showing during rotation /
+        // Prevent android.view.WindowLeaked if any of our owned dialogs is showing during a
         // configuration change.
         com.slate.launcher.widgets.WidgetPickerDialog.dismissActive()
+        GuidedTourManager.dismissActive()
         super.onDestroy()
     }
 
@@ -1615,6 +1616,11 @@ class SettingsActivity : AppCompatActivity() {
                 Intent(Intent.ACTION_VIEW,
                     Uri.parse("https://github.com/roufsyed/Slate-Minimal-Launcher"))
             )
+        }
+
+        findViewById<View>(R.id.rowGuidedTour)?.setOnClickListener {
+            // Manual re-run resets to step 0 and shows immediately.
+            GuidedTourManager.show(this, prefs)
         }
     }
 }

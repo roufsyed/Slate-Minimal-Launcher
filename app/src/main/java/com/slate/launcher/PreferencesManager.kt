@@ -50,6 +50,8 @@ class PreferencesManager(context: Context) {
         private const val KEY_QUICK_STRIP_WIDGETS = "quick_strip_widgets"
         private const val KEY_CONTACT_SHORTCUTS = "contact_shortcuts"
         private const val KEY_FOLDERS = "folders_v1"
+        private const val KEY_GUIDED_TOUR_STEP = "guided_tour_step_index"
+        private const val KEY_GUIDED_TOUR_VERSION_SEEN = "guided_tour_version_seen"
         // Comma-separated ordered list of widget ids — small payload, simple format.
         const val DEFAULT_QUICK_STRIP_WIDGETS = "clock,battery"
 
@@ -245,6 +247,19 @@ class PreferencesManager(context: Context) {
     var foldersJson: String
         get() = prefs.getString(KEY_FOLDERS, "[]") ?: "[]"
         set(value) = prefs.edit().putString(KEY_FOLDERS, value).apply()
+
+    // ── Guided tour ──────────────────────────────────────────────
+    // `guidedTourStepIndex` is -1 once the user has completed or skipped the tour, 0+ while
+    // mid-tour. Persisted so a process-death mid-tour resumes at the same step.
+    var guidedTourStepIndex: Int
+        get() = prefs.getInt(KEY_GUIDED_TOUR_STEP, 0)
+        set(value) = prefs.edit().putInt(KEY_GUIDED_TOUR_STEP, value).apply()
+
+    // The last CURRENT_TOUR_VERSION the user actually saw. Bumping the in-code constant past
+    // this re-triggers the tour on next resume — used to surface meaningful content updates.
+    var guidedTourSeenVersion: Int
+        get() = prefs.getInt(KEY_GUIDED_TOUR_VERSION_SEEN, 0)
+        set(value) = prefs.edit().putInt(KEY_GUIDED_TOUR_VERSION_SEEN, value).apply()
 
     // ── Per-app custom names ──────────────────────────────────────
 

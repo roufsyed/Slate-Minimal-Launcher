@@ -90,6 +90,10 @@ class BackupManager(private val prefs: PreferencesManager) {
         // User-created folders. Same human-readable strategy as contactShortcuts.
         root.put("folders", JSONArray(prefs.foldersJson))
 
+        // Guided tour: persist the version the user finished — restoring on a new device should
+        // NOT re-trigger the tour. Don't persist `stepIndex`; mid-tour state is device-local.
+        root.put("guidedTourSeenVersion", prefs.guidedTourSeenVersion)
+
         return root.toString(2)
     }
 
@@ -171,6 +175,13 @@ class BackupManager(private val prefs: PreferencesManager) {
         }
         root.optJSONArray("folders")?.let { arr ->
             prefs.foldersJson = arr.toString()
+        }
+        // Restoring `seenVersion` suppresses the auto-tour on the new device (the user already
+        // saw it before exporting). Mid-tour `stepIndex` is intentionally reset so a partial
+        // tour on the old device doesn't pop up here.
+        if (root.has("guidedTourSeenVersion")) {
+            prefs.guidedTourSeenVersion = root.optInt("guidedTourSeenVersion", 0)
+            prefs.guidedTourStepIndex = -1
         }
     }
 }

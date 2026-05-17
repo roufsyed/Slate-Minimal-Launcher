@@ -62,6 +62,15 @@ class MainActivity : AppCompatActivity() {
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         else
             ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        // Show the one-time guided tour (or resume an interrupted one). No-op if the user has
+        // already completed or skipped at the current tour version.
+        GuidedTourManager.resumeIfPending(this, prefs)
+    }
+
+    override fun onDestroy() {
+        // Prevent android.view.WindowLeaked if a tour dialog is showing during config change.
+        GuidedTourManager.dismissActive()
+        super.onDestroy()
     }
 
     private fun applySystemBarColors() {
