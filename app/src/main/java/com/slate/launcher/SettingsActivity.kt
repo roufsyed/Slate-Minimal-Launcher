@@ -507,7 +507,14 @@ class SettingsActivity : AppCompatActivity() {
                 context = this,
                 title = "Folder style",
                 items = FOLDER_STYLE_LABELS.map { it.second },
-                bgColor = prefs.backgroundColor
+                bgColor = prefs.backgroundColor,
+                // Right-column preview shows exactly how the marker renders for a folder named
+                // "Work". Order MUST match FOLDER_STYLE_LABELS one-for-one — the dialog falls
+                // back to single-column on a size mismatch, so the alignment is enforced by
+                // building this list from the same source.
+                secondaryItems = FOLDER_STYLE_LABELS.map { (key, _) ->
+                    folderStylePreview(key)
+                }
             ) { index, label ->
                 prefs.folderStyle = FOLDER_STYLE_LABELS[index].first
                 folderStyleValue.text = label
@@ -519,6 +526,23 @@ class SettingsActivity : AppCompatActivity() {
     private fun folderStyleDisplayLabel(value: String): String =
         FOLDER_STYLE_LABELS.firstOrNull { it.first == value }?.second
             ?: FOLDER_STYLE_LABELS.first().second
+
+    /**
+     * Sample render of each folder marker style for the picker preview column. Mirrors the
+     * `folderLabel` helper in AppDrawerFragment but with a fixed sample folder name and a
+     * fixed visible-count so the preview is stable. Uses a regular space (not NBSP) for the
+     * bullet/count styles — orphan-wrap protection only matters in Flow's wrapping paragraph,
+     * not inside a single dialog row.
+     */
+    private fun folderStylePreview(styleKey: String): String =
+        when (styleKey) {
+            PreferencesManager.FOLDER_STYLE_SLASH    -> "Work/"
+            PreferencesManager.FOLDER_STYLE_BULLET   -> "• Work"
+            PreferencesManager.FOLDER_STYLE_BRACKETS -> "[Work]"
+            PreferencesManager.FOLDER_STYLE_COUNT    -> "Work (5)"
+            PreferencesManager.FOLDER_STYLE_PLAIN    -> "Work"
+            else                                     -> "Work ›"
+        }
 
     private var _fontValueRef: TextView? = null
 
