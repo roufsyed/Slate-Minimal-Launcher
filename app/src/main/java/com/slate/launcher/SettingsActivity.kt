@@ -953,32 +953,55 @@ class SettingsActivity : AppCompatActivity() {
         val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#AAAAAA")
 
         val switchEnable = findViewById<MaterialSwitch>(R.id.switchSearch)
+        val rowOnHome = findViewById<View>(R.id.rowSearchOnHome)
+        val switchOnHome = findViewById<MaterialSwitch>(R.id.switchSearchOnHome)
+        val labelOnHomeSub = findViewById<TextView>(R.id.labelSearchOnHomeSub)
+        val rowPosition = findViewById<View>(R.id.rowSearchBarPosition)
+        val positionValue = findViewById<TextView>(R.id.searchBarPositionValue)
+
+        positionValue.setTextColor(secondary)
+        positionValue.text = prefs.searchBarPosition.replaceFirstChar { it.uppercaseChar() }
+
+        // Normalize a contradictory persisted state (e.g., from a backup that predates this
+        // gate, or manually-edited JSON) where Show-on-home is true while Search is off. Bring
+        // the sub-option down to false so the visible state matches the gate below.
+        if (!prefs.searchEnabled && prefs.showSearchBarOnHome) {
+            prefs.showSearchBarOnHome = false
+        }
+
+        // Cross-row gate for the Search section. "Show on home" can't exist without Search
+        // itself, so we visibly disable + grey the row when the master is off, and the sub-
+        // label explains how to unlock it. Pattern matches the Sort-by-usage × Fast-scroll
+        // gate added earlier — keeps the dependency self-documenting instead of relying on a
+        // silent auto-enable (the old behaviour, which surprised users).
+        val defaultOnHomeSub = "Keep search bar visible, closes with keyboard"
+        val blockedOnHomeSub = "Turn on Search to enable"
+        fun refreshSearchGates() {
+            val on = prefs.searchEnabled
+            switchOnHome.isEnabled = on
+            rowOnHome.alpha = if (on) 1f else 0.4f
+            labelOnHomeSub.text = if (on) defaultOnHomeSub else blockedOnHomeSub
+            // Position sub-row only shows when BOTH the master and Show-on-home are on.
+            rowPosition.visibility =
+                if (on && prefs.showSearchBarOnHome) View.VISIBLE else View.GONE
+        }
+
         switchEnable.isChecked = prefs.searchEnabled
         switchEnable.setOnCheckedChangeListener { _, checked ->
             prefs.searchEnabled = checked
             if (!checked) {
+                // Master OFF cascades the sub-option off so it can't linger as a stale-but-
+                // disabled "ON" state (which would also show the wrong slider in the gate).
                 prefs.showSearchBarOnHome = false
-                findViewById<MaterialSwitch>(R.id.switchSearchOnHome).isChecked = false
-                findViewById<View>(R.id.rowSearchBarPosition).visibility = View.GONE
+                switchOnHome.setOnCheckedChangeListener(null)
+                switchOnHome.isChecked = false
+                attachOnHomeListener(switchOnHome, rowPosition)
             }
+            refreshSearchGates()
         }
 
-        val rowPosition = findViewById<View>(R.id.rowSearchBarPosition)
-        val positionValue = findViewById<TextView>(R.id.searchBarPositionValue)
-        positionValue.setTextColor(secondary)
-        positionValue.text = prefs.searchBarPosition.replaceFirstChar { it.uppercaseChar() }
-        rowPosition.visibility = if (prefs.showSearchBarOnHome) View.VISIBLE else View.GONE
-
-        val switchOnHome = findViewById<MaterialSwitch>(R.id.switchSearchOnHome)
         switchOnHome.isChecked = prefs.showSearchBarOnHome
-        switchOnHome.setOnCheckedChangeListener { _, checked ->
-            prefs.showSearchBarOnHome = checked
-            rowPosition.visibility = if (checked) View.VISIBLE else View.GONE
-            if (checked && !prefs.searchEnabled) {
-                prefs.searchEnabled = true
-                switchEnable.isChecked = true
-            }
-        }
+        attachOnHomeListener(switchOnHome, rowPosition)
 
         rowPosition.setOnClickListener {
             SlateListDialog(
@@ -990,6 +1013,24 @@ class SettingsActivity : AppCompatActivity() {
                 prefs.searchBarPosition = label.lowercase()
                 positionValue.text = label
             }.show()
+        }
+
+        // Initial gate pass — handles a freshly-opened Settings.
+        refreshSearchGates()
+    }
+
+    /**
+     * The Show-on-home listener. Extracted so the master's cascade can detach-set-reattach
+     * (silent revert pattern) without duplicating the listener body.
+     *
+     * Note: the old silent `if (checked && !searchEnabled) searchEnabled = true` auto-enable
+     * branch is gone. With the gate in place, `switchOnHome.isEnabled = false` when the master
+     * is off, so a user-initiated `checked=true` is impossible while Search is disabled.
+     */
+    private fun attachOnHomeListener(switchOnHome: MaterialSwitch, rowPosition: View) {
+        switchOnHome.setOnCheckedChangeListener { _, checked ->
+            prefs.showSearchBarOnHome = checked
+            rowPosition.visibility = if (checked) View.VISIBLE else View.GONE
         }
     }
 
