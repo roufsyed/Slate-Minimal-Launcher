@@ -194,13 +194,25 @@ class AppDrawerFragment : Fragment() {
             if (!imeVisible && isSearchOpen && !prefs.showSearchBarOnHome) {
                 dismissSearchBar()
             }
-            val newStatusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            // Combine the status-bar inset with the display-cutout inset (camera punch hole,
+            // notch). `getInsets(typeA or typeB)` returns the per-edge UNION/max — so when the
+            // status bar is visible it already covers the cutout (no change); when the status
+            // bar is hidden via `prefs.hideStatusBar`, the cutout inset takes over and the
+            // top-edge chrome (e.g., the quick-toggles strip at the top position) is padded
+            // below the punch hole instead of being drawn under it.
+            val newStatusBarHeight = insets.getInsets(
+                WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()
+            ).top
             if (newStatusBarHeight != statusBarHeight) {
                 statusBarHeight = newStatusBarHeight
                 applyChromeLayout()
             }
             val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            // Same cutout-union treatment at the bottom — handles the (rare) bottom display
+            // cutout. The nav-bar inset is what this evaluates to on almost every device.
+            val navBottom = insets.getInsets(
+                WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.displayCutout()
+            ).bottom
             val newBottomInset = maxOf(imeBottom, navBottom)
             if (newBottomInset != bottomInset) {
                 bottomInset = newBottomInset
