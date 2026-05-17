@@ -171,6 +171,7 @@ class SettingsActivity : AppCompatActivity() {
         // Prevent android.view.WindowLeaked if any of our owned dialogs is showing during a
         // configuration change.
         com.slate.launcher.widgets.WidgetPickerDialog.dismissActive()
+        com.slate.launcher.widgets.WidgetArrangeDialog.dismissActive()
         GuidedTourManager.dismissActive()
         super.onDestroy()
     }
@@ -1250,8 +1251,11 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun setupQuickStrip() {
         val switch = findViewById<MaterialSwitch>(R.id.switchQuickStrip)
+        val rowPosition = findViewById<View>(R.id.rowQuickStripPosition)
+        val positionValue = findViewById<TextView>(R.id.quickStripPositionValue)
         val rowChooseWidgets = findViewById<View>(R.id.rowChooseWidgets)
         val labelChooseValue = findViewById<TextView>(R.id.labelChooseWidgetsValue)
+        val rowArrangeWidgets = findViewById<View>(R.id.rowArrangeWidgets)
 
         fun isLight() = isColorLight(parseColorSafe(prefs.backgroundColor))
         fun secondary() =
@@ -1267,12 +1271,22 @@ class SettingsActivity : AppCompatActivity() {
             labelChooseValue.setTextColor(secondary())
         }
 
+        fun refreshPositionValue() {
+            positionValue.text = if (prefs.quickStripPosition == "top") "Top" else "Bottom"
+            positionValue.setTextColor(secondary())
+        }
+
         fun applyVisibility() {
-            rowChooseWidgets.visibility =
-                if (prefs.quickStripEnabled) View.VISIBLE else View.GONE
+            val on = prefs.quickStripEnabled
+            rowPosition.visibility = if (on) View.VISIBLE else View.GONE
+            rowChooseWidgets.visibility = if (on) View.VISIBLE else View.GONE
+            // Arrange row hides when there's nothing to arrange: 0 or 1 widget enabled.
+            rowArrangeWidgets.visibility =
+                if (on && prefs.quickStripWidgets.size >= 2) View.VISIBLE else View.GONE
         }
 
         refreshChooseValueLabel()
+        refreshPositionValue()
         applyVisibility()
 
         switch.setOnCheckedChangeListener(null)
@@ -1282,12 +1296,36 @@ class SettingsActivity : AppCompatActivity() {
             applyVisibility()
         }
 
+        rowPosition.setOnClickListener {
+            SlateListDialog(
+                context = this,
+                title = "Position",
+                items = listOf("Top", "Bottom"),
+                bgColor = prefs.backgroundColor
+            ) { _, label ->
+                prefs.quickStripPosition = label.lowercase()
+                refreshPositionValue()
+            }.show()
+        }
+
         rowChooseWidgets.setOnClickListener {
             WidgetPickerDialog(
                 context = this,
                 prefs = prefs,
-                onChanged = { refreshChooseValueLabel() },
+                onChanged = {
+                    // Picker can change both selection and count → refresh dependent UI.
+                    refreshChooseValueLabel()
+                    applyVisibility()
+                },
                 onAddShortcut = { type -> launchContactPickerFor(type) }
+            ).show()
+        }
+
+        rowArrangeWidgets.setOnClickListener {
+            com.slate.launcher.widgets.WidgetArrangeDialog(
+                context = this,
+                prefs = prefs,
+                onChanged = { /* order changes; counts and visibility don't */ }
             ).show()
         }
     }

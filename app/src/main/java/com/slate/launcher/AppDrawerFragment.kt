@@ -183,14 +183,14 @@ class AppDrawerFragment : Fragment() {
             val newStatusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
             if (newStatusBarHeight != statusBarHeight) {
                 statusBarHeight = newStatusBarHeight
-                applySearchBarPosition()
+                applyChromeLayout()
             }
             val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             val navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
             val newBottomInset = maxOf(imeBottom, navBottom)
             if (newBottomInset != bottomInset) {
                 bottomInset = newBottomInset
-                applySearchBarPosition()
+                applyChromeLayout()
             }
             ViewCompat.onApplyWindowInsets(v, insets)
         }
@@ -204,12 +204,15 @@ class AppDrawerFragment : Fragment() {
         val bg = parseColorSafe(prefs.backgroundColor)
         scrollView.setBackgroundColor(bg)
         requireView().setBackgroundColor(bg)
-        applySearchBarPosition()
         applySearchColors()
         if (prefs.showSearchBarOnHome && prefs.searchEnabled) {
             isSearchOpen = true
             searchContainer.visibility = View.VISIBLE
-        } else if (!prefs.showSearchBarOnHome) {
+        } else {
+            // Defensive fallthrough: covers the contradictory state
+            // `showSearchBarOnHome=true && searchEnabled=false` that could land via backup
+            // restore or a future pref-write bug. Without this, applyChromeLayout would route
+            // the inset to a still-VISIBLE-but-blank search container.
             isSearchOpen = false
             searchContainer.visibility = View.GONE
         }
@@ -221,6 +224,11 @@ class AppDrawerFragment : Fragment() {
             it.bind()
             it.start()
         }
+        // Chrome layout reads the final visibilities of both search and strip so insets route
+        // to whichever element is actually at each screen edge. Must run AFTER quickStrip.bind()
+        // (which sets the strip's visibility per `prefs.quickStripEnabled` + widget count) and
+        // AFTER the search-visibility branch above.
+        applyChromeLayout()
     }
 
     override fun onPause() {
@@ -241,33 +249,79 @@ class AppDrawerFragment : Fragment() {
 
     // ── Search ────────────────────────────────────────────────────
 
-    private fun applySearchBarPosition() {
+    /**
+     * Lay out the home-screen chrome (search bar + quick-toggles strip) per the user's two
+     * position prefs and route the system insets (status bar at the top edge, IME / navigation
+     * bar at the bottom edge) to whichever element is actually visible at each edge.
+     *
+     * Order rule when both share an edge: the strip sits at the absolute screen edge and the
+     * search bar sits just inside it. The strip is "ambient status"; the search bar is
+     * intermittent input. Anchoring the strip keeps the visible chrome geometrically stable as
+     * the search bar appears and disappears.
+     *
+     * Inset routing rule: whichever child is at an edge owns that edge's inset padding. When
+     * the FrameLayout (containing the ScrollView) is at an edge, the scrollView itself gets the
+     * padding so its content doesn't slide under the status / navigation bar.
+     */
+    private fun applyChromeLayout() {
         val root = requireView() as android.widget.LinearLayout
-        val atBottom = prefs.searchBarPosition == "bottom"
-        val currentIndex = root.indexOfChild(searchContainer)
-        val targetIndex = if (atBottom) root.childCount - 1 else 0
-        if (currentIndex != targetIndex) {
-            root.removeView(searchContainer)
-            root.addView(searchContainer, if (atBottom) root.childCount else 0)
+        val frameLayout = scrollView.parent as View
+        val stripContainer = root.findViewById<View>(R.id.quickStripContainer)
+        val searchAtBottom = prefs.searchBarPosition == "bottom"
+        val stripAtBottom = prefs.quickStripPosition == "bottom"
+
+        val orderedChildren: List<View> = when {
+            !searchAtBottom && stripAtBottom  ->
+                listOf(searchContainer, frameLayout, stripContainer)
+            !searchAtBottom && !stripAtBottom ->
+                // Both at top: strip is the absolute edge, search just inside it.
+                listOf(stripContainer, searchContainer, frameLayout)
+            searchAtBottom && !stripAtBottom  ->
+                listOf(stripContainer, frameLayout, searchContainer)
+            else                              ->
+                // Both at bottom: strip is the absolute edge, search just inside it.
+                listOf(frameLayout, searchContainer, stripContainer)
         }
+
+        // Re-arrange only if the order actually changed, to avoid superfluous removeAllViews on
+        // every onResume / inset callback.
+        val currentOrder = (0 until root.childCount).map { root.getChildAt(it) }
+        if (currentOrder != orderedChildren) {
+            root.removeAllViews()
+            orderedChildren.forEach { root.addView(it) }
+        }
+
+        // Route insets to whichever child is *visibly* at each edge. A GONE strip or GONE
+        // search bar must not absorb the inset — the next visible child gets it instead.
+        val visibleChildren = orderedChildren.filter { it.visibility != View.GONE }
+        val topEdge = visibleChildren.firstOrNull()
+        val bottomEdge = visibleChildren.lastOrNull()
+
         val density = resources.displayMetrics.density
-        if (atBottom) {
-            searchContainer.setPadding(
-                (24 * density).toInt(),
-                (20 * density).toInt(),
-                (24 * density).toInt(),
-                (12 * density).toInt() + bottomInset
-            )
-            scrollView.setPadding(0, 0, 0, 0)
-        } else {
-            searchContainer.setPadding(
-                (24 * density).toInt(),
-                (20 * density).toInt() + statusBarHeight,
-                (24 * density).toInt(),
-                (12 * density).toInt()
-            )
-            scrollView.setPadding(0, 0, 0, bottomInset)
-        }
+        val searchHPad = (24 * density).toInt()
+        val searchVPadTop = (20 * density).toInt()
+        val searchVPadBottom = (12 * density).toInt()
+        val stripHPad = (20 * density).toInt()
+        val stripVPad = (8 * density).toInt()
+
+        searchContainer.setPadding(
+            searchHPad,
+            searchVPadTop + (if (topEdge === searchContainer) statusBarHeight else 0),
+            searchHPad,
+            searchVPadBottom + (if (bottomEdge === searchContainer) bottomInset else 0)
+        )
+        stripContainer.setPadding(
+            stripHPad,
+            stripVPad + (if (topEdge === stripContainer) statusBarHeight else 0),
+            stripHPad,
+            stripVPad + (if (bottomEdge === stripContainer) bottomInset else 0)
+        )
+        scrollView.setPadding(
+            0,
+            if (topEdge === frameLayout) statusBarHeight else 0,
+            0,
+            if (bottomEdge === frameLayout) bottomInset else 0
+        )
     }
 
     private fun setupSearch() {
