@@ -49,6 +49,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_QUICK_STRIP_ENABLED = "quick_strip_enabled"
         private const val KEY_QUICK_STRIP_WIDGETS = "quick_strip_widgets"
         private const val KEY_QUICK_STRIP_POSITION = "quick_strip_position"
+        private const val KEY_QUICK_STRIP_DIVIDER_ENABLED = "quick_strip_divider_enabled"
         private const val KEY_CONTACT_SHORTCUTS = "contact_shortcuts"
         private const val KEY_FOLDERS = "folders_v1"
         private const val KEY_GUIDED_TOUR_STEP = "guided_tour_step_index"
@@ -254,6 +255,15 @@ class PreferencesManager(context: Context) {
     var quickStripPosition: String
         get() = prefs.getString(KEY_QUICK_STRIP_POSITION, "bottom") ?: "bottom"
         set(value) = prefs.edit().putString(KEY_QUICK_STRIP_POSITION, value).apply()
+
+    /**
+     * Opt-in cosmetic hairline along the strip's inner edge — below the strip when it's at the
+     * top, above the strip when it's at the bottom. Has no effect when the strip itself is
+     * hidden (master off, or no configured widget is available on the device).
+     */
+    var quickStripDividerEnabled: Boolean
+        get() = prefs.getBoolean(KEY_QUICK_STRIP_DIVIDER_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_QUICK_STRIP_DIVIDER_ENABLED, value).apply()
 
     /** Raw JSON for the contact-shortcut library. Parsed by ContactShortcutStore. */
     var contactShortcutsJson: String

@@ -103,4 +103,16 @@
         android:paddingVertical="8dp"
         android:visibility="gone" />
 
+    <!--
+        Cosmetic hairline that hugs the strip's inner edge. Reordered into position adjacent to
+        the strip by AppDrawerFragment.applyChromeLayout(); visibility is computed there (strip
+        visible × pref enabled). Default gone so a cold start before applyChromeLayout doesn't
+        flash an unstyled line.
+    -->
+    <View
+        android:id="@+id/stripDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:visibility="gone" />
+
 </LinearLayout>
