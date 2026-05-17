@@ -94,6 +94,7 @@ class SlateListDialog(
                     label = label,
                     preview = previews[index],
                     primary = primary,
+                    previewColor = secondary,
                     rippleOverlay = rippleOverlay,
                     hPad = hPad,
                     vPad = vPad
@@ -154,6 +155,7 @@ class SlateListDialog(
         label: String,
         preview: String,
         primary: Int,
+        previewColor: Int,
         rippleOverlay: Int,
         hPad: Int,
         vPad: Int,
@@ -185,13 +187,13 @@ class SlateListDialog(
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT)
                 .apply { weight = 1f }
         })
-        // Preview renders in the SAME text colour as actual home-screen folder labels — the
-        // dialog shows the user exactly what they'll see.
+        // Preview uses the secondary text colour so it reads as a hint, matching the
+        // row-value style used elsewhere in Settings (Font / Weight / Alignment row values).
         val density = context.resources.displayMetrics.density
         row.addView(TextView(context).apply {
             text = preview
             textSize = 17f
-            setTextColor(primary)
+            setTextColor(previewColor)
             // If a future preview is unusually long (e.g., a custom marker), don't overflow the
             // primary label out of the row.
             maxLines = 1
