@@ -48,6 +48,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_PIN_LOCKOUT_UNTIL_ELAPSED = "pin_lockout_until_elapsed_ms"
         private const val KEY_QUICK_STRIP_ENABLED = "quick_strip_enabled"
         private const val KEY_QUICK_STRIP_WIDGETS = "quick_strip_widgets"
+        private const val KEY_QUICK_STRIP_POSITION = "quick_strip_position"
         private const val KEY_CONTACT_SHORTCUTS = "contact_shortcuts"
         private const val KEY_FOLDERS = "folders_v1"
         private const val KEY_GUIDED_TOUR_STEP = "guided_tour_step_index"
@@ -248,6 +249,11 @@ class PreferencesManager(context: Context) {
         get() = (prefs.getString(KEY_QUICK_STRIP_WIDGETS, DEFAULT_QUICK_STRIP_WIDGETS) ?: "")
             .split(',').map { it.trim() }.filter { it.isNotEmpty() }
         set(value) = prefs.edit().putString(KEY_QUICK_STRIP_WIDGETS, value.joinToString(",")).apply()
+
+    /** "top" or "bottom" — where the quick toggles strip sits on the home screen. */
+    var quickStripPosition: String
+        get() = prefs.getString(KEY_QUICK_STRIP_POSITION, "bottom") ?: "bottom"
+        set(value) = prefs.edit().putString(KEY_QUICK_STRIP_POSITION, value).apply()
 
     /** Raw JSON for the contact-shortcut library. Parsed by ContactShortcutStore. */
     var contactShortcutsJson: String
