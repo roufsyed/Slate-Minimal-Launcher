@@ -43,10 +43,11 @@ Slate removes all of that. It presents your apps as plain text — the same way 
 - Swipe up to search apps
 - Configurable single-finger swipe gestures (open any app, notifications, Wi-Fi, Bluetooth, location, camera, and more)
 - Double-tap to lock screen (uses accessibility service)
-- Long-press an app for per-app options (pin to top, app info, hide, uninstall, custom color, rename)
+- Long-press an app for per-app options (pin to top, app info, hide, uninstall, move to folder, custom color, rename)
 - Long-press the homescreen to access customization or manage hidden apps
 - Pin apps to the top of the list regardless of sort order
 - Sort apps alphabetically or by most used
+- Group apps into custom folders — each folder is a text label with a `›` chevron; tap to expand inline (with a `‹ back` row), long-press the folder to rename, recolor, or delete. Apps inside a folder are hidden from the main list to reduce home-screen clutter; search still finds them globally
 
 **Control**
 - Lock screen rotation to portrait
