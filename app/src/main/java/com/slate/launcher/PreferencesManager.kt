@@ -50,6 +50,9 @@ class PreferencesManager(context: Context) {
         private const val KEY_QUICK_STRIP_WIDGETS = "quick_strip_widgets"
         private const val KEY_QUICK_STRIP_POSITION = "quick_strip_position"
         private const val KEY_QUICK_STRIP_DIVIDER_ENABLED = "quick_strip_divider_enabled"
+        private const val KEY_WIDGET_TEXT_SIZE = "widget_text_size"
+        private const val KEY_WIDGET_LINE_GAP = "widget_line_gap"
+        private const val KEY_WIDGET_WORD_GAP = "widget_word_gap"
         private const val KEY_CONTACT_SHORTCUTS = "contact_shortcuts"
         private const val KEY_FOLDERS = "folders_v1"
         private const val KEY_GUIDED_TOUR_STEP = "guided_tour_step_index"
@@ -80,6 +83,13 @@ class PreferencesManager(context: Context) {
         const val DEFAULT_MAX_FONT_SIZE = 42
         const val DEFAULT_BACKGROUND_COLOR = "#000000"
         const val DEFAULT_TEXT_COLOR = "#808080"
+
+        // Widget-strip typography defaults — these MUST match the legacy hardcoded values
+        // inside QuickStripManager.createWidgetView() so existing users (no pref written) see
+        // a visually identical strip after the update. Drift here = silent visual regression.
+        const val DEFAULT_WIDGET_TEXT_SIZE = 14   // matches QuickStripManager.createWidgetView:138
+        const val DEFAULT_WIDGET_LINE_GAP  = 10   // matches QuickStripManager.createWidgetView:142
+        const val DEFAULT_WIDGET_WORD_GAP  = 12   // matches QuickStripManager.createWidgetView:141
 
     }
 
@@ -264,6 +274,32 @@ class PreferencesManager(context: Context) {
     var quickStripDividerEnabled: Boolean
         get() = prefs.getBoolean(KEY_QUICK_STRIP_DIVIDER_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_QUICK_STRIP_DIVIDER_ENABLED, value).apply()
+
+    /**
+     * Widget label text size in sp. Applied by QuickStripManager.createWidgetView() to every
+     * widget in the strip. Single value (not min/max) — unlike apps, widget labels don't have
+     * a usage signal that drives scaling.
+     */
+    var widgetTextSize: Int
+        get() = prefs.getInt(KEY_WIDGET_TEXT_SIZE, DEFAULT_WIDGET_TEXT_SIZE)
+        set(value) = prefs.edit().putInt(KEY_WIDGET_TEXT_SIZE, value).apply()
+
+    /**
+     * Vertical padding around each widget in dp. When the strip wraps to multiple rows, the
+     * visible row-to-row gap is `widgetLineGap × 2` (each row contributes its own padding).
+     * Mirrors `lineSpacing`'s semantic for the app list.
+     */
+    var widgetLineGap: Int
+        get() = prefs.getInt(KEY_WIDGET_LINE_GAP, DEFAULT_WIDGET_LINE_GAP)
+        set(value) = prefs.edit().putInt(KEY_WIDGET_LINE_GAP, value).apply()
+
+    /**
+     * Horizontal padding around each widget in dp. The visible gap between adjacent widgets in
+     * a row is `widgetWordGap × 2`. Mirrors `wordSpacing`'s semantic for the app list.
+     */
+    var widgetWordGap: Int
+        get() = prefs.getInt(KEY_WIDGET_WORD_GAP, DEFAULT_WIDGET_WORD_GAP)
+        set(value) = prefs.edit().putInt(KEY_WIDGET_WORD_GAP, value).apply()
 
     /** Raw JSON for the contact-shortcut library. Parsed by ContactShortcutStore. */
     var contactShortcutsJson: String

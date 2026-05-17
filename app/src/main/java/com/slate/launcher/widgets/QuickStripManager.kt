@@ -135,11 +135,15 @@ class QuickStripManager(
 
         return TextView(context).apply {
             text = widget.id
-            textSize = 14f
+            textSize = prefs.widgetTextSize.toFloat()
             setTextColor(color)
             gravity = Gravity.CENTER
-            val pad = (12 * density).toInt()
-            val vPad = (10 * density).toInt()
+            // Padding around each widget: horizontal value sets the visible gap between adjacent
+            // widgets in a row (gap = widgetWordGap × 2 — each neighbour contributes its own
+            // padding); vertical value sets the row-to-row gap when the strip wraps. Defaults
+            // (12 / 10) match the original hardcoded values so existing users see no change.
+            val pad = (prefs.widgetWordGap * density).toInt()
+            val vPad = (prefs.widgetLineGap * density).toInt()
             setPadding(pad, vPad, pad, vPad)
             isClickable = true
             isFocusable = true

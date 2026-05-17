@@ -82,6 +82,9 @@ class BackupManager(private val prefs: PreferencesManager) {
         root.put("quickStripEnabled", prefs.quickStripEnabled)
         root.put("quickStripPosition", prefs.quickStripPosition)
         root.put("quickStripDividerEnabled", prefs.quickStripDividerEnabled)
+        root.put("widgetTextSize", prefs.widgetTextSize)
+        root.put("widgetLineGap", prefs.widgetLineGap)
+        root.put("widgetWordGap", prefs.widgetWordGap)
         val quickStripWidgetsArr = JSONArray()
         prefs.quickStripWidgets.forEach { quickStripWidgetsArr.put(it) }
         root.put("quickStripWidgets", quickStripWidgetsArr)
@@ -176,6 +179,9 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.quickStripPosition = root.optString("quickStripPosition", "bottom")
             .takeIf { it == "top" || it == "bottom" } ?: "bottom"
         prefs.quickStripDividerEnabled = root.optBoolean("quickStripDividerEnabled", false)
+        prefs.widgetTextSize = root.optInt("widgetTextSize", PreferencesManager.DEFAULT_WIDGET_TEXT_SIZE)
+        prefs.widgetLineGap  = root.optInt("widgetLineGap",  PreferencesManager.DEFAULT_WIDGET_LINE_GAP)
+        prefs.widgetWordGap  = root.optInt("widgetWordGap",  PreferencesManager.DEFAULT_WIDGET_WORD_GAP)
         root.optJSONArray("quickStripWidgets")?.let { arr ->
             prefs.quickStripWidgets = (0 until arr.length()).map { arr.getString(it) }
         }

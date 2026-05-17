@@ -60,6 +60,12 @@ class SettingsActivity : AppCompatActivity() {
         private val MAX_SIZES     = (20..60).toList()
         private val LINE_SPACINGS = (0..24).toList()
         private val WORD_SPACINGS = (2..28).toList()
+        // Widget-strip typography ranges. Text size capped at 32 — labels are short, so a
+        // narrower range than the app list is appropriate. Word gap floored at 2 (mirrors
+        // WORD_SPACINGS) to prevent adjacent widget labels from running into each other.
+        private val WIDGET_TEXT_SIZES = (10..32).toList()
+        private val WIDGET_LINE_GAPS  = (0..20).toList()
+        private val WIDGET_WORD_GAPS  = (2..28).toList()
 
         private val GESTURE_SLOTS = listOf(
             Triple(1, Direction.UP,    "1 finger  ↑"),
@@ -1389,6 +1395,15 @@ class SettingsActivity : AppCompatActivity() {
         val rowArrangeWidgets = findViewById<View>(R.id.rowArrangeWidgets)
         val rowDivider = findViewById<View>(R.id.rowQuickStripDivider)
         val switchDivider = findViewById<MaterialSwitch>(R.id.switchQuickStripDivider)
+        val rowTextSize = findViewById<View>(R.id.rowWidgetTextSize)
+        val sbTextSize = findViewById<SeekBar>(R.id.widgetTextSizeSeekBar)
+        val lbTextSize = findViewById<TextView>(R.id.widgetTextSizeLabel)
+        val rowLineGap = findViewById<View>(R.id.rowWidgetLineGap)
+        val sbLineGap = findViewById<SeekBar>(R.id.widgetLineGapSeekBar)
+        val lbLineGap = findViewById<TextView>(R.id.widgetLineGapLabel)
+        val rowWordGap = findViewById<View>(R.id.rowWidgetWordGap)
+        val sbWordGap = findViewById<SeekBar>(R.id.widgetWordGapSeekBar)
+        val lbWordGap = findViewById<TextView>(R.id.widgetWordGapLabel)
 
         fun isLight() = isColorLight(parseColorSafe(prefs.backgroundColor))
         fun secondary() =
@@ -1418,6 +1433,10 @@ class SettingsActivity : AppCompatActivity() {
                 if (on && prefs.quickStripWidgets.size >= 2) View.VISIBLE else View.GONE
             // Divider toggle mirrors the master gate — the divider can't exist without a strip.
             rowDivider.visibility = if (on) View.VISIBLE else View.GONE
+            // Typography sliders mirror the master gate — only meaningful when the strip renders.
+            rowTextSize.visibility = if (on) View.VISIBLE else View.GONE
+            rowLineGap.visibility  = if (on) View.VISIBLE else View.GONE
+            rowWordGap.visibility  = if (on) View.VISIBLE else View.GONE
         }
 
         refreshChooseValueLabel()
@@ -1470,6 +1489,47 @@ class SettingsActivity : AppCompatActivity() {
             prefs.quickStripDividerEnabled = checked
             // Home re-renders on next onResume via applyChromeLayout(); no extra trigger needed.
         }
+
+        // Widget typography sliders. Out-of-range stored values (e.g., from an older backup with
+        // different range bounds) fall back to the default index — pref on disk stays untouched
+        // until the user moves the slider. Labels use the same "{value}{unit}" idiom as the
+        // existing typography sliders (sp for font, dp for padding).
+        fun initSlider(
+            seekBar: SeekBar,
+            label: TextView,
+            values: List<Int>,
+            current: Int,
+            default: Int,
+            unit: String
+        ) {
+            seekBar.max = values.size - 1
+            seekBar.progress = values.indexOf(current)
+                .takeIf { it >= 0 } ?: values.indexOf(default).coerceAtLeast(0)
+            label.text = "$current$unit"
+        }
+
+        initSlider(
+            sbTextSize, lbTextSize, WIDGET_TEXT_SIZES,
+            prefs.widgetTextSize, PreferencesManager.DEFAULT_WIDGET_TEXT_SIZE, "sp"
+        )
+        initSlider(
+            sbLineGap, lbLineGap, WIDGET_LINE_GAPS,
+            prefs.widgetLineGap, PreferencesManager.DEFAULT_WIDGET_LINE_GAP, "dp"
+        )
+        initSlider(
+            sbWordGap, lbWordGap, WIDGET_WORD_GAPS,
+            prefs.widgetWordGap, PreferencesManager.DEFAULT_WIDGET_WORD_GAP, "dp"
+        )
+
+        sbTextSize.setOnSeekBarChangeListener(seekBarListener { p ->
+            val v = WIDGET_TEXT_SIZES[p]; prefs.widgetTextSize = v; lbTextSize.text = "${v}sp"
+        })
+        sbLineGap.setOnSeekBarChangeListener(seekBarListener { p ->
+            val v = WIDGET_LINE_GAPS[p]; prefs.widgetLineGap = v; lbLineGap.text = "${v}dp"
+        })
+        sbWordGap.setOnSeekBarChangeListener(seekBarListener { p ->
+            val v = WIDGET_WORD_GAPS[p]; prefs.widgetWordGap = v; lbWordGap.text = "${v}dp"
+        })
     }
 
     /** Launch the system contact picker pre-filtered on Phone rows. */
