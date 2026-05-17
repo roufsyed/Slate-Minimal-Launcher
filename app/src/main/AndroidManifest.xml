@@ -28,11 +28,29 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Slate">
 
+        <!--
+            Launcher home activity. Recents-list configuration:
+            - excludeFromRecents: hide this task from the system Overview screen. A HOME-role
+              activity is conceptually "always there"; surfacing it in Recents is confusing.
+            - taskAffinity="": anonymous task affinity. Combined with singleTask, this pins the
+              home task identity so no stray FLAG_ACTIVITY_NEW_TASK from elsewhere in the
+              package can accidentally re-home into our task and leak the launcher into Recents.
+            - clearTaskOnLaunch: pressing HOME from anywhere inside the launcher (Settings,
+              Onboarding, dialogs) returns to a clean root. Matches Pixel/Lawnchair/Olauncher
+              behaviour. Onboarding state lives in prefs, so a task-clear during a half-done
+              onboarding is recovered: MainActivity.onResume re-launches OnboardingActivity when
+              the completion flag is still false.
+            OnboardingActivity and SettingsActivity inherit this exclusion because they're
+            launched without FLAG_ACTIVITY_NEW_TASK and therefore ride in the same task.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:stateNotNeeded="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:clearTaskOnLaunch="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
