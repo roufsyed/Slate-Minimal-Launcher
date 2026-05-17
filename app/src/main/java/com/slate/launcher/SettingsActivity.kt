@@ -1387,6 +1387,8 @@ class SettingsActivity : AppCompatActivity() {
         val rowChooseWidgets = findViewById<View>(R.id.rowChooseWidgets)
         val labelChooseValue = findViewById<TextView>(R.id.labelChooseWidgetsValue)
         val rowArrangeWidgets = findViewById<View>(R.id.rowArrangeWidgets)
+        val rowDivider = findViewById<View>(R.id.rowQuickStripDivider)
+        val switchDivider = findViewById<MaterialSwitch>(R.id.switchQuickStripDivider)
 
         fun isLight() = isColorLight(parseColorSafe(prefs.backgroundColor))
         fun secondary() =
@@ -1414,6 +1416,8 @@ class SettingsActivity : AppCompatActivity() {
             // Arrange row hides when there's nothing to arrange: 0 or 1 widget enabled.
             rowArrangeWidgets.visibility =
                 if (on && prefs.quickStripWidgets.size >= 2) View.VISIBLE else View.GONE
+            // Divider toggle mirrors the master gate — the divider can't exist without a strip.
+            rowDivider.visibility = if (on) View.VISIBLE else View.GONE
         }
 
         refreshChooseValueLabel()
@@ -1458,6 +1462,13 @@ class SettingsActivity : AppCompatActivity() {
                 prefs = prefs,
                 onChanged = { /* order changes; counts and visibility don't */ }
             ).show()
+        }
+
+        switchDivider.setOnCheckedChangeListener(null)
+        switchDivider.isChecked = prefs.quickStripDividerEnabled
+        switchDivider.setOnCheckedChangeListener { _, checked ->
+            prefs.quickStripDividerEnabled = checked
+            // Home re-renders on next onResume via applyChromeLayout(); no extra trigger needed.
         }
     }
 

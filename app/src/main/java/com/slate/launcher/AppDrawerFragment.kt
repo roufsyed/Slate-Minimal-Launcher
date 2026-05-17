@@ -54,6 +54,7 @@ class AppDrawerFragment : Fragment() {
     private lateinit var searchClose: TextView
     private lateinit var fastScroll: AlphaFastScroll
     private lateinit var fastScrollBubble: TextView
+    private lateinit var stripDivider: View
     private lateinit var prefs: PreferencesManager
     private lateinit var repository: AppRepository
     private var quickStrip: QuickStripManager? = null
@@ -83,6 +84,7 @@ class AppDrawerFragment : Fragment() {
         searchClose = view.findViewById(R.id.searchClose)
         fastScroll = view.findViewById(R.id.fastScroll)
         fastScrollBubble = view.findViewById(R.id.fastScrollBubble)
+        stripDivider = view.findViewById(R.id.stripDivider)
 
         // Forward touches that begin on the strip into the home gesture detector so swipes
         // starting on the chrome execute the user's configured 1-finger gestures (instead of
@@ -296,17 +298,35 @@ class AppDrawerFragment : Fragment() {
         val searchAtBottom = prefs.searchBarPosition == "bottom"
         val stripAtBottom = prefs.quickStripPosition == "bottom"
 
+        // Single source of truth for "is the strip showing": the container's actual visibility,
+        // which QuickStripManager.bind() reconciles against both the master switch AND per-widget
+        // device availability (e.g., torch widget pruned on a no-camera device). Reading the
+        // pref directly would diverge in the "all configured widgets unavailable" case.
+        val dividerVisible =
+            prefs.quickStripDividerEnabled && stripContainer.visibility == View.VISIBLE
+        stripDivider.visibility = if (dividerVisible) View.VISIBLE else View.GONE
+        if (dividerVisible) {
+            val bg = parseColorSafe(prefs.backgroundColor)
+            stripDivider.setBackgroundColor(
+                if (isColorLight(bg)) Color.parseColor("#DDDDDD") else Color.parseColor("#333333")
+            )
+        }
+
+        // The divider always rides immediately adjacent to the strip on its INNER edge — below
+        // it when the strip is at top, above it when the strip is at bottom. The strip itself
+        // remains the absolute screen-edge child, so inset routing (below) is unchanged for the
+        // strip/search/frame siblings; the divider never becomes the edge child.
         val orderedChildren: List<View> = when {
             !searchAtBottom && stripAtBottom  ->
-                listOf(searchContainer, frameLayout, stripContainer)
+                listOf(searchContainer, frameLayout, stripDivider, stripContainer)
             !searchAtBottom && !stripAtBottom ->
-                // Both at top: strip is the absolute edge, search just inside it.
-                listOf(stripContainer, searchContainer, frameLayout)
+                // Both at top: strip is the absolute edge, divider just inside it, then search.
+                listOf(stripContainer, stripDivider, searchContainer, frameLayout)
             searchAtBottom && !stripAtBottom  ->
-                listOf(stripContainer, frameLayout, searchContainer)
+                listOf(stripContainer, stripDivider, frameLayout, searchContainer)
             else                              ->
-                // Both at bottom: strip is the absolute edge, search just inside it.
-                listOf(frameLayout, searchContainer, stripContainer)
+                // Both at bottom: strip is the absolute edge, divider just inside it.
+                listOf(frameLayout, searchContainer, stripDivider, stripContainer)
         }
 
         // Re-arrange only if the order actually changed, to avoid superfluous removeAllViews on
@@ -317,8 +337,8 @@ class AppDrawerFragment : Fragment() {
             orderedChildren.forEach { root.addView(it) }
         }
 
-        // Route insets to whichever child is *visibly* at each edge. A GONE strip or GONE
-        // search bar must not absorb the inset — the next visible child gets it instead.
+        // Route insets to whichever child is *visibly* at each edge. A GONE strip / GONE search
+        // bar / GONE divider must not absorb the inset — the next visible child gets it instead.
         val visibleChildren = orderedChildren.filter { it.visibility != View.GONE }
         val topEdge = visibleChildren.firstOrNull()
         val bottomEdge = visibleChildren.lastOrNull()
@@ -336,11 +356,18 @@ class AppDrawerFragment : Fragment() {
             searchHPad,
             searchVPadBottom + (if (bottomEdge === searchContainer) bottomInset else 0)
         )
+        // When the divider is visible, drop the strip's INNER-edge vertical padding to 0 so the
+        // hairline visually hugs the strip rather than floating 8dp away from it. Inner edge =
+        // the side facing the app list: TOP when the strip is at the bottom of the screen,
+        // BOTTOM when the strip is at the top. The OUTER edge (where the status-bar / nav-bar
+        // inset lives) is preserved either way.
+        val stripTopPad = if (dividerVisible && stripAtBottom) 0 else stripVPad
+        val stripBottomPad = if (dividerVisible && !stripAtBottom) 0 else stripVPad
         stripContainer.setPadding(
             stripHPad,
-            stripVPad + (if (topEdge === stripContainer) statusBarHeight else 0),
+            stripTopPad + (if (topEdge === stripContainer) statusBarHeight else 0),
             stripHPad,
-            stripVPad + (if (bottomEdge === stripContainer) bottomInset else 0)
+            stripBottomPad + (if (bottomEdge === stripContainer) bottomInset else 0)
         )
         scrollView.setPadding(
             0,

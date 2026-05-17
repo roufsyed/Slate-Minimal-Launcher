@@ -81,6 +81,7 @@ class BackupManager(private val prefs: PreferencesManager) {
         // Quick toggles strip
         root.put("quickStripEnabled", prefs.quickStripEnabled)
         root.put("quickStripPosition", prefs.quickStripPosition)
+        root.put("quickStripDividerEnabled", prefs.quickStripDividerEnabled)
         val quickStripWidgetsArr = JSONArray()
         prefs.quickStripWidgets.forEach { quickStripWidgetsArr.put(it) }
         root.put("quickStripWidgets", quickStripWidgetsArr)
@@ -174,6 +175,7 @@ class BackupManager(private val prefs: PreferencesManager) {
         // Absence falls back to "bottom" — current behaviour for older backups.
         prefs.quickStripPosition = root.optString("quickStripPosition", "bottom")
             .takeIf { it == "top" || it == "bottom" } ?: "bottom"
+        prefs.quickStripDividerEnabled = root.optBoolean("quickStripDividerEnabled", false)
         root.optJSONArray("quickStripWidgets")?.let { arr ->
             prefs.quickStripWidgets = (0 until arr.length()).map { arr.getString(it) }
         }
