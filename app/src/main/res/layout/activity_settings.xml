@@ -1264,6 +1264,103 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
+            <!-- Widget text size (sub-row, only when master is on) -->
+            <LinearLayout
+                android:id="@+id/rowWidgetTextSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="10dp"
+                android:paddingStart="16dp"
+                android:layout_marginTop="8dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="90dp"
+                    android:layout_height="wrap_content"
+                    android:text="Text size"
+                    android:textSize="17sp" />
+
+                <SeekBar
+                    android:id="@+id/widgetTextSizeSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="12dp" />
+
+                <TextView
+                    android:id="@+id/widgetTextSizeLabel"
+                    android:layout_width="44dp"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp"
+                    android:gravity="end" />
+            </LinearLayout>
+
+            <!-- Widget line gap (sub-row, only when master is on) -->
+            <LinearLayout
+                android:id="@+id/rowWidgetLineGap"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="10dp"
+                android:paddingStart="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="90dp"
+                    android:layout_height="wrap_content"
+                    android:text="Line gap"
+                    android:textSize="17sp" />
+
+                <SeekBar
+                    android:id="@+id/widgetLineGapSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="12dp" />
+
+                <TextView
+                    android:id="@+id/widgetLineGapLabel"
+                    android:layout_width="44dp"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp"
+                    android:gravity="end" />
+            </LinearLayout>
+
+            <!-- Widget word gap (sub-row, only when master is on) -->
+            <LinearLayout
+                android:id="@+id/rowWidgetWordGap"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="10dp"
+                android:paddingStart="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="90dp"
+                    android:layout_height="wrap_content"
+                    android:text="Word gap"
+                    android:textSize="17sp" />
+
+                <SeekBar
+                    android:id="@+id/widgetWordGapSeekBar"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="12dp" />
+
+                <TextView
+                    android:id="@+id/widgetWordGapLabel"
+                    android:layout_width="44dp"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp"
+                    android:gravity="end" />
+            </LinearLayout>
+
         </LinearLayout>
 
         <View
