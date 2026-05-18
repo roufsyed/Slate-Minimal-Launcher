@@ -88,6 +88,8 @@ class BackupManager(private val prefs: PreferencesManager) {
         root.put("widgetFontFamily", prefs.widgetFontFamily)
         root.put("widgetFontWeight", prefs.widgetFontWeight)
         root.put("widgetTextAlignment", prefs.widgetTextAlignment)
+        root.put("directCallEnabled", prefs.directCallEnabled)
+        root.put("directCallTrigger", prefs.directCallTrigger)
         val quickStripWidgetsArr = JSONArray()
         prefs.quickStripWidgets.forEach { quickStripWidgetsArr.put(it) }
         root.put("quickStripWidgets", quickStripWidgetsArr)
@@ -194,6 +196,14 @@ class BackupManager(private val prefs: PreferencesManager) {
             "widgetTextAlignment", PreferencesManager.DEFAULT_WIDGET_TEXT_ALIGNMENT
         ).takeIf { it == "left" || it == "center" || it == "right" }
             ?: PreferencesManager.DEFAULT_WIDGET_TEXT_ALIGNMENT
+        prefs.directCallEnabled = root.optBoolean("directCallEnabled", false)
+        // Sanitise: only "tap"/"longPress" are accepted. Defence-in-depth — the pref getter
+        // also guards against an unknown stored value, so a corrupt write here resolves to
+        // default on read.
+        prefs.directCallTrigger = root.optString(
+            "directCallTrigger", PreferencesManager.DEFAULT_DIRECT_CALL_TRIGGER
+        ).takeIf { it == "tap" || it == "longPress" }
+            ?: PreferencesManager.DEFAULT_DIRECT_CALL_TRIGGER
         root.optJSONArray("quickStripWidgets")?.let { arr ->
             prefs.quickStripWidgets = (0 until arr.length()).map { arr.getString(it) }
         }

@@ -1227,6 +1227,86 @@
                     android:textSize="17sp" />
             </LinearLayout>
 
+            <!-- Direct call (sub-row, only when master is on). Toggling ON requests CALL_PHONE
+                 runtime permission; on denial the switch reverts and the pref stays false. -->
+            <LinearLayout
+                android:id="@+id/rowDirectCall"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="10dp"
+                android:paddingStart="16dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Direct call"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Place calls immediately when tapped or long-pressed, instead of opening the dialer"
+                        android:textSize="13sp"
+                        android:alpha="0.6" />
+                </LinearLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchDirectCall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <!-- Direct-call trigger (sub-sub-row, visible only when master is on AND Direct
+                 call is on). "Tap" / "Long press". When "Long press" is chosen, long-press on
+                 a Call widget fires the direct call AND suppresses the home long-press menu;
+                 the menu is still reachable from blank home / other widgets / blank strip. -->
+            <LinearLayout
+                android:id="@+id/rowDirectCallTrigger"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="10dp"
+                android:paddingStart="32dp"
+                android:background="?attr/selectableItemBackground"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Trigger"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Choose which gesture places the call directly"
+                        android:textSize="13sp"
+                        android:alpha="0.6" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/directCallTriggerValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="15sp" />
+            </LinearLayout>
+
             <!-- Show divider (sub-row, only when master is on) -->
             <LinearLayout
                 android:id="@+id/rowQuickStripDivider"

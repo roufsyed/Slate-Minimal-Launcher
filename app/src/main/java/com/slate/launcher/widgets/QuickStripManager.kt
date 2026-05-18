@@ -123,6 +123,38 @@ class QuickStripManager(
         started = false
     }
 
+    /**
+     * Hit-test the strip for a touch in screen (raw) coordinates. Returns the configured
+     * widget whose view's bounds contain the point, or null if the touch falls in blank strip
+     * space, on a GONE strip, or outside the container entirely.
+     *
+     * Used by AppDrawerFragment to route long-press to a widget-specific action (currently
+     * only the direct-call path) when the user has bound that gesture in Settings. Operates on
+     * raw screen coords so the caller doesn't need to track the container's position.
+     *
+     * Relies on the same i↔child-i invariant as [refreshWidget]: each `addView(createWidgetView)`
+     * in [bind] appends to `activeWidgets` and `container` in lockstep.
+     */
+    fun widgetForRawTouch(rawX: Float, rawY: Float): QuickWidget? {
+        if (container.visibility != View.VISIBLE) return null
+        val loc = IntArray(2)
+        container.getLocationOnScreen(loc)
+        val localX = rawX - loc[0]
+        val localY = rawY - loc[1]
+        if (localX < 0 || localY < 0 || localX > container.width || localY > container.height) {
+            return null
+        }
+        for (i in 0 until container.childCount) {
+            val child = container.getChildAt(i)
+            if (localX >= child.left && localX <= child.right &&
+                localY >= child.top && localY <= child.bottom
+            ) {
+                return activeWidgets.getOrNull(i)
+            }
+        }
+        return null
+    }
+
     private fun refreshAll() {
         for (i in activeWidgets.indices) refreshWidget(i)
     }

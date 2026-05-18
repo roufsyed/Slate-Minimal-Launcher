@@ -17,6 +17,12 @@
     <!-- Mobile-data state for the Data quick-toggle widget. READ_BASIC_PHONE_STATE is "normal" on
          API 33+ (no runtime prompt). On older Android, the Data widget hides itself. -->
     <uses-permission android:name="android.permission.READ_BASIC_PHONE_STATE" />
+    <!-- Required ONLY when the user explicitly enables "Direct call" in
+         Settings → Quick toggles. The runtime grant is requested from
+         SettingsActivity at toggle-ON time, never at app start. With the
+         setting off (default), CallShortcutWidget uses ACTION_DIAL and
+         this permission is never exercised. -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
 
     <application
         android:allowBackup="true"

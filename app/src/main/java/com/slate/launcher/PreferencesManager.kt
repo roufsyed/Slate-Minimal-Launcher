@@ -56,6 +56,8 @@ class PreferencesManager(context: Context) {
         private const val KEY_WIDGET_FONT_FAMILY = "widget_font_family"
         private const val KEY_WIDGET_FONT_WEIGHT = "widget_font_weight"
         private const val KEY_WIDGET_TEXT_ALIGNMENT = "widget_text_alignment"
+        private const val KEY_DIRECT_CALL_ENABLED = "direct_call_enabled"
+        private const val KEY_DIRECT_CALL_TRIGGER = "direct_call_trigger"
         private const val KEY_CONTACT_SHORTCUTS = "contact_shortcuts"
         private const val KEY_FOLDERS = "folders_v1"
         private const val KEY_GUIDED_TOUR_STEP = "guided_tour_step_index"
@@ -100,6 +102,12 @@ class PreferencesManager(context: Context) {
         const val DEFAULT_WIDGET_FONT_FAMILY = ""
         const val DEFAULT_WIDGET_FONT_WEIGHT = 0
         const val DEFAULT_WIDGET_TEXT_ALIGNMENT = "center"
+
+        // Default trigger for the opt-in direct-call feature. "tap" matches the original
+        // one-tap-calling framing — short tap places the call, long-press preserves the
+        // existing home long-press menu. Users who want the safer gesture can pick
+        // "longPress" in Settings.
+        const val DEFAULT_DIRECT_CALL_TRIGGER = "tap"
 
     }
 
@@ -339,6 +347,34 @@ class PreferencesManager(context: Context) {
         get() = prefs.getString(KEY_WIDGET_TEXT_ALIGNMENT, DEFAULT_WIDGET_TEXT_ALIGNMENT)
             ?: DEFAULT_WIDGET_TEXT_ALIGNMENT
         set(value) = prefs.edit().putString(KEY_WIDGET_TEXT_ALIGNMENT, value).apply()
+
+    /**
+     * Opt-in: when true, "Call <name>" widgets dispatch the call directly via
+     * Intent.ACTION_CALL on the gesture chosen by [directCallTrigger]. The other gesture
+     * preserves its safe default. When false (the default), both gestures behave as today:
+     * tap → dialer (ACTION_DIAL), long-press → home long-press menu. The CALL_PHONE
+     * runtime permission is requested only when this is toggled on; revoking it later
+     * silently degrades the path to ACTION_DIAL.
+     */
+    var directCallEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DIRECT_CALL_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_DIRECT_CALL_ENABLED, value).apply()
+
+    /**
+     * Which gesture fires the direct call when [directCallEnabled] is true.
+     *
+     * - "tap"       → short tap places the call; long-press keeps the home long-press menu.
+     * - "longPress" → long-press places the call AND suppresses the home menu on Call
+     *                 widgets; short tap opens the dialer (safe confirmation step).
+     *
+     * The getter's `takeIf` is defence-in-depth: an unknown stored value (corrupt write,
+     * hand-edited backup, future schema) reads as the default. BackupManager also sanitises
+     * on import.
+     */
+    var directCallTrigger: String
+        get() = prefs.getString(KEY_DIRECT_CALL_TRIGGER, DEFAULT_DIRECT_CALL_TRIGGER)
+            ?.takeIf { it == "tap" || it == "longPress" } ?: DEFAULT_DIRECT_CALL_TRIGGER
+        set(value) = prefs.edit().putString(KEY_DIRECT_CALL_TRIGGER, value).apply()
 
     /** Raw JSON for the contact-shortcut library. Parsed by ContactShortcutStore. */
     var contactShortcutsJson: String
