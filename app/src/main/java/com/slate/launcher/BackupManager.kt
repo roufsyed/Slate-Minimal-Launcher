@@ -123,7 +123,12 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.backgroundColor = root.optString("backgroundColor", PreferencesManager.DEFAULT_BACKGROUND_COLOR)
         prefs.appTextColor    = root.optString("appTextColor",    PreferencesManager.DEFAULT_TEXT_COLOR)
         prefs.doubleTapToLock   = root.optBoolean("doubleTapToLock", false)
+        // Sanitise: only "left"/"center"/"right" are valid. A hand-edited or future-version
+        // backup with anything else falls back to the default rather than persisting an
+        // unsupported value. Read sites in AppDrawerFragment already fall through to "center"
+        // for unknown values, so this is defence-in-depth.
         prefs.textAlignment     = root.optString("textAlignment", "center")
+            .takeIf { it == "left" || it == "center" || it == "right" } ?: "center"
         prefs.sortByUsage       = root.optBoolean("sortByUsage", false)
         prefs.lockOrientation   = root.optBoolean("lockOrientation", true)
         prefs.hideStatusBar     = root.optBoolean("hideStatusBar", false)
@@ -132,7 +137,11 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.syncToLockscreen  = root.optBoolean("syncToLockscreen", false)
         prefs.searchEnabled     = root.optBoolean("searchEnabled", true)
         prefs.showSearchBarOnHome = root.optBoolean("showSearchBarOnHome", false)
+        // Sanitise: only "top"/"bottom" are valid. Matches the same defence-in-depth pattern
+        // used for `quickStripPosition` further down. Unknown values silently fall through to
+        // "top" at read time anyway, but this keeps the on-disk pref clean.
         prefs.searchBarPosition = root.optString("searchBarPosition", "top")
+            .takeIf { it == "top" || it == "bottom" } ?: "top"
 
         // Hidden apps
         root.optJSONArray("hiddenApps")?.let { arr ->
@@ -221,10 +230,20 @@ class BackupManager(private val prefs: PreferencesManager) {
             prefs.guidedTourStepIndex = -1
         }
 
-        // Folder display style; absence or empty falls back to the chevron default at read time.
+        // Folder display style; sanitise against the known FOLDER_STYLE_* set. Unknown or
+        // empty values leave the existing pref alone (which itself reads as chevron by default
+        // when unset), so an older backup that pre-dates this set still restores cleanly.
+        val knownFolderStyles = setOf(
+            PreferencesManager.FOLDER_STYLE_CHEVRON,
+            PreferencesManager.FOLDER_STYLE_SLASH,
+            PreferencesManager.FOLDER_STYLE_BULLET,
+            PreferencesManager.FOLDER_STYLE_BRACKETS,
+            PreferencesManager.FOLDER_STYLE_COUNT,
+            PreferencesManager.FOLDER_STYLE_PLAIN
+        )
         if (root.has("folderStyle")) {
             val style = root.optString("folderStyle")
-            if (style.isNotEmpty()) prefs.folderStyle = style
+            if (style in knownFolderStyles) prefs.folderStyle = style
         }
     }
 }
