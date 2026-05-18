@@ -42,7 +42,6 @@ import com.slate.launcher.MainActivity.Companion.parseColorSafe
 import com.slate.launcher.widgets.ContactShortcut
 import com.slate.launcher.widgets.ContactShortcutStore
 import com.slate.launcher.widgets.WidgetPickerDialog
-import android.view.accessibility.AccessibilityManager
 import java.io.File
 
 class SettingsActivity : AppCompatActivity() {
@@ -969,26 +968,11 @@ class SettingsActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun isAccessibilityServiceEnabled(): Boolean {
-        // Primary: use AccessibilityManager API (handles OEM quirks and format differences)
-        val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
-        if (am != null) {
-            val expected = ComponentName(this, SlateAccessibilityService::class.java)
-            val running = am.getEnabledAccessibilityServiceList(
-                android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-            )
-            for (info in running) {
-                val component = ComponentName.unflattenFromString(info.id)
-                if (expected == component) return true
-            }
-        }
-        // Fallback: check Settings.Secure string directly
-        val cn = ComponentName(this, SlateAccessibilityService::class.java)
-        val enabled = Settings.Secure.getString(
-            contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
-        return enabled.contains(cn.flattenToString())
-    }
+    // Kept as a thin wrapper for readability — the 4 call sites within Settings already use
+    // this name. The OEM-compat logic lives in [SlateAccessibilityService.isEnabled] so the
+    // home reconciliation in AppDrawerFragment.onResume can share it.
+    private fun isAccessibilityServiceEnabled(): Boolean =
+        SlateAccessibilityService.isEnabled(this)
 
     // ── Search ───────────────────────────────────────────────────
 

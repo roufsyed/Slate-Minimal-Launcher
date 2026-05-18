@@ -269,6 +269,34 @@ class AppDrawerFragment : Fragment() {
         // (which sets the strip's visibility per `prefs.quickStripEnabled` + widget count) and
         // AFTER the search-visibility branch above.
         applyChromeLayout()
+        reconcileDoubleTapPref()
+    }
+
+    /**
+     * Reconcile `prefs.doubleTapToLock` against the live accessibility-service state. Settings
+     * already does this on its own onResume; without the equivalent here, a stale `true` pref
+     * (e.g., restored from a backup on a permissionless device, or accessibility revoked from
+     * Android Settings while the launcher was in the background) would silently no-op every
+     * double-tap until the user happens to open Slate Settings. After this runs, repeated
+     * double-taps either work (service genuinely enabled) or do nothing AND a Settings open
+     * shows the toggle truthfully OFF.
+     *
+     * The 500ms re-check mirrors Settings — protects against an OEM where the secure-setting
+     * flip lags the actual service binding. Skipping the work entirely when the pref is
+     * already false or the service is already enabled keeps the common path free of any
+     * scheduled handler.
+     */
+    private fun reconcileDoubleTapPref() {
+        if (!prefs.doubleTapToLock) return
+        if (SlateAccessibilityService.isEnabled(requireContext())) return
+        view?.postDelayed({
+            if (isAdded &&
+                prefs.doubleTapToLock &&
+                !SlateAccessibilityService.isEnabled(requireContext())
+            ) {
+                prefs.doubleTapToLock = false
+            }
+        }, 500)
     }
 
     override fun onPause() {
