@@ -85,6 +85,9 @@ class BackupManager(private val prefs: PreferencesManager) {
         root.put("widgetTextSize", prefs.widgetTextSize)
         root.put("widgetLineGap", prefs.widgetLineGap)
         root.put("widgetWordGap", prefs.widgetWordGap)
+        root.put("widgetFontFamily", prefs.widgetFontFamily)
+        root.put("widgetFontWeight", prefs.widgetFontWeight)
+        root.put("widgetTextAlignment", prefs.widgetTextAlignment)
         val quickStripWidgetsArr = JSONArray()
         prefs.quickStripWidgets.forEach { quickStripWidgetsArr.put(it) }
         root.put("quickStripWidgets", quickStripWidgetsArr)
@@ -182,6 +185,15 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.widgetTextSize = root.optInt("widgetTextSize", PreferencesManager.DEFAULT_WIDGET_TEXT_SIZE)
         prefs.widgetLineGap  = root.optInt("widgetLineGap",  PreferencesManager.DEFAULT_WIDGET_LINE_GAP)
         prefs.widgetWordGap  = root.optInt("widgetWordGap",  PreferencesManager.DEFAULT_WIDGET_WORD_GAP)
+        prefs.widgetFontFamily = root.optString("widgetFontFamily", PreferencesManager.DEFAULT_WIDGET_FONT_FAMILY)
+        prefs.widgetFontWeight = root.optInt("widgetFontWeight", PreferencesManager.DEFAULT_WIDGET_FONT_WEIGHT)
+        // Sanitise the alignment string — only "left"/"center"/"right" are valid. A backup with
+        // a typo or a future-version value falls back to the default rather than persisting an
+        // unsupported state.
+        prefs.widgetTextAlignment = root.optString(
+            "widgetTextAlignment", PreferencesManager.DEFAULT_WIDGET_TEXT_ALIGNMENT
+        ).takeIf { it == "left" || it == "center" || it == "right" }
+            ?: PreferencesManager.DEFAULT_WIDGET_TEXT_ALIGNMENT
         root.optJSONArray("quickStripWidgets")?.let { arr ->
             prefs.quickStripWidgets = (0 until arr.length()).map { arr.getString(it) }
         }

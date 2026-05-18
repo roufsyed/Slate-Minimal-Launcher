@@ -15,6 +15,7 @@ import com.google.android.flexbox.JustifyContent
 import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
 import com.slate.launcher.PreferencesManager
+import com.slate.launcher.Typography
 
 /**
  * Renders the home-screen quick-toggles strip into a FlexboxLayout and manages each enabled
@@ -46,8 +47,9 @@ class QuickStripManager(
     init {
         container.flexDirection = com.google.android.flexbox.FlexDirection.ROW
         container.flexWrap = FlexWrap.WRAP
-        container.justifyContent = JustifyContent.CENTER
         container.alignItems = AlignItems.CENTER
+        // `justifyContent` is re-applied per bind() to honour the user's widgetTextAlignment
+        // pref. Setting it here once would freeze it at construction and ignore pref changes.
         installContainerTouchForwarder()
     }
 
@@ -75,6 +77,14 @@ class QuickStripManager(
         if (!prefs.quickStripEnabled) {
             container.visibility = View.GONE
             return
+        }
+
+        // Re-apply alignment on every bind so a pref change between Settings and home flips
+        // the row immediately on resume.
+        container.justifyContent = when (prefs.widgetTextAlignment) {
+            "left" -> JustifyContent.FLEX_START
+            "right" -> JustifyContent.FLEX_END
+            else -> JustifyContent.CENTER
         }
 
         prefs.quickStripWidgets.forEach { id ->
@@ -135,16 +145,11 @@ class QuickStripManager(
 
         return TextView(context).apply {
             text = widget.id
-            textSize = prefs.widgetTextSize.toFloat()
             setTextColor(color)
             gravity = Gravity.CENTER
-            // Padding around each widget: horizontal value sets the visible gap between adjacent
-            // widgets in a row (gap = widgetWordGap × 2 — each neighbour contributes its own
-            // padding); vertical value sets the row-to-row gap when the strip wraps. Defaults
-            // (12 / 10) match the original hardcoded values so existing users see no change.
-            val pad = (prefs.widgetWordGap * density).toInt()
-            val vPad = (prefs.widgetLineGap * density).toInt()
-            setPadding(pad, vPad, pad, vPad)
+            // Typography (font size, padding, typeface override) — shared with the Settings
+            // preview via [Typography.applyWidgetStyle] so the two renderings stay in lockstep.
+            Typography.applyWidgetStyle(this, prefs, context, density)
             isClickable = true
             isFocusable = true
             setOnClickListener {

@@ -30,6 +30,11 @@ import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.flexbox.AlignItems
+import com.google.android.flexbox.FlexDirection
+import com.google.android.flexbox.FlexWrap
+import com.google.android.flexbox.FlexboxLayout
+import com.google.android.flexbox.JustifyContent
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
@@ -66,6 +71,11 @@ class SettingsActivity : AppCompatActivity() {
         private val WIDGET_TEXT_SIZES = (10..32).toList()
         private val WIDGET_LINE_GAPS  = (0..20).toList()
         private val WIDGET_WORD_GAPS  = (2..28).toList()
+
+        // Fixed sample labels for the Settings preview. Chosen to span the typical widget label
+        // shapes: short (4 char), shorter (2 char), 5-char with colon, 3-char with %. Independent
+        // of the user's actual widget selection so the preview is deterministic and cheap.
+        private val PREVIEW_SAMPLE_LABELS = listOf("wifi", "bt", "12:34", "65%")
 
         private val GESTURE_SLOTS = listOf(
             Triple(1, Direction.UP,    "1 finger  ↑"),
@@ -1395,6 +1405,14 @@ class SettingsActivity : AppCompatActivity() {
         val rowArrangeWidgets = findViewById<View>(R.id.rowArrangeWidgets)
         val rowDivider = findViewById<View>(R.id.rowQuickStripDivider)
         val switchDivider = findViewById<MaterialSwitch>(R.id.switchQuickStripDivider)
+        val previewHeader = findViewById<TextView>(R.id.widgetPreviewHeader)
+        val previewLayout = findViewById<FlexboxLayout>(R.id.widgetPreview)
+        val rowFont = findViewById<View>(R.id.rowWidgetFont)
+        val fontValueLabel = findViewById<TextView>(R.id.widgetFontValue)
+        val rowWeight = findViewById<View>(R.id.rowWidgetWeight)
+        val weightValueLabel = findViewById<TextView>(R.id.widgetWeightValue)
+        val rowAlignment = findViewById<View>(R.id.rowWidgetAlignment)
+        val alignmentValueLabel = findViewById<TextView>(R.id.widgetAlignmentValue)
         val rowTextSize = findViewById<View>(R.id.rowWidgetTextSize)
         val sbTextSize = findViewById<SeekBar>(R.id.widgetTextSizeSeekBar)
         val lbTextSize = findViewById<TextView>(R.id.widgetTextSizeLabel)
@@ -1433,7 +1451,13 @@ class SettingsActivity : AppCompatActivity() {
                 if (on && prefs.quickStripWidgets.size >= 2) View.VISIBLE else View.GONE
             // Divider toggle mirrors the master gate — the divider can't exist without a strip.
             rowDivider.visibility = if (on) View.VISIBLE else View.GONE
-            // Typography sliders mirror the master gate — only meaningful when the strip renders.
+            // Preview + typography controls (pickers and sliders) mirror the master gate — only
+            // meaningful when the strip is going to render at all.
+            previewHeader.visibility = if (on) View.VISIBLE else View.GONE
+            previewLayout.visibility = if (on) View.VISIBLE else View.GONE
+            rowFont.visibility       = if (on) View.VISIBLE else View.GONE
+            rowWeight.visibility     = if (on) View.VISIBLE else View.GONE
+            rowAlignment.visibility  = if (on) View.VISIBLE else View.GONE
             rowTextSize.visibility = if (on) View.VISIBLE else View.GONE
             rowLineGap.visibility  = if (on) View.VISIBLE else View.GONE
             rowWordGap.visibility  = if (on) View.VISIBLE else View.GONE
@@ -1490,6 +1514,114 @@ class SettingsActivity : AppCompatActivity() {
             // Home re-renders on next onResume via applyChromeLayout(); no extra trigger needed.
         }
 
+        // ── Live preview + picker rows ──────────────────────────────────
+        // The preview is a small FlexboxLayout populated with fixed sample labels so the
+        // rendering is deterministic for every user. It mirrors the home strip's styling via
+        // [Typography.applyWidgetStyle] — single source of truth for "how a widget looks".
+        fun refreshPreview() {
+            val bg = parseColorSafe(prefs.backgroundColor)
+            previewLayout.setBackgroundColor(bg)
+            previewLayout.flexDirection = FlexDirection.ROW
+            previewLayout.flexWrap = FlexWrap.WRAP
+            previewLayout.alignItems = AlignItems.CENTER
+            previewLayout.justifyContent = when (prefs.widgetTextAlignment) {
+                "left" -> JustifyContent.FLEX_START
+                "right" -> JustifyContent.FLEX_END
+                else -> JustifyContent.CENTER
+            }
+            previewLayout.removeAllViews()
+            val density = resources.displayMetrics.density
+            val textColor = parseColorSafe(
+                prefs.appTextColor,
+                if (isColorLight(bg)) Color.BLACK else Color.WHITE
+            )
+            PREVIEW_SAMPLE_LABELS.forEach { sample ->
+                previewLayout.addView(TextView(this).apply {
+                    text = sample
+                    setTextColor(textColor)
+                    gravity = Gravity.CENTER
+                    isClickable = false
+                    isFocusable = false
+                    Typography.applyWidgetStyle(this, prefs, this@SettingsActivity, density)
+                })
+            }
+        }
+
+        // Resolve the persisted (family, weight, alignment) values to their human-readable row
+        // labels. `widgetFontFamily=""` and `widgetFontWeight=0` are sentinels meaning "use theme
+        // default" — both render as "Default" in the row value.
+        fun widgetFontDisplayName(key: String): String = when {
+            key.isEmpty() -> "Default"
+            key.startsWith("/") -> File(key).nameWithoutExtension
+            else -> FONTS.find { it.key == key }?.displayName ?: "Default"
+        }
+        fun widgetWeightDisplayName(weight: Int): String =
+            if (weight == 0) "Default"
+            else WEIGHTS.find { it.first == weight }?.second ?: "Default"
+
+        fun refreshFontValueLabel() {
+            fontValueLabel.text = widgetFontDisplayName(prefs.widgetFontFamily)
+            fontValueLabel.setTextColor(secondary())
+        }
+        fun refreshWeightValueLabel() {
+            weightValueLabel.text = widgetWeightDisplayName(prefs.widgetFontWeight)
+            weightValueLabel.setTextColor(secondary())
+        }
+        fun refreshAlignmentValueLabel() {
+            alignmentValueLabel.text = prefs.widgetTextAlignment.replaceFirstChar { it.uppercaseChar() }
+            alignmentValueLabel.setTextColor(secondary())
+        }
+
+        refreshFontValueLabel()
+        refreshWeightValueLabel()
+        refreshAlignmentValueLabel()
+
+        // Font picker — "Default" is index 0; subsequent entries map 1-to-1 onto FONTS.
+        rowFont.setOnClickListener {
+            val items = listOf("Default") + FONTS.map { it.displayName }
+            SlateListDialog(
+                context = this,
+                title = "Font",
+                items = items,
+                bgColor = prefs.backgroundColor
+            ) { index, _ ->
+                prefs.widgetFontFamily =
+                    if (index == 0) "" else FONTS[index - 1].key
+                refreshFontValueLabel()
+                refreshPreview()
+            }.show()
+        }
+
+        // Weight picker — same Default-prepend pattern as the font picker.
+        rowWeight.setOnClickListener {
+            val items = listOf("Default") + WEIGHTS.map { it.second }
+            SlateListDialog(
+                context = this,
+                title = "Weight",
+                items = items,
+                bgColor = prefs.backgroundColor
+            ) { index, _ ->
+                prefs.widgetFontWeight =
+                    if (index == 0) 0 else WEIGHTS[index - 1].first
+                refreshWeightValueLabel()
+                refreshPreview()
+            }.show()
+        }
+
+        // Alignment picker — mirrors the apps' Alignment dialog (left/center/right).
+        rowAlignment.setOnClickListener {
+            SlateListDialog(
+                context = this,
+                title = "Alignment",
+                items = listOf("Left", "Center", "Right"),
+                bgColor = prefs.backgroundColor
+            ) { _, label ->
+                prefs.widgetTextAlignment = label.lowercase()
+                refreshAlignmentValueLabel()
+                refreshPreview()
+            }.show()
+        }
+
         // Widget typography sliders. Out-of-range stored values (e.g., from an older backup with
         // different range bounds) fall back to the default index — pref on disk stays untouched
         // until the user moves the slider. Labels use the same "{value}{unit}" idiom as the
@@ -1523,13 +1655,20 @@ class SettingsActivity : AppCompatActivity() {
 
         sbTextSize.setOnSeekBarChangeListener(seekBarListener { p ->
             val v = WIDGET_TEXT_SIZES[p]; prefs.widgetTextSize = v; lbTextSize.text = "${v}sp"
+            refreshPreview()
         })
         sbLineGap.setOnSeekBarChangeListener(seekBarListener { p ->
             val v = WIDGET_LINE_GAPS[p]; prefs.widgetLineGap = v; lbLineGap.text = "${v}dp"
+            refreshPreview()
         })
         sbWordGap.setOnSeekBarChangeListener(seekBarListener { p ->
             val v = WIDGET_WORD_GAPS[p]; prefs.widgetWordGap = v; lbWordGap.text = "${v}dp"
+            refreshPreview()
         })
+
+        // Initial preview population so the user sees a rendered strip the moment the section
+        // becomes visible — no need to touch a control first.
+        refreshPreview()
     }
 
     /** Launch the system contact picker pre-filtered on Phone rows. */

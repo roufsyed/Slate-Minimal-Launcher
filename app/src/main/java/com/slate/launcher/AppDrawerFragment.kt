@@ -30,7 +30,6 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
@@ -42,7 +41,6 @@ import com.google.android.flexbox.JustifyContent
 import com.slate.launcher.widgets.QuickStripManager
 import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
-import java.io.File
 import kotlin.math.abs
 
 class AppDrawerFragment : Fragment() {
@@ -792,42 +790,15 @@ class AppDrawerFragment : Fragment() {
         prefs.alphabeticalFastScroll &&
         !prefs.sortByUsage
 
-    private fun buildTypeface(): Typeface {
-        val family = prefs.fontFamily
-        val weight = prefs.fontWeight
-
-        val base: Typeface = when {
-            family.startsWith("/") -> {
-                // Imported font file in internal storage
-                try { Typeface.createFromFile(File(family)) ?: Typeface.DEFAULT }
-                catch (_: Exception) { Typeface.DEFAULT }
-            }
-            family.startsWith("gf:") -> {
-                // Google downloadable font via R.font.*
-                val resId = googleFontResId(family.removePrefix("gf:"))
-                if (resId != 0) {
-                    try { ResourcesCompat.getFont(requireContext(), resId) ?: Typeface.DEFAULT }
-                    catch (_: Exception) { Typeface.DEFAULT }
-                } else Typeface.DEFAULT
-            }
-            else -> Typeface.create(family, Typeface.NORMAL)
-        }
-
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            Typeface.create(base, weight, false)
-        } else {
-            Typeface.create(base, if (weight >= 700) Typeface.BOLD else Typeface.NORMAL)
-        }
-    }
-
-    private fun googleFontResId(name: String): Int = when (name) {
-        "tex_gyre_adventor_bold" -> R.font.tex_gyre_adventor_bold
-        "roboto"                 -> R.font.roboto
-        "noto_sans"              -> R.font.noto_sans
-        "coming_soon"            -> R.font.coming_soon
-        "cutive_mono"            -> R.font.cutive_mono
-        else                     -> 0
-    }
+    /**
+     * Resolve the apps-list typeface. `fontFamily` defaults to a non-empty Google Font key, so
+     * [Typography.buildTypeface] never returns null here — the `?: Typeface.DEFAULT` fallback
+     * is defensive only (would only trip if a future code path wrote both sentinels to the apps'
+     * pref).
+     */
+    private fun buildTypeface(): Typeface =
+        Typography.buildTypeface(requireContext(), prefs.fontFamily, prefs.fontWeight)
+            ?: Typeface.DEFAULT
 
     private fun computeFontSize(usage: Int, maxUsage: Int): Float {
         // Folders' aggregate usage can exceed any single app's maxUsage; clamp so neither folders
