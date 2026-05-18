@@ -58,6 +58,12 @@ class SettingsActivity : AppCompatActivity() {
     // Tracks whether the user is currently adding a "call" or "sms" shortcut so the picker
     // callback knows which widget kind to construct.
     private var pendingShortcutType: ContactShortcut.Type? = null
+    // Re-runs the biometric-row visibility/reconcile closure from setupSecurity. Captured on
+    // setup; invoked from syncPermissionToggles so a biometric-enrollment change made outside
+    // Slate (Android system Settings) is detected on the next onResume — mirrors the
+    // syncAccessibilityToggle pattern but without an `awaiting*` flag (biometric grant is
+    // entirely in-app, no system-settings round-trip).
+    private var biometricReconcile: (() -> Unit)? = null
     // awaitingAccessibilityPermission and awaitingNotificationPermission
     // are persisted in PreferencesManager to survive process death
 
@@ -231,6 +237,12 @@ class SettingsActivity : AppCompatActivity() {
     private fun syncPermissionToggles() {
         syncAccessibilityToggle()
         syncNotificationToggle()
+        // Biometric reconcile: the user might have removed their fingerprint / face
+        // enrollment from Android system Settings while Slate Settings was in the background.
+        // The closure is set during setupSecurity and re-runs applyVisibility, which now
+        // flips `prefs.biometricEnabled` off when enrollment is gone. No-op when biometric
+        // is still available or pref is already false.
+        biometricReconcile?.invoke()
     }
 
     private fun syncAccessibilityToggle() {
@@ -1821,19 +1833,6 @@ class SettingsActivity : AppCompatActivity() {
         val rowChangePin = findViewById<View>(R.id.rowChangePin)
         val labelBioSub = findViewById<TextView>(R.id.labelBiometricSub)
 
-        fun applyVisibility() {
-            val active = prefs.hiddenAppsSecurityEnabled && pinManager.hasPin()
-            rowBio.visibility = if (active) View.VISIBLE else View.GONE
-            rowChangePin.visibility = if (active) View.VISIBLE else View.GONE
-            val bioAvailable = AuthGate.canUseBiometric(this)
-            switchBio.isEnabled = bioAvailable
-            labelBioSub.text = if (bioAvailable) {
-                "Unlock with fingerprint or face; PIN remains as fallback"
-            } else {
-                "No biometric enrolled on this device"
-            }
-        }
-
         // Mutually-recursive listener setup so we can re-attach after a silent revert.
         var attachMaster: () -> Unit = {}
         var attachBio: () -> Unit = {}
@@ -1848,6 +1847,38 @@ class SettingsActivity : AppCompatActivity() {
             switchBio.isChecked = value
             attachBio()
         }
+
+        // applyVisibility runs after setBioSilently is declared because its reconcile branch
+        // (below) invokes setBioSilently. Kotlin local functions cannot forward-reference
+        // each other across blocks.
+        fun applyVisibility() {
+            val active = prefs.hiddenAppsSecurityEnabled && pinManager.hasPin()
+            rowBio.visibility = if (active) View.VISIBLE else View.GONE
+            rowChangePin.visibility = if (active) View.VISIBLE else View.GONE
+            val bioAvailable = AuthGate.canUseBiometric(this)
+            // Reconcile stale pref: if the user removed their biometric enrollment from
+            // Android system Settings while we were elsewhere, `prefs.biometricEnabled` is
+            // still true but `canUseBiometric` now returns false. Without this flip the
+            // switch renders as a confusing checked-but-greyed-out state. Functionally
+            // AuthGate.authenticate already falls back to PIN — this fixes the UI to tell
+            // the truth.
+            if (prefs.biometricEnabled && !bioAvailable) {
+                prefs.biometricEnabled = false
+                setBioSilently(false)
+            }
+            switchBio.isEnabled = bioAvailable
+            labelBioSub.text = if (bioAvailable) {
+                "Unlock with fingerprint or face; PIN remains as fallback"
+            } else {
+                "No biometric enrolled on this device"
+            }
+        }
+
+        // Expose the reconcile entry-point for syncPermissionToggles. The lambda closes over
+        // every local in this setupSecurity invocation; if the activity is recreated (e.g.,
+        // after a backup restore), setupSecurity runs again and reassigns this field with a
+        // fresh closure pointing at the new locals.
+        biometricReconcile = { applyVisibility() }
 
         attachMaster = {
             switchMaster.setOnCheckedChangeListener { _, checked ->
