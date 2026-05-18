@@ -26,6 +26,14 @@ class SlateListDialog(
      * single-column layout — preserves behaviour for all existing call sites.
      */
     private val secondaryItems: List<String>? = null,
+    /**
+     * Optional per-row long-press handler. When non-null, each row reports `(index, label)` on
+     * long-press AND consumes the gesture so the subsequent click doesn't also fire. The
+     * dialog is NOT auto-dismissed on long-press — the caller stays open so it can present a
+     * follow-up (e.g., a confirmation). Only one call site uses this today (the Hidden Apps
+     * dialog) but the param is generic.
+     */
+    private val onItemLongPress: ((index: Int, label: String) -> Unit)? = null,
     private val onItemSelected: (index: Int, label: String) -> Unit
 ) : Dialog(context, R.style.SlateDialogTheme) {
 
@@ -92,6 +100,7 @@ class SlateListDialog(
             val row: View = if (previews != null) {
                 buildTwoColumnRow(
                     label = label,
+                    index = index,
                     preview = previews[index],
                     primary = primary,
                     previewColor = secondary,
@@ -102,6 +111,7 @@ class SlateListDialog(
             } else {
                 buildSingleColumnRow(
                     label = label,
+                    index = index,
                     primary = primary,
                     rippleOverlay = rippleOverlay,
                     hPad = hPad,
@@ -128,6 +138,7 @@ class SlateListDialog(
 
     private fun buildSingleColumnRow(
         label: String,
+        index: Int,
         primary: Int,
         rippleOverlay: Int,
         hPad: Int,
@@ -139,6 +150,14 @@ class SlateListDialog(
         setTextColor(primary)
         setPadding(hPad, vPad, hPad, vPad)
         setOnClickListener { onClick() }
+        // Long-press: only when the caller wants it. Returning true consumes the gesture so
+        // Android suppresses the synthetic click that would otherwise follow.
+        onItemLongPress?.let { handler ->
+            setOnLongClickListener {
+                handler(index, label)
+                true
+            }
+        }
         setOnTouchListener { v, event ->
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN ->
@@ -153,6 +172,7 @@ class SlateListDialog(
 
     private fun buildTwoColumnRow(
         label: String,
+        index: Int,
         preview: String,
         primary: Int,
         previewColor: Int,
@@ -171,6 +191,14 @@ class SlateListDialog(
             isClickable = true
             isFocusable = true
             setOnClickListener { onClick() }
+            // Long-press: only when the caller wants it. Returning true consumes the gesture
+            // so Android suppresses the synthetic click that would otherwise follow.
+            onItemLongPress?.let { handler ->
+                setOnLongClickListener {
+                    handler(index, label)
+                    true
+                }
+            }
             setOnTouchListener { v, event ->
                 when (event.action) {
                     android.view.MotionEvent.ACTION_DOWN -> v.setBackgroundColor(rippleOverlay)

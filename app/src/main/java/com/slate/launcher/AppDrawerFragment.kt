@@ -1514,15 +1514,104 @@ class AppDrawerFragment : Fragment() {
             return
         }
 
-        SlateListDialog(
+        // Forward-reference the dialog so the long-press → confirm path can dismiss it on
+        // successful unhide. The lambda only fires after the user interacts, by which time
+        // `parent` is set; the nullable type is a Kotlin formality for the self-reference.
+        var parent: SlateListDialog? = null
+        parent = SlateListDialog(
             context = requireContext(),
-            title = "Hidden Apps — tap to unhide",
+            title = "Hidden Apps — tap to open, hold to unhide",
             items = hidden.map { it.first },
-            bgColor = prefs.backgroundColor
+            bgColor = prefs.backgroundColor,
+            onItemLongPress = { index, _ ->
+                showUnhideConfirm(
+                    name = hidden[index].first,
+                    pkg = hidden[index].second
+                ) {
+                    parent?.dismiss()
+                    buildAppList()
+                }
+            }
         ) { index, _ ->
-            prefs.unhideApp(hidden[index].second)
-            buildAppList()
-        }.show()
+            launchHiddenApp(hidden[index].second)
+            // SlateListDialog auto-dismisses after the tap callback.
+        }
+        parent.show()
+    }
+
+    /**
+     * Launch a package from the Hidden Apps dialog. Mirrors [launchApp] but accepts a raw
+     * package — the Hidden Apps dialog tracks (displayName, pkg) pairs rather than full
+     * [AppInfo] objects. The null-intent branch is defensive: the list is filtered for
+     * installed apps at open time, so this only trips if an uninstall raced with the tap.
+     */
+    private fun launchHiddenApp(pkg: String) {
+        prefs.incrementUsage(pkg)
+        SlateNotificationService.activePackages.remove(pkg)
+        val intent = requireContext().packageManager.getLaunchIntentForPackage(pkg)
+        if (intent == null) {
+            Toast.makeText(requireContext(), "App not installed", Toast.LENGTH_SHORT).show()
+            return
+        }
+        startActivity(intent)
+    }
+
+    /**
+     * Confirmation dialog before unhiding an app — guards against a misclick on the Hidden
+     * Apps long-press. Reuses the accessibility-info dialog layout (title / body / two
+     * buttons), the same template as [showDeleteFolderConfirm].
+     */
+    private fun showUnhideConfirm(name: String, pkg: String, onConfirmed: () -> Unit) {
+        val dialog = Dialog(requireContext(), R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(
+            android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+        )
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup
+            ?: return
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.apply {
+            text = "UNHIDE APP"
+            setTextColor(accent)
+        }
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
+            text = "Unhide \"$name\"? It will return to your main app list."
+            setTextColor(primary)
+        }
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.visibility = View.GONE
+        dialog.findViewById<TextView>(R.id.btnCancel)?.apply {
+            setTextColor(secondary)
+            setOnClickListener { dialog.dismiss() }
+        }
+        dialog.findViewById<TextView>(R.id.btnContinue)?.apply {
+            text = "Unhide"
+            setTextColor(accent)
+            setOnClickListener {
+                dialog.dismiss()
+                prefs.unhideApp(pkg)
+                onConfirmed()
+            }
+        }
+        dialog.show()
     }
 
     // ── System actions ────────────────────────────────────────────
