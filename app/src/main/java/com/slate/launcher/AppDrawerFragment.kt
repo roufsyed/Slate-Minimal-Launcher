@@ -38,6 +38,7 @@ import com.google.android.flexbox.FlexDirection
 import com.google.android.flexbox.FlexboxLayout
 import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.JustifyContent
+import com.slate.launcher.widgets.CallShortcutWidget
 import com.slate.launcher.widgets.QuickStripManager
 import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
@@ -114,6 +115,19 @@ class AppDrawerFragment : Fragment() {
                 }
 
                 override fun onLongPress(e: MotionEvent) {
+                    // Direct-call-on-long-press: when the user has bound long-press as their
+                    // direct-call trigger AND the touch hit-tests to a CallShortcutWidget,
+                    // fire the call here and consume the gesture. We deliberately do NOT also
+                    // show the home menu — that would race with the freshly-fired call intent
+                    // and surprise the user with a customisation dialog they didn't ask for.
+                    if (prefs.directCallEnabled && prefs.directCallTrigger == "longPress") {
+                        val widget = quickStrip?.widgetForRawTouch(e.rawX, e.rawY)
+                        if (widget is CallShortcutWidget) {
+                            widget.onLongPressDirect(requireContext())
+                            return
+                        }
+                    }
+
                     // Block only when user explicitly opened search (keyboard up);
                     // always-visible search bar should not block customization long press.
                     val searchBlocksLongPress = isSearchOpen && !prefs.showSearchBarOnHome

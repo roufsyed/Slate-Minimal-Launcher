@@ -30,6 +30,7 @@ import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.google.android.flexbox.AlignItems
 import com.google.android.flexbox.FlexDirection
 import com.google.android.flexbox.FlexWrap
@@ -54,6 +55,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var requestRoleLauncher: ActivityResultLauncher<Intent>
     private lateinit var batteryExemptLauncher: ActivityResultLauncher<Intent>
     private lateinit var pickContactLauncher: ActivityResultLauncher<Intent>
+    private lateinit var requestCallPhoneLauncher: ActivityResultLauncher<String>
     // Tracks whether the user is currently adding a "call" or "sms" shortcut so the picker
     // callback knows which widget kind to construct.
     private var pendingShortcutType: ContactShortcut.Type? = null
@@ -158,6 +160,30 @@ class SettingsActivity : AppCompatActivity() {
                 result.data?.data?.let { onContactPicked(it) }
             } else {
                 pendingShortcutType = null
+            }
+        }
+
+        // CALL_PHONE runtime grant. Owned by the Direct-call setup flow — we register the
+        // launcher unconditionally (must be done before STARTED), but it is only `launch`ed
+        // when the user toggles Direct call ON without an existing grant. The callback writes
+        // the final pref + switch state; the detach-set-reattach inside the callback prevents
+        // the silent revert from re-firing the listener.
+        requestCallPhoneLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            val switch = findViewById<MaterialSwitch>(R.id.switchDirectCall)
+            switch.setOnCheckedChangeListener(null)
+            prefs.directCallEnabled = granted
+            switch.isChecked = granted
+            attachDirectCallListener(switch)
+            // Trigger sub-row appears only when both master Quick toggles AND Direct call are
+            // on. On a denial we flip the master back to OFF so it must also be hidden.
+            val rowTrigger = findViewById<View>(R.id.rowDirectCallTrigger)
+            rowTrigger.visibility =
+                if (granted && prefs.quickStripEnabled) View.VISIBLE else View.GONE
+            if (!granted) {
+                Toast.makeText(this, "Permission required for direct call", Toast.LENGTH_SHORT)
+                    .show()
             }
         }
 
@@ -330,7 +356,9 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchAlphaFastScroll),
             findViewById(R.id.switchHiddenAppsSecurity),
             findViewById(R.id.switchBiometric),
-            findViewById(R.id.switchQuickStrip)
+            findViewById(R.id.switchQuickStrip),
+            findViewById(R.id.switchDirectCall),
+            findViewById(R.id.switchQuickStripDivider)
         )
     }
 
@@ -1403,6 +1431,10 @@ class SettingsActivity : AppCompatActivity() {
         val rowChooseWidgets = findViewById<View>(R.id.rowChooseWidgets)
         val labelChooseValue = findViewById<TextView>(R.id.labelChooseWidgetsValue)
         val rowArrangeWidgets = findViewById<View>(R.id.rowArrangeWidgets)
+        val rowDirectCall = findViewById<View>(R.id.rowDirectCall)
+        val switchDirectCall = findViewById<MaterialSwitch>(R.id.switchDirectCall)
+        val rowDirectCallTrigger = findViewById<View>(R.id.rowDirectCallTrigger)
+        val directCallTriggerValue = findViewById<TextView>(R.id.directCallTriggerValue)
         val rowDivider = findViewById<View>(R.id.rowQuickStripDivider)
         val switchDivider = findViewById<MaterialSwitch>(R.id.switchQuickStripDivider)
         val previewHeader = findViewById<TextView>(R.id.widgetPreviewHeader)
@@ -1449,6 +1481,12 @@ class SettingsActivity : AppCompatActivity() {
             // Arrange row hides when there's nothing to arrange: 0 or 1 widget enabled.
             rowArrangeWidgets.visibility =
                 if (on && prefs.quickStripWidgets.size >= 2) View.VISIBLE else View.GONE
+            // Direct call sub-row mirrors the master. The Trigger sub-sub-row appears only when
+            // BOTH master Quick toggles AND Direct call are on — showing the trigger picker
+            // while Direct call is off would be meaningless.
+            rowDirectCall.visibility = if (on) View.VISIBLE else View.GONE
+            rowDirectCallTrigger.visibility =
+                if (on && prefs.directCallEnabled) View.VISIBLE else View.GONE
             // Divider toggle mirrors the master gate — the divider can't exist without a strip.
             rowDivider.visibility = if (on) View.VISIBLE else View.GONE
             // Preview + typography controls (pickers and sliders) mirror the master gate — only
@@ -1505,6 +1543,32 @@ class SettingsActivity : AppCompatActivity() {
                 prefs = prefs,
                 onChanged = { /* order changes; counts and visibility don't */ }
             ).show()
+        }
+
+        // ── Direct call ────────────────────────────────────────────────
+        fun directCallTriggerLabel(value: String) = when (value) {
+            "longPress" -> "Long press"
+            else -> "Tap"
+        }
+        fun refreshDirectCallTriggerValue() {
+            directCallTriggerValue.text = directCallTriggerLabel(prefs.directCallTrigger)
+            directCallTriggerValue.setTextColor(secondary())
+        }
+
+        switchDirectCall.isChecked = prefs.directCallEnabled
+        refreshDirectCallTriggerValue()
+        attachDirectCallListener(switchDirectCall)
+
+        rowDirectCallTrigger.setOnClickListener {
+            SlateListDialog(
+                context = this,
+                title = "Trigger",
+                items = listOf("Tap", "Long press"),
+                bgColor = prefs.backgroundColor
+            ) { index, _ ->
+                prefs.directCallTrigger = if (index == 0) "tap" else "longPress"
+                refreshDirectCallTriggerValue()
+            }.show()
         }
 
         switchDivider.setOnCheckedChangeListener(null)
@@ -1669,6 +1733,36 @@ class SettingsActivity : AppCompatActivity() {
         // Initial preview population so the user sees a rendered strip the moment the section
         // becomes visible — no need to touch a control first.
         refreshPreview()
+    }
+
+    /**
+     * Wire the Direct-call switch. Toggling ON requests CALL_PHONE if not already granted; the
+     * launcher's callback owns the final pref / switch state. Detach-set-reattach pattern in
+     * the callback prevents recursion on a silent revert.
+     *
+     * Toggling OFF writes the pref to false immediately — no permission interaction. Also
+     * hides the Trigger sub-row.
+     */
+    private fun attachDirectCallListener(switchDirectCall: MaterialSwitch) {
+        switchDirectCall.setOnCheckedChangeListener { _, checked ->
+            val rowTrigger = findViewById<View>(R.id.rowDirectCallTrigger)
+            if (!checked) {
+                prefs.directCallEnabled = false
+                rowTrigger.visibility = View.GONE
+                return@setOnCheckedChangeListener
+            }
+            val granted = ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.CALL_PHONE
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (granted) {
+                prefs.directCallEnabled = true
+                rowTrigger.visibility = View.VISIBLE
+            } else {
+                // Don't write the pref yet — the launcher callback owns the final state. The
+                // Trigger row stays hidden until the grant succeeds.
+                requestCallPhoneLauncher.launch(android.Manifest.permission.CALL_PHONE)
+            }
+        }
     }
 
     /** Launch the system contact picker pre-filtered on Phone rows. */
