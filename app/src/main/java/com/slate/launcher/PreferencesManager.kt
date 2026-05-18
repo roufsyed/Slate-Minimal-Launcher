@@ -53,6 +53,9 @@ class PreferencesManager(context: Context) {
         private const val KEY_WIDGET_TEXT_SIZE = "widget_text_size"
         private const val KEY_WIDGET_LINE_GAP = "widget_line_gap"
         private const val KEY_WIDGET_WORD_GAP = "widget_word_gap"
+        private const val KEY_WIDGET_FONT_FAMILY = "widget_font_family"
+        private const val KEY_WIDGET_FONT_WEIGHT = "widget_font_weight"
+        private const val KEY_WIDGET_TEXT_ALIGNMENT = "widget_text_alignment"
         private const val KEY_CONTACT_SHORTCUTS = "contact_shortcuts"
         private const val KEY_FOLDERS = "folders_v1"
         private const val KEY_GUIDED_TOUR_STEP = "guided_tour_step_index"
@@ -90,6 +93,13 @@ class PreferencesManager(context: Context) {
         const val DEFAULT_WIDGET_TEXT_SIZE = 14   // matches QuickStripManager.createWidgetView:138
         const val DEFAULT_WIDGET_LINE_GAP  = 10   // matches QuickStripManager.createWidgetView:142
         const val DEFAULT_WIDGET_WORD_GAP  = 12   // matches QuickStripManager.createWidgetView:141
+
+        // Sentinels: empty family / zero weight = "no typeface override, use theme default".
+        // Preserves the legacy widget appearance (Material3 theme inheritance) for users who
+        // haven't picked a custom font.
+        const val DEFAULT_WIDGET_FONT_FAMILY = ""
+        const val DEFAULT_WIDGET_FONT_WEIGHT = 0
+        const val DEFAULT_WIDGET_TEXT_ALIGNMENT = "center"
 
     }
 
@@ -300,6 +310,35 @@ class PreferencesManager(context: Context) {
     var widgetWordGap: Int
         get() = prefs.getInt(KEY_WIDGET_WORD_GAP, DEFAULT_WIDGET_WORD_GAP)
         set(value) = prefs.edit().putInt(KEY_WIDGET_WORD_GAP, value).apply()
+
+    /**
+     * Widget typeface override. Empty = "use theme default" (current behaviour for users who
+     * never picked a font). Same string domain as [fontFamily]: `"gf:<name>"` for bundled Google
+     * Fonts, `"/path/..."` for files imported via Settings, or a system family like
+     * `"sans-serif"`. Resolved by [Typography.buildTypeface].
+     */
+    var widgetFontFamily: String
+        get() = prefs.getString(KEY_WIDGET_FONT_FAMILY, DEFAULT_WIDGET_FONT_FAMILY)
+            ?: DEFAULT_WIDGET_FONT_FAMILY
+        set(value) = prefs.edit().putString(KEY_WIDGET_FONT_FAMILY, value).apply()
+
+    /**
+     * Widget typeface weight (e.g., 300/400/500/700). Zero = "no weight override" — paired with
+     * an empty [widgetFontFamily], the strip falls back to the theme default.
+     */
+    var widgetFontWeight: Int
+        get() = prefs.getInt(KEY_WIDGET_FONT_WEIGHT, DEFAULT_WIDGET_FONT_WEIGHT)
+        set(value) = prefs.edit().putInt(KEY_WIDGET_FONT_WEIGHT, value).apply()
+
+    /**
+     * Horizontal alignment of widgets within the strip row(s): "left", "center", or "right".
+     * Mapped to FlexboxLayout's `justifyContent` in QuickStripManager.bind(). FlexboxLayout with
+     * `flexWrap=WRAP` applies the value per row, so wrapped rows stay consistently aligned.
+     */
+    var widgetTextAlignment: String
+        get() = prefs.getString(KEY_WIDGET_TEXT_ALIGNMENT, DEFAULT_WIDGET_TEXT_ALIGNMENT)
+            ?: DEFAULT_WIDGET_TEXT_ALIGNMENT
+        set(value) = prefs.edit().putString(KEY_WIDGET_TEXT_ALIGNMENT, value).apply()
 
     /** Raw JSON for the contact-shortcut library. Parsed by ContactShortcutStore. */
     var contactShortcutsJson: String

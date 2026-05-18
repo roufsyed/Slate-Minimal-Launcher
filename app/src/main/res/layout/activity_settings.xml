@@ -1264,6 +1264,115 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
+            <!-- Live preview header (sub-row, only when master is on) -->
+            <TextView
+                android:id="@+id/widgetPreviewHeader"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Preview"
+                android:textSize="13sp"
+                android:alpha="0.6"
+                android:layout_marginTop="16dp"
+                android:paddingStart="16dp"
+                android:visibility="gone" />
+
+            <!--
+                Live preview of the widget strip rendered with the user's current typography
+                choices. Populated by SettingsActivity.setupQuickStrip → refreshPreview() with
+                sample labels so the layout is deterministic regardless of which widgets the user
+                has actually enabled. Background colour is set at runtime to mirror the home
+                background, so the preview reads as it will on home.
+            -->
+            <com.google.android.flexbox.FlexboxLayout
+                android:id="@+id/widgetPreview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="8dp"
+                android:layout_marginTop="4dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:visibility="gone" />
+
+            <!-- Widget font (sub-row, only when master is on) -->
+            <LinearLayout
+                android:id="@+id/rowWidgetFont"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="12dp"
+                android:paddingStart="16dp"
+                android:layout_marginTop="8dp"
+                android:background="?attr/selectableItemBackground"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Font"
+                    android:textSize="17sp" />
+
+                <TextView
+                    android:id="@+id/widgetFontValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="15sp" />
+            </LinearLayout>
+
+            <!-- Widget weight (sub-row, only when master is on) -->
+            <LinearLayout
+                android:id="@+id/rowWidgetWeight"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="12dp"
+                android:paddingStart="16dp"
+                android:background="?attr/selectableItemBackground"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Weight"
+                    android:textSize="17sp" />
+
+                <TextView
+                    android:id="@+id/widgetWeightValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="15sp" />
+            </LinearLayout>
+
+            <!-- Widget alignment (sub-row, only when master is on) -->
+            <LinearLayout
+                android:id="@+id/rowWidgetAlignment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="12dp"
+                android:paddingStart="16dp"
+                android:background="?attr/selectableItemBackground"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Alignment"
+                    android:textSize="17sp" />
+
+                <TextView
+                    android:id="@+id/widgetAlignmentValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="15sp" />
+            </LinearLayout>
+
             <!-- Widget text size (sub-row, only when master is on) -->
             <LinearLayout
                 android:id="@+id/rowWidgetTextSize"
