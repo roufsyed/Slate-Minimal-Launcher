@@ -137,8 +137,21 @@ class AppDrawerFragment : Fragment() {
                 }
 
                 override fun onDoubleTap(e: MotionEvent): Boolean {
-                    if (prefs.doubleTapToLock) { lockScreen(); return true }
-                    return false
+                    if (!prefs.doubleTapToLock) return false
+                    // Suppress the screen-lock when the second tap landed on interactive content
+                    // rather than blank home space. Two cases:
+                    //   1. A strip widget — `touchStartedOnApp` is false here (the touchForwarder
+                    //      clears it), so we explicitly hit-test the strip. Without this guard,
+                    //      rapid widget toggling (e.g., torch on → torch off within 300 ms)
+                    //      would accidentally lock the user's phone.
+                    //   2. An app / folder / back-out row — `touchStartedOnApp` is true (set by
+                    //      the row's own setOnTouchListener). In practice the first tap launches
+                    //      the app and the second tap goes to the launched app, so this branch
+                    //      rarely fires — but the check is defensive symmetry with onLongPress.
+                    if (touchStartedOnApp) return false
+                    if (quickStrip?.widgetForRawTouch(e.rawX, e.rawY) != null) return false
+                    lockScreen()
+                    return true
                 }
 
                 override fun onFling(
