@@ -1002,8 +1002,18 @@ class AppDrawerFragment : Fragment() {
         SlateNotificationService.activePackages.remove(app.packageName)
         if (isSearchOpen) closeSearch()
         val intent = requireContext().packageManager
-            .getLaunchIntentForPackage(app.packageName) ?: return
-        startActivity(intent)
+            .getLaunchIntentForPackage(app.packageName)
+        if (intent == null) {
+            Toast.makeText(requireContext(), "App not installed", Toast.LENGTH_SHORT).show()
+            return
+        }
+        // startActivity can still throw ActivityNotFoundException (app uninstalled between
+        // list-build and tap) or SecurityException (rare cross-user / work-profile edges).
+        // Match launchHiddenApp's defensive pattern so neither path crashes the launcher.
+        runCatching { startActivity(intent) }
+            .onFailure {
+                Toast.makeText(requireContext(), "App not installed", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun showAppMenu(app: AppInfo, anchor: View) {
