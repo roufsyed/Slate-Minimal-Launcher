@@ -1517,6 +1517,9 @@ class AppDrawerFragment : Fragment() {
             "How does the hidden apps lock work?" to
                 "Turning on \"Lock hidden apps\" in Settings → Security asks you to set a 4–8 digit PIN. After that, opening the Hidden Apps dialog from the home long-press menu requires PIN (or biometric, if you opt in).\n\nYour PIN is never stored in plain text. Slate stores a salted PBKDF2-HMAC-SHA256 hash with 120,000 iterations and a per-device random 16-byte salt. The hash is a one-way verifier — even with the file, an attacker would have to brute-force the PIN.\n\nBiometric is optional. When enabled, Slate uses Android's BiometricPrompt to show the standard fingerprint/face dialog. Biometric data stays inside the OS and Slate only sees a success/fail signal.\n\nAfter 5 wrong PIN attempts you're locked out for 30 seconds; 10 wrong for 5 minutes; 15 wrong for 15 minutes. There is no PIN recovery — clearing app data is the only reset.",
 
+            "Do hidden apps appear in the Recents (Overview) screen?" to
+                "When you open a hidden app from Slate, it's launched in a way that keeps it off the Android Recents / Overview screen — so someone glancing at Recents won't see what hidden app you opened.\n\nOne caveat Android can't avoid: if the app already had a task in Recents from before (because you opened it from another launcher, or because it uses Android's \"single task\" mode like Chrome on some devices), Slate can't remove that existing entry. Swipe it away from Recents once, and from then on Slate's launches stay invisible.",
+
             "How do folders work?" to
                 "Long-press any app and choose \"Move to folder\" to add it to an existing folder, or pick \"+ New folder\" to create one on the spot. Folders appear on the home screen with a marker (chevron, bullet, brackets, slash, count, or plain — pick your style in Settings → Typography → Folder style). Tap to expand inline — the home list is replaced by the folder's apps with a leading ‹ back row. Tap back (or press the system back gesture) to return.\n\nEach app lives in at most one folder. Apps inside a folder are hidden from the main list to reduce clutter — search still finds them globally, and the folder name itself also appears in search results.\n\nLong-press a folder label to rename, set a custom color, or delete. Deleting a folder returns its apps to the main list; the apps themselves are never removed. Pinning an app automatically removes it from any folder it was in. If you uninstall an app, it disappears from its folder; empty folders are pruned automatically.",
 
@@ -1696,14 +1699,29 @@ class AppDrawerFragment : Fragment() {
      * installed apps at open time, so this only trips if an uninstall raced with the tap.
      */
     private fun launchHiddenApp(pkg: String) {
-        prefs.incrementUsage(pkg)
+        // Usage count is deliberately NOT incremented for hidden launches. Hidden apps are
+        // filtered out of AppRepository.getAllApps() (line ~28), so the count has no effect on
+        // the main list, search, or sort-by-usage. Its only remaining consumer is the folder
+        // font-size weighting in sizeForItem() — which would visibly grow the containing
+        // folder's font on every hidden launch and leak activity to anyone glancing at the
+        // home screen.
         SlateNotificationService.activePackages.remove(pkg)
         val intent = requireContext().packageManager.getLaunchIntentForPackage(pkg)
         if (intent == null) {
             Toast.makeText(requireContext(), "App not installed", Toast.LENGTH_SHORT).show()
             return
         }
-        startActivity(intent)
+        // Privacy: keep hidden-app launches off the system Recents / Overview screen so a
+        // coworker glancing at Recents can't see what hidden app was opened. The flag applies
+        // at task-creation time; if the target app uses launchMode="singleTask" and already
+        // has a live task in Recents from before, that existing task is reused and stays
+        // visible — public APIs don't let a third-party launcher remove another app's task.
+        // The FAQ explains the one-time-swipe mitigation to the user.
+        intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+        runCatching { startActivity(intent) }
+            .onFailure {
+                Toast.makeText(requireContext(), "App not installed", Toast.LENGTH_SHORT).show()
+            }
     }
 
     /**
