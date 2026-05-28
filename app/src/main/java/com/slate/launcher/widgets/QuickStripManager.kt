@@ -124,6 +124,13 @@ class QuickStripManager(
     }
 
     /**
+     * True iff the last [bind] resolved at least one configured-and-available widget into the
+     * strip. Lets the host fragment compute the strip's "intended" visibility without inspecting
+     * [container]'s actual visibility, which the fragment itself overrides under IME-up state.
+     */
+    fun hasActiveWidgets(): Boolean = activeWidgets.isNotEmpty()
+
+    /**
      * Hit-test the strip for a touch in screen (raw) coordinates. Returns the configured
      * widget whose view's bounds contain the point, or null if the touch falls in blank strip
      * space, on a GONE strip, or outside the container entirely.
@@ -155,7 +162,12 @@ class QuickStripManager(
         return null
     }
 
-    private fun refreshAll() {
+    /**
+     * Repaint every active widget's label from its current state. Cheap; safe to call from
+     * the host fragment after un-hiding the strip to flush any state changes that occurred
+     * while the row was [View.GONE] (e.g., a clock that missed a TIME_TICK while invisible).
+     */
+    fun refreshAll() {
         for (i in activeWidgets.indices) refreshWidget(i)
     }
 

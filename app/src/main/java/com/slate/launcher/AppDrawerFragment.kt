@@ -63,6 +63,7 @@ class AppDrawerFragment : Fragment() {
     private var scrollYOnDown = 0
     private var statusBarHeight = 0
     private var bottomInset = 0
+    private var isImeVisible: Boolean = false
     private lateinit var singleFingerDetector: GestureDetector
     /** Null = main view; non-null = home is showing the contents of that folder. */
     private var currentFolderId: String? = null
@@ -217,8 +218,13 @@ class AppDrawerFragment : Fragment() {
 
         // When keyboard closes, hide the search bar unless the user wants it always visible
         ViewCompat.setOnApplyWindowInsetsListener(requireView()) { v, insets ->
-            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-            if (!imeVisible && isSearchOpen && !prefs.showSearchBarOnHome) {
+            // Refresh the field before any branch below so that subsequent applyChromeLayout()
+            // calls (status-bar branch, bottom-inset branch) read fresh IME state when computing
+            // strip suppression. In practice every IME show/hide transitions bottomInset (because
+            // bottomInset = max(imeBottom, navBottom)), so the existing bottom-inset trigger
+            // covers every real device; the field write here keeps that trigger's view consistent.
+            isImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+            if (!isImeVisible && isSearchOpen && !prefs.showSearchBarOnHome) {
                 dismissSearchBar()
             }
             // Combine the status-bar inset with the display-cutout inset (camera punch hole,
@@ -350,6 +356,29 @@ class AppDrawerFragment : Fragment() {
         val stripContainer = root.findViewById<View>(R.id.quickStripContainer)
         val searchAtBottom = prefs.searchBarPosition == "bottom"
         val stripAtBottom = prefs.quickStripPosition == "bottom"
+
+        // Strip-visibility override: hide the quick-strip while the soft keyboard is up.
+        // Without this, adjustResize shrinks the window and the strip — pinned to the bottom
+        // edge of the root LinearLayout via the weight=1 FrameLayout above it — rides up onto
+        // the keyboard's leading edge. The strip's "intended" visibility (configured + enabled
+        // widgets exist) is owned by QuickStripManager.bind(); applyChromeLayout layers this
+        // contextual GONE on top. Inset routing below already filters by visibility, so a GONE
+        // strip transparently hands the bottomInset off to the next visible child (FrameLayout).
+        val stripIntended =
+            quickStrip?.hasActiveWidgets() == true && prefs.quickStripEnabled
+        val stripEffective = stripIntended && !isImeVisible
+        val newStripVisibility = if (stripEffective) View.VISIBLE else View.GONE
+        val stripWasHidden = stripContainer.visibility != View.VISIBLE
+        if (stripContainer.visibility != newStripVisibility) {
+            stripContainer.visibility = newStripVisibility
+        }
+        // After restoring from hidden, repaint widget labels so e.g. a clock that missed the
+        // last TIME_TICK while invisible doesn't show stale text for a frame. Observers stay
+        // alive while the strip is GONE (start/stop is bound to onResume/onPause, not visibility),
+        // so this is a defensive immediate repaint, not a re-subscribe.
+        if (stripEffective && stripWasHidden) {
+            quickStrip?.refreshAll()
+        }
 
         // Single source of truth for "is the strip showing": the container's actual visibility,
         // which QuickStripManager.bind() reconciles against both the master switch AND per-widget
@@ -489,6 +518,12 @@ class AppDrawerFragment : Fragment() {
             searchContainer.visibility = View.GONE
             buildAppList()
         }
+        // Search-bar visibility changed → the bottom-edge child of the visible-children list
+        // may have flipped, so the inset-routing pass inside applyChromeLayout must re-run.
+        // The IME-close inset event will also trigger this incidentally, but only when the
+        // keyboard was actually up — code paths that call closeSearch without ever having
+        // shown the keyboard would otherwise leave routing stale.
+        applyChromeLayout()
     }
 
     private fun dismissSearchBar() {
@@ -503,6 +538,7 @@ class AppDrawerFragment : Fragment() {
             searchContainer.visibility = View.GONE
             buildAppList()
         }
+        applyChromeLayout()
     }
 
     private fun filterApps(query: String) {
