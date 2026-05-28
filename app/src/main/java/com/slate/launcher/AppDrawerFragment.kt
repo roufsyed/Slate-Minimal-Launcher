@@ -377,7 +377,16 @@ class AppDrawerFragment : Fragment() {
         // strip transparently hands the bottomInset off to the next visible child (FrameLayout).
         val stripIntended =
             quickStrip?.hasActiveWidgets() == true && prefs.quickStripEnabled
-        val stripEffective = stripIntended && !isImeVisible
+        // Hide-conditions: (1) IME visible — the post-keyboard-up safety net (also covers the
+        // persistent-search-bar mode where a tap-into-search bypasses openSearch); (2) search
+        // open AND not in persistent-search-bar mode — the pre-IME branch that lets openSearch
+        // collapse the strip into the same layout pass as the search-container reveal, BEFORE
+        // adjustResize starts animating, so the IME slides up against a static layout instead
+        // of one mid-flip. The !showSearchBarOnHome guard preserves persistent-bar behaviour
+        // where isSearchOpen is permanently true (set in onResume) but the strip should still
+        // be visible alongside the always-on bar at rest.
+        val searchHidesStrip = isSearchOpen && !prefs.showSearchBarOnHome
+        val stripEffective = stripIntended && !isImeVisible && !searchHidesStrip
         val newStripVisibility = if (stripEffective) View.VISIBLE else View.GONE
         val stripWasHidden = stripContainer.visibility != View.VISIBLE
         if (stripContainer.visibility != newStripVisibility) {
@@ -508,6 +517,13 @@ class AppDrawerFragment : Fragment() {
         isSearchOpen = true
         applySearchColors()
         searchContainer.visibility = View.VISIBLE
+        // Commit the chrome relayout SYNCHRONOUSLY here — strip-hide, search-container-visible,
+        // and any status-bar / nav-bar inset routing change all collapse into a single measure
+        // pass before the postDelayed showSoftInput fires the IME animation. Without this, the
+        // strip's GONE flip was happening mid-IME-animation (via the inset-listener path),
+        // which collapsed the strip's allocated layout space while the window was still
+        // resizing — a one-frame jolt the user perceived as choppy.
+        applyChromeLayout()
         searchInput.requestFocus()
         searchInput.setText("")
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
