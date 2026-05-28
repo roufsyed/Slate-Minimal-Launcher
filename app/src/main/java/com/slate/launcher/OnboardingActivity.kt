@@ -75,8 +75,19 @@ class OnboardingActivity : AppCompatActivity() {
         }
         try {
             val json = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return@registerForActivityResult
-            BackupManager(prefs).fromJson(json)
-            Toast.makeText(this, "Settings restored", Toast.LENGTH_SHORT).show()
+            val mgr = BackupManager(prefs)
+            val contents = mgr.parse(json)
+            mgr.applyNonPrivate(contents)
+            // Onboarding deliberately skips the private bundle (hidden apps + PIN + biometric).
+            // The full PIN-verify dialog flow lives in Settings → Backup → Import; surfacing it
+            // mid-onboarding would gate the welcome flow behind a PIN the user may not remember.
+            // The user can re-import the same backup from Settings later to restore the
+            // private bundle through the standard PIN-verify path.
+            val skippedNote =
+                if (contents.privateBundle != null)
+                    "Settings restored. Re-import from Settings to restore hidden apps."
+                else "Settings restored"
+            Toast.makeText(this, skippedNote, Toast.LENGTH_LONG).show()
             finishOnboarding()
         } catch (e: Exception) {
             Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()

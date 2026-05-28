@@ -372,7 +372,8 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchBiometric),
             findViewById(R.id.switchQuickStrip),
             findViewById(R.id.switchDirectCall),
-            findViewById(R.id.switchQuickStripDivider)
+            findViewById(R.id.switchQuickStripDivider),
+            findViewById(R.id.switchIncludePrivateInBackup)
         )
     }
 
@@ -1141,6 +1142,35 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.rowImportBackup).apply {
             setOnClickListener { openBackupLauncher.launch(arrayOf("application/json", "*/*")) }
         }
+
+        // Include-private toggle. Default OFF; turning ON requires confirming a consent dialog
+        // because it widens what a backup file leaks. Cancel reverts the switch silently via
+        // the same detach-listener idiom used by the biometric toggle in setupSecurity().
+        val switchInclude = findViewById<MaterialSwitch>(R.id.switchIncludePrivateInBackup)
+        val attachIncludeListener: () -> Unit
+        var attachStub: (() -> Unit)? = null
+        fun setIncludeSilently(checked: Boolean) {
+            switchInclude.setOnCheckedChangeListener(null)
+            switchInclude.isChecked = checked
+            attachStub?.invoke()
+        }
+        attachIncludeListener = {
+            switchInclude.setOnCheckedChangeListener { _, checked ->
+                if (checked) {
+                    showIncludePrivateConsentDialog(
+                        onConfirm = { prefs.includePrivateInBackup = true },
+                        onCancel = { setIncludeSilently(false) }
+                    )
+                } else {
+                    prefs.includePrivateInBackup = false
+                }
+            }
+        }
+        attachStub = attachIncludeListener
+        // Initial state — sync UI with prefs before attaching the listener.
+        switchInclude.setOnCheckedChangeListener(null)
+        switchInclude.isChecked = prefs.includePrivateInBackup
+        attachIncludeListener()
     }
 
     private fun saveBackup(uri: Uri) {
@@ -1153,15 +1183,421 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Orchestrates the import flow:
+     *   1. Parse the file. NOTHING is written to prefs until we know the PIN outcome.
+     *   2. If the file has no private bundle, apply the non-private bundle and finish.
+     *   3. If the file has a private bundle, gate the apply step on the PIN dialog:
+     *        - Verify success → apply non-private + private. (Hidden apps restored.)
+     *        - Skip / Cancel → apply non-private only. (User-explicit choice.)
+     *        - Three wrong attempts → REFUSE the entire import; apply nothing. The user
+     *          could not prove they own the backup, so we won't trust any of its data.
+     *   4. Case B (device already has a PIN): show a conflict-warning dialog first.
+     *
+     * Wrong-PIN attempts in this flow are session-local and do NOT touch the device's own PIN
+     * lockout counters (those belong to the home-gate gate, not the import gate).
+     */
     private fun loadBackup(uri: Uri) {
+        val mgr = BackupManager(prefs)
+        val contents: BackupManager.BackupContents
         try {
-            val json = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return
-            BackupManager(prefs).fromJson(json)
-            Toast.makeText(this, "Settings restored", Toast.LENGTH_SHORT).show()
-            recreate()
+            val json = contentResolver.openInputStream(uri)
+                ?.bufferedReader()?.use { it.readText() } ?: return
+            contents = mgr.parse(json)
         } catch (e: Exception) {
             Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+            return
         }
+
+        val privateBundle = contents.privateBundle
+        if (privateBundle == null) {
+            // No private bundle to gate on — apply non-private and finish.
+            mgr.applyNonPrivate(contents)
+            finishImport(ImportOutcome.SETTINGS_RESTORED)
+            return
+        }
+
+        val pinManager = PinManager(prefs)
+        if (!pinManager.hasPin()) {
+            // Case A — no device PIN to overwrite. Go straight to the PIN-verify dialog.
+            showImportPinDialog(contents, privateBundle)
+        } else {
+            // Case B — the device already has its own PIN. Warn the user that restoring will
+            // replace it, otherwise an unaware user could lose their current PIN trying to
+            // "help" by entering a PIN they happen to remember from the backup.
+            showImportPrivateConflictDialog(
+                onCancel = {
+                    // User-explicit choice to skip the private bundle. Apply non-private.
+                    mgr.applyNonPrivate(contents)
+                    finishImport(ImportOutcome.PRIVATE_SKIPPED)
+                },
+                onContinue = { showImportPinDialog(contents, privateBundle) }
+            )
+        }
+    }
+
+    /**
+     * Show the consent dialog that fires when the user tries to turn on
+     * "Include hidden apps in backups". Reuses the dialog_accessibility_info.xml template.
+     */
+    private fun showIncludePrivateConsentDialog(
+        onConfirm: () -> Unit,
+        onCancel: () -> Unit
+    ) {
+        val dialog = Dialog(this, R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.apply {
+            text = "INCLUDE HIDDEN APPS?"
+            setTextColor(accent)
+        }
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
+            text = "By default, your hidden apps list, PIN, and biometric setting stay on this device. " +
+                    "Backups skip them so they cannot be carried to another device or shared by mistake."
+            setTextColor(primary)
+        }
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
+            text = "Turn this on if you want hidden apps to come back when restoring a backup — " +
+                    "for example, when setting up a new phone. The backup will then contain your " +
+                    "hidden-apps list and a hashed verifier of your PIN. A short PIN is easier to " +
+                    "guess if someone gets the backup file."
+            setTextColor(secondary)
+        }
+
+        var consumed = false
+        dialog.findViewById<TextView>(R.id.btnCancel)?.apply {
+            setTextColor(secondary)
+            setOnClickListener {
+                consumed = true
+                dialog.dismiss()
+                onCancel()
+            }
+        }
+        dialog.findViewById<TextView>(R.id.btnContinue)?.apply {
+            text = "Turn on"
+            setTextColor(accent)
+            setOnClickListener {
+                consumed = true
+                dialog.dismiss()
+                onConfirm()
+            }
+        }
+        // If the dialog is dismissed via back press or outside-tap, treat it as Cancel so the
+        // switch reverts. Without this hook the switch stays visually ON despite no consent.
+        dialog.setOnDismissListener { if (!consumed) onCancel() }
+        dialog.show()
+    }
+
+    /**
+     * Case B confirmation: user has their own PIN on the device, and the backup is asking to
+     * replace it (along with biometric + hidden-apps set). [onContinue] proceeds to the PIN-
+     * verify dialog. [onCancel] keeps the device state untouched and finalises the import.
+     */
+    private fun showImportPrivateConflictDialog(
+        onCancel: () -> Unit,
+        onContinue: () -> Unit
+    ) {
+        val dialog = Dialog(this, R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.apply {
+            text = "REPLACE YOUR PIN?"
+            setTextColor(accent)
+        }
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
+            text = "This backup contains hidden apps protected by a different PIN. " +
+                    "Restoring will replace your current PIN, biometric setting, and hidden-apps " +
+                    "list with the backup's."
+            setTextColor(primary)
+        }
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
+            text = "Your current settings are already in place — pick Cancel to keep them and " +
+                    "skip the backup's hidden apps."
+            setTextColor(secondary)
+        }
+
+        var consumed = false
+        dialog.findViewById<TextView>(R.id.btnCancel)?.apply {
+            setTextColor(secondary)
+            setOnClickListener {
+                consumed = true
+                dialog.dismiss()
+                onCancel()
+            }
+        }
+        dialog.findViewById<TextView>(R.id.btnContinue)?.apply {
+            text = "Restore"
+            setTextColor(accent)
+            setOnClickListener {
+                consumed = true
+                dialog.dismiss()
+                onContinue()
+            }
+        }
+        // Back-press / outside-tap dismissal counts as Cancel, mirroring the consent dialog.
+        dialog.setOnDismissListener { if (!consumed) onCancel() }
+        dialog.show()
+    }
+
+    private enum class ImportOutcome {
+        /** No private bundle in the file (or device-PIN conflict was cancelled): non-private applied. */
+        SETTINGS_RESTORED,
+        /** Private bundle present, user explicitly skipped it: non-private applied. */
+        PRIVATE_SKIPPED,
+        /** Private bundle verified: non-private + private both applied. */
+        PRIVATE_RESTORED,
+    }
+
+    /**
+     * Verify the backup's PIN in-memory via [PinManager.verifyAgainst]. The dialog allows up
+     * to 3 attempts.
+     *   - Correct PIN → apply non-private + private, finish as PRIVATE_RESTORED.
+     *   - Cancel / back / outside tap → apply non-private only (user-explicit skip),
+     *     finish as PRIVATE_SKIPPED.
+     *   - Three wrong attempts → REFUSE the import, apply nothing, finish as REFUSED.
+     *
+     * Wrong-attempt counting is session-local — this flow never touches the device's own
+     * pinFailedAttempts / pinLockout state.
+     */
+    private fun showImportPinDialog(
+        contents: BackupManager.BackupContents,
+        privateBundle: BackupManager.PrivateBundle
+    ) {
+        var attempts = 0
+        val maxAttempts = 3
+        // Track whether the user consumed the dialog via Verify; outside-tap or back
+        // dismissal falls into onCancel, which finalises the import as a user-explicit skip.
+        // The 3-wrong path bypasses onCancel and finishes as REFUSED directly.
+        var settled = false
+
+        val mgr = BackupManager(prefs)
+
+        val onConfirm: (CharArray) -> Unit = { pin ->
+            attempts++
+            // verifyAgainst zeroes the PIN buffer on return.
+            val ok = PinManager.verifyAgainst(
+                pin = pin,
+                hashBase64 = privateBundle.pinHash,
+                saltBase64 = privateBundle.pinSalt,
+                iters = privateBundle.pinIterations,
+            )
+            if (ok) {
+                settled = true
+                mgr.applyNonPrivate(contents)
+                mgr.applyPrivate(privateBundle)
+                finishImport(ImportOutcome.PRIVATE_RESTORED)
+            } else if (attempts >= maxAttempts) {
+                // Three wrong attempts — REFUSE the entire import. Apply nothing. The user
+                // could not prove they own the backup, so we won't trust any of its data —
+                // not even the non-private prefs. Show a proper modal so the outcome can't
+                // be missed (the previous Toast-only signal was too quiet).
+                settled = true
+                showImportRefusedDialog()
+            } else {
+                // Reopen a fresh dialog with the inline red error visible. Reusing the closed
+                // dialog would require state-resetting the PinEntryDialog; constructing a new
+                // one is simpler and guarantees a clean input.
+                showImportPinDialogAfterFailure(contents, privateBundle, attempts, maxAttempts)
+            }
+        }
+        val onCancel: () -> Unit = {
+            if (!settled) {
+                // User-explicit cancel / back / outside tap before exhausting attempts:
+                // treat as user choice to skip the private bundle, apply non-private only.
+                mgr.applyNonPrivate(contents)
+                finishImport(ImportOutcome.PRIVATE_SKIPPED)
+            }
+        }
+
+        PinEntryDialog(
+            context = this,
+            bgColor = prefs.backgroundColor,
+            title = "RESTORE HIDDEN APPS",
+            message = "This backup contains hidden apps protected by a PIN. Enter the PIN to restore them. " +
+                    "Three wrong attempts will refuse the import entirely — your current settings won't change.",
+            confirmLabel = "Verify",
+            onConfirm = onConfirm,
+            onCancel = onCancel,
+        ).show()
+    }
+
+    /**
+     * Reopen the PIN dialog after a wrong attempt, with the error message visible. Kept
+     * separate from the initial-show path so the wrong-attempt branch doesn't have to
+     * juggle the previous dialog's lifecycle inside its own onConfirm callback.
+     */
+    private fun showImportPinDialogAfterFailure(
+        contents: BackupManager.BackupContents,
+        privateBundle: BackupManager.PrivateBundle,
+        attemptsSoFar: Int,
+        maxAttempts: Int
+    ) {
+        val remaining = maxAttempts - attemptsSoFar
+        val plural = if (remaining == 1) "attempt" else "attempts"
+        var attempts = attemptsSoFar
+        var settled = false
+        val mgr = BackupManager(prefs)
+
+        val dialog = PinEntryDialog(
+            context = this,
+            bgColor = prefs.backgroundColor,
+            title = "RESTORE HIDDEN APPS",
+            // Body stays static across retries — the wrong-PIN feedback lives in the inline
+            // error line (red) via setError below, which is the conventional pattern for form
+            // validation errors and lets the user keep their bearings between attempts.
+            message = "This backup contains hidden apps protected by a PIN. Enter the PIN to restore them. " +
+                    "Three wrong attempts will refuse the import entirely — your current settings won't change.",
+            confirmLabel = "Verify",
+            onConfirm = { pin ->
+                attempts++
+                val ok = PinManager.verifyAgainst(
+                    pin = pin,
+                    hashBase64 = privateBundle.pinHash,
+                    saltBase64 = privateBundle.pinSalt,
+                    iters = privateBundle.pinIterations,
+                )
+                if (ok) {
+                    settled = true
+                    mgr.applyNonPrivate(contents)
+                    mgr.applyPrivate(privateBundle)
+                    finishImport(ImportOutcome.PRIVATE_RESTORED)
+                } else if (attempts >= maxAttempts) {
+                    settled = true
+                    showImportRefusedDialog()
+                } else {
+                    showImportPinDialogAfterFailure(contents, privateBundle, attempts, maxAttempts)
+                }
+            },
+            onCancel = {
+                if (!settled) {
+                    mgr.applyNonPrivate(contents)
+                    finishImport(ImportOutcome.PRIVATE_SKIPPED)
+                }
+            },
+        )
+        dialog.show()
+        // setError must run AFTER show() — the dialog's content view is inflated lazily inside
+        // show() → onCreate(), so the error TextView isn't findable until then.
+        dialog.setError("Wrong PIN. $remaining $plural left.")
+    }
+
+    /**
+     * Modal shown after three wrong PINs at import. Reuses the standard accessibility-info
+     * layout but hides the Cancel button and renames Continue to OK — the user has no choice
+     * here, only an acknowledgement. The activity recreates on dismiss so the import button
+     * resets cleanly.
+     */
+    private fun showImportRefusedDialog() {
+        val dialog = Dialog(this, R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        // Force the user to acknowledge — back-press still dismisses but at least an outside
+        // tap doesn't silently close the only signal that the import was rejected.
+        dialog.setCanceledOnTouchOutside(false)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.apply {
+            text = "IMPORT REFUSED"
+            setTextColor(accent)
+        }
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
+            text = "Three wrong PIN attempts. Your settings were not changed."
+            setTextColor(primary)
+        }
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
+            text = "Try again with the correct PIN, or import a different backup."
+            setTextColor(secondary)
+        }
+        // Single-OK refusal: Cancel button has no useful semantic here.
+        dialog.findViewById<TextView>(R.id.btnCancel)?.visibility = View.GONE
+        dialog.findViewById<TextView>(R.id.btnContinue)?.apply {
+            text = "OK"
+            setTextColor(accent)
+            setOnClickListener { dialog.dismiss() }
+        }
+        // recreate() runs on dismiss (back-press or OK) so the Settings UI resets to a clean
+        // state. Nothing was written to prefs during this import, so the activity comes back
+        // exactly as it was before the user picked the file.
+        dialog.setOnDismissListener { recreate() }
+        dialog.show()
+    }
+
+    /**
+     * Final step for non-refusal outcomes: Toast the right message and `recreate()` so the
+     * Settings activity re-renders with the imported prefs. The refusal path uses the modal
+     * [showImportRefusedDialog] instead of this Toast.
+     */
+    private fun finishImport(outcome: ImportOutcome) {
+        val msg = when (outcome) {
+            ImportOutcome.SETTINGS_RESTORED -> "Settings restored"
+            ImportOutcome.PRIVATE_SKIPPED -> "Settings restored. Hidden apps not imported."
+            ImportOutcome.PRIVATE_RESTORED -> "Hidden apps restored"
+        }
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+        recreate()
     }
 
     // ── General ───────────────────────────────────────────────────

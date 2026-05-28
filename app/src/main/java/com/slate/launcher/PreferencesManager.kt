@@ -46,6 +46,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_PIN_FAILED_ATTEMPTS = "pin_failed_attempts"
         private const val KEY_PIN_LOCKOUT_UNTIL = "pin_lockout_until_epoch_ms"
         private const val KEY_PIN_LOCKOUT_UNTIL_ELAPSED = "pin_lockout_until_elapsed_ms"
+        private const val KEY_INCLUDE_PRIVATE_IN_BACKUP = "include_private_in_backup"
         private const val KEY_QUICK_STRIP_ENABLED = "quick_strip_enabled"
         private const val KEY_QUICK_STRIP_WIDGETS = "quick_strip_widgets"
         private const val KEY_QUICK_STRIP_POSITION = "quick_strip_position"
@@ -235,6 +236,19 @@ class PreferencesManager(context: Context) {
     var biometricEnabled: Boolean
         get() = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC_ENABLED, value).apply()
+
+    /**
+     * When false (the default), the JSON backup omits the entire private bundle — hidden-apps
+     * list, security flag, biometric flag, and the PIN's PBKDF2 hash / salt / iteration count.
+     * This pref is per-device and is NEVER written into a backup file: a restored backup must
+     * not carry the source device's privacy preference here, otherwise turning the toggle off
+     * on the source device would silently turn back on when restored. Default OFF is the
+     * privacy-conservative choice — opt-in only via the Settings → Backup row, which shows a
+     * consent dialog when the user turns it on.
+     */
+    var includePrivateInBackup: Boolean
+        get() = prefs.getBoolean(KEY_INCLUDE_PRIVATE_IN_BACKUP, false)
+        set(value) = prefs.edit().putBoolean(KEY_INCLUDE_PRIVATE_IN_BACKUP, value).apply()
 
     /** Base64-encoded PBKDF2 hash of the user's PIN. */
     var pinHash: String?
