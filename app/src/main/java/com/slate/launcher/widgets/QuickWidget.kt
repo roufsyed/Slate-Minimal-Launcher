@@ -19,6 +19,15 @@ abstract class QuickWidget {
     /** When true, enabling the widget triggers a special-access flow (e.g., DND policy access). */
     open val requiresSpecialAccess: Boolean = false
 
+    /**
+     * Optional user-facing caveat shown as a sub-label under the widget's display name in the
+     * Widget Picker. Use for short, plain-language hints that explain a behaviour the user might
+     * otherwise see as a bug — e.g., "Not all phones report this. Shows '—' when unavailable."
+     * for OEM-inconsistent system readings. Independent of [requiresSpecialAccess]: a widget can
+     * have both a permission requirement AND a behaviour caveat, surfaced as separate sub-labels.
+     */
+    open val pickerNote: String? = null
+
     /** Skip the widget if the device lacks the hardware/API (e.g., NFC on a phone with no NFC). */
     open fun isAvailable(context: Context): Boolean = true
 

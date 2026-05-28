@@ -275,6 +275,14 @@ class WidgetPickerDialog(
                 alpha = 0.7f
             })
         }
+        widget.pickerNote?.let { note ->
+            labelGroup.addView(TextView(context).apply {
+                text = note
+                textSize = 12f
+                setTextColor(secondary)
+                alpha = 0.7f
+            })
+        }
         row.addView(labelGroup)
         row.addView(buildEnableSwitch(widget.id, currentSelection))
         return row
