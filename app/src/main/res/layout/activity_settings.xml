@@ -1110,45 +1110,6 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
-            <!-- Position (sub-row, only when master is on) -->
-            <LinearLayout
-                android:id="@+id/rowQuickStripPosition"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingVertical="12dp"
-                android:paddingStart="16dp"
-                android:background="?attr/selectableItemBackground"
-                android:visibility="gone">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Position"
-                        android:textSize="17sp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Top or bottom of the home screen"
-                        android:textSize="13sp"
-                        android:alpha="0.6" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/quickStripPositionValue"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="15sp" />
-            </LinearLayout>
-
             <!-- Choose widgets (sub-row, only when master is on) -->
             <LinearLayout
                 android:id="@+id/rowChooseWidgets"
@@ -1225,6 +1186,47 @@
                     android:layout_height="wrap_content"
                     android:text="→"
                     android:textSize="17sp" />
+            </LinearLayout>
+
+            <!-- Position (sub-row, only when master is on). Placed after Choose / Arrange
+                 because Position is a layout-level preference; the user typically picks WHAT
+                 widgets they want first, orders them, then decides WHERE the strip sits. -->
+            <LinearLayout
+                android:id="@+id/rowQuickStripPosition"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="12dp"
+                android:paddingStart="16dp"
+                android:background="?attr/selectableItemBackground"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Position"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Top or bottom of the home screen"
+                        android:textSize="13sp"
+                        android:alpha="0.6" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/quickStripPositionValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="15sp" />
             </LinearLayout>
 
             <!-- Direct call (sub-row, only when master is on). Toggling ON requests CALL_PHONE
