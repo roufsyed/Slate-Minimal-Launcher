@@ -79,10 +79,13 @@ class SettingsActivity : AppCompatActivity() {
         private val WIDGET_LINE_GAPS  = (0..20).toList()
         private val WIDGET_WORD_GAPS  = (2..28).toList()
 
-        // Fixed sample labels for the Settings preview. Chosen to span the typical widget label
-        // shapes: short (4 char), shorter (2 char), 5-char with colon, 3-char with %. Independent
-        // of the user's actual widget selection so the preview is deterministic and cheap.
-        private val PREVIEW_SAMPLE_LABELS = listOf("wifi", "bt", "12:34", "65%")
+        // Fixed sample labels for the Settings preview. Chosen to span the four widget label
+        // shapes used on the home strip: short state toggle, long state toggle, Name:value with
+        // a time, Name:value with a percentage. Kept identical in style to live home-screen
+        // labels so the preview is faithful — what the user sees here is what they get there.
+        // Independent of the user's actual widget selection so the preview is deterministic.
+        private val PREVIEW_SAMPLE_LABELS =
+            listOf("Wi-Fi", "Bluetooth", "Time: 12:34", "Battery: 65%")
 
         private val GESTURE_SLOTS = listOf(
             Triple(1, Direction.UP,    "1 finger  ↑"),
