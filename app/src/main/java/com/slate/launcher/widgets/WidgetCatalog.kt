@@ -18,6 +18,7 @@ object WidgetCatalog {
         // Power
         BatteryPercentWidget,
         ChargingWidget,
+        TimeToFullWidget,
         BatteryTempWidget,
         UptimeWidget,
         // Connectivity
