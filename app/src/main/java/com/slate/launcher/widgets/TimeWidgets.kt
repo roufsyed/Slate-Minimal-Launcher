@@ -16,7 +16,7 @@ object ClockWidget : QuickWidget() {
     override fun renderLabel(context: Context): WidgetLabel {
         val pattern = if (DateFormat.is24HourFormat(context)) "H:mm" else "h:mm a"
         val text = DateFormat.format(pattern, Calendar.getInstance()).toString()
-        return WidgetLabel(text, active = true)
+        return WidgetLabel("Time: $text", active = true)
     }
     override fun onTap(context: Context) {
         runCatching {
@@ -49,7 +49,7 @@ object DateWidget : QuickWidget() {
     override val displayName = "Date"
     override fun renderLabel(context: Context): WidgetLabel {
         val text = DateFormat.format("EEE d MMM", Calendar.getInstance()).toString()
-        return WidgetLabel(text, active = true)
+        return WidgetLabel("Date: $text", active = true)
     }
     override fun onTap(context: Context) {
         runCatching {
@@ -84,10 +84,10 @@ object NextAlarmWidget : QuickWidget() {
     override val displayName = "Next alarm"
     override fun renderLabel(context: Context): WidgetLabel {
         val am = context.applicationContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val next = am.nextAlarmClock ?: return WidgetLabel("no alarm", active = false)
+        val next = am.nextAlarmClock ?: return WidgetLabel("Alarm: none", active = false)
         val pattern = if (DateFormat.is24HourFormat(context)) "H:mm" else "h:mm a"
         val text = DateFormat.format(pattern, next.triggerTime).toString()
-        return WidgetLabel(text, active = true)
+        return WidgetLabel("Alarm: $text", active = true)
     }
     override fun onTap(context: Context) {
         runCatching {
