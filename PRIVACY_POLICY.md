@@ -36,9 +36,9 @@ When the "Lock hidden apps" toggle in Settings → Security is enabled, Slate st
 
 If you opt into biometric unlock, Slate calls Android's standard `BiometricPrompt` (BIOMETRIC_STRONG class). Biometric templates are stored and matched entirely inside the Android OS / secure hardware; Slate only receives a success or failure callback and has no access to fingerprint or face data.
 
-After 5 wrong PIN attempts the app is locked out for 30 seconds; 10 wrong for 5 minutes; 15 wrong for 15 minutes. Lockout state is local and never reported anywhere. There is no remote PIN recovery — clearing app data is the only reset.
+After 5 wrong PIN attempts the app is locked out for 30 seconds; 10 wrong for 5 minutes; 15 wrong for 15 minutes. Lockout state is local and never reported anywhere. There is no remote PIN recovery — clearing app data is the only reset on this device. When importing a backup that includes hidden apps, Slate asks for the backup's PIN in an in-memory verification step before writing the PIN verifier to disk; entering the wrong PIN three times skips the private bundle and leaves the device's existing PIN and hidden apps untouched.
 
-JSON backups include the PIN hash, salt, and iteration count so a restored backup keeps working. The hash is a verifier, not the PIN itself, but you should still keep backup files in trusted storage.
+JSON backups omit the PIN hash, salt, iteration count, hidden-apps list, and biometric flag by default. To include them — for example, when migrating to a new phone — turn on "Include hidden apps in backups" under Settings → Backup. A consent dialog explains the trade-off when you enable it. The hash is a verifier, not the PIN itself, but the salt and iteration count travel with it, so you should still keep backup files in trusted storage and use a non-trivial PIN.
 
 ## Battery optimization
 

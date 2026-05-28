@@ -5,6 +5,36 @@ import org.json.JSONObject
 
 class BackupManager(private val prefs: PreferencesManager) {
 
+    /**
+     * The private bundle inside a backup file — hidden-apps list, security flag, biometric
+     * flag, and the PIN's PBKDF2 verifier. Surfaced as a separate type so the import flow can
+     * (a) detect its presence cheaply via [BackupContents.privateBundle] and (b) verify the
+     * backup's PIN in-memory via [PinManager.verifyAgainst] BEFORE committing any of this to
+     * device prefs. A backup is considered to have a private bundle only when ALL of pinHash,
+     * pinSalt, pinIterations are present and the hidden-apps key resolves cleanly — degenerate
+     * cases (e.g., a hand-edited file with pinHash but no pinSalt) parse as a null bundle and
+     * the hidden-apps key is silently ignored rather than written without a gate.
+     */
+    data class PrivateBundle(
+        val hiddenApps: Set<String>,
+        val hiddenAppsSecurityEnabled: Boolean,
+        val biometricEnabled: Boolean,
+        val pinHash: String,
+        val pinSalt: String,
+        val pinIterations: Int,
+    )
+
+    /**
+     * Parsed backup payload. The non-private half is stored as the raw [JSONObject] so
+     * [applyNonPrivate] can replay the existing pref-by-pref restore logic without rebuilding
+     * a typed projection of every field. The private half is extracted into a structured
+     * [PrivateBundle] for the import-time PIN dialog to consume.
+     */
+    data class BackupContents(
+        val nonPrivate: JSONObject,
+        val privateBundle: PrivateBundle?
+    )
+
     fun toJson(): String {
         val root = JSONObject()
         root.put("version", 1)
@@ -47,11 +77,6 @@ class BackupManager(private val prefs: PreferencesManager) {
         root.put("showSearchBarOnHome", prefs.showSearchBarOnHome)
         root.put("searchBarPosition", prefs.searchBarPosition)
 
-        // Hidden apps
-        val hiddenArr = JSONArray()
-        prefs.hiddenApps.forEach { hiddenArr.put(it) }
-        root.put("hiddenApps", hiddenArr)
-
         // Pinned apps
         val pinnedArr = JSONArray()
         prefs.pinnedApps.forEach { pinnedArr.put(it) }
@@ -70,13 +95,21 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.getAllAppCustomNames().forEach { (k, v) -> namesObj.put(k, v) }
         root.put("appCustomNames", namesObj)
 
-        // Hidden apps security — the PIN hash is a verifier, not a secret. Including it lets a
-        // restored backup keep working without forcing the user to re-set the PIN.
-        root.put("hiddenAppsSecurityEnabled", prefs.hiddenAppsSecurityEnabled)
-        root.put("biometricEnabled", prefs.biometricEnabled)
-        prefs.pinHash?.let { root.put("pinHash", it) }
-        prefs.pinSalt?.let { root.put("pinSalt", it) }
-        if (prefs.pinIterations > 0) root.put("pinIterations", prefs.pinIterations)
+        // Private bundle — hidden apps + PIN + biometric. Opt-in via Settings → Backup. When
+        // OFF (the default), none of these keys appear in the JSON, so the backup file cannot
+        // carry the user's hidden-apps list or the PIN's PBKDF2 verifier off-device. The
+        // toggle itself (`includePrivateInBackup`) is intentionally NOT written into the
+        // backup — it's a per-device privacy preference.
+        if (prefs.includePrivateInBackup) {
+            val hiddenArr = JSONArray()
+            prefs.hiddenApps.forEach { hiddenArr.put(it) }
+            root.put("hiddenApps", hiddenArr)
+            root.put("hiddenAppsSecurityEnabled", prefs.hiddenAppsSecurityEnabled)
+            root.put("biometricEnabled", prefs.biometricEnabled)
+            prefs.pinHash?.let { root.put("pinHash", it) }
+            prefs.pinSalt?.let { root.put("pinSalt", it) }
+            if (prefs.pinIterations > 0) root.put("pinIterations", prefs.pinIterations)
+        }
 
         // Quick toggles strip
         root.put("quickStripEnabled", prefs.quickStripEnabled)
@@ -110,9 +143,48 @@ class BackupManager(private val prefs: PreferencesManager) {
         return root.toString(2)
     }
 
-    fun fromJson(json: String) {
+    /**
+     * Pure parse — no writes. Returns the JSON for non-private fields plus an optional
+     * [PrivateBundle]. Caller is responsible for orchestrating the dialogs that gate the
+     * privateBundle's eventual application via [applyPrivate].
+     */
+    fun parse(json: String): BackupContents {
         val root = JSONObject(json)
-        if (root.optInt("version", 0) < 1) throw IllegalArgumentException("Unsupported backup version")
+        if (root.optInt("version", 0) < 1) {
+            throw IllegalArgumentException("Unsupported backup version")
+        }
+
+        // Detect a structurally-complete private bundle. Anything less than all-three-PIN-
+        // fields-present-and-non-empty causes us to drop the private half entirely. This
+        // explicitly avoids the pre-refactor pitfall where a backup with hiddenApps but no
+        // PIN would silently disable the device's hiddenAppsSecurityEnabled flag.
+        val pinHash = root.optString("pinHash").takeIf { it.isNotEmpty() }
+        val pinSalt = root.optString("pinSalt").takeIf { it.isNotEmpty() }
+        val pinIters = root.optInt("pinIterations", 0)
+        val hiddenArr = root.optJSONArray("hiddenApps")
+        val privateBundle: PrivateBundle? = if (
+            pinHash != null && pinSalt != null && pinIters > 0 && hiddenArr != null
+        ) {
+            PrivateBundle(
+                hiddenApps = (0 until hiddenArr.length()).map { hiddenArr.getString(it) }.toSet(),
+                hiddenAppsSecurityEnabled = root.optBoolean("hiddenAppsSecurityEnabled", false),
+                biometricEnabled = root.optBoolean("biometricEnabled", false),
+                pinHash = pinHash,
+                pinSalt = pinSalt,
+                pinIterations = pinIters,
+            )
+        } else null
+
+        return BackupContents(nonPrivate = root, privateBundle = privateBundle)
+    }
+
+    /**
+     * Apply every non-private pref from a parsed [BackupContents] to disk. Theme, gestures,
+     * folders, widgets, pinned apps, custom names/colors, contact shortcuts, etc. The private
+     * bundle is NOT touched here — see [applyPrivate].
+     */
+    fun applyNonPrivate(contents: BackupContents) {
+        val root = contents.nonPrivate
 
         prefs.minFontSize  = root.optInt("minFontSize",  PreferencesManager.DEFAULT_MIN_FONT_SIZE)
         prefs.maxFontSize  = root.optInt("maxFontSize",  PreferencesManager.DEFAULT_MAX_FONT_SIZE)
@@ -143,11 +215,6 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.searchBarPosition = root.optString("searchBarPosition", "top")
             .takeIf { it == "top" || it == "bottom" } ?: "top"
 
-        // Hidden apps
-        root.optJSONArray("hiddenApps")?.let { arr ->
-            prefs.hiddenApps = (0 until arr.length()).map { arr.getString(it) }.toSet()
-        }
-
         // Pinned apps
         root.optJSONArray("pinnedApps")?.let { arr ->
             prefs.pinnedApps = (0 until arr.length()).map { arr.getString(it) }.toSet()
@@ -170,22 +237,6 @@ class BackupManager(private val prefs: PreferencesManager) {
         root.optJSONObject("appCustomNames")?.let { obj ->
             obj.keys().forEach { pkg -> prefs.setAppCustomName(pkg, obj.getString(pkg)) }
         }
-
-        // Hidden apps security — restore PIN verifier so backup is usable on a new device.
-        // Reset failed-attempt counters since they are device-local state, not user data.
-        prefs.pinHash       = root.optString("pinHash").takeIf { it.isNotEmpty() }
-        prefs.pinSalt       = root.optString("pinSalt").takeIf { it.isNotEmpty() }
-        prefs.pinIterations = root.optInt("pinIterations", 0)
-        val pinFullyPresent = prefs.pinHash != null && prefs.pinSalt != null && prefs.pinIterations > 0
-        // If the backup claims security is on but the PIN bundle is missing/partial, drop the
-        // claim — otherwise AuthGate would short-circuit to success and silently bypass the gate.
-        prefs.hiddenAppsSecurityEnabled = pinFullyPresent &&
-                root.optBoolean("hiddenAppsSecurityEnabled", false)
-        prefs.biometricEnabled = pinFullyPresent &&
-                root.optBoolean("biometricEnabled", false)
-        prefs.pinFailedAttempts        = 0
-        prefs.pinLockoutUntilEpochMs   = 0L
-        prefs.pinLockoutUntilElapsedMs = 0L
 
         // Quick toggles strip
         prefs.quickStripEnabled = root.optBoolean("quickStripEnabled", false)
@@ -245,5 +296,24 @@ class BackupManager(private val prefs: PreferencesManager) {
             val style = root.optString("folderStyle")
             if (style in knownFolderStyles) prefs.folderStyle = style
         }
+    }
+
+    /**
+     * Apply the private bundle to disk. Called ONLY after the import-time PIN dialog has
+     * verified the backup's PIN in-memory against [PinManager.verifyAgainst]. Replaces the
+     * device's hidden-apps list, security flag, biometric flag, and PIN verifier with the
+     * backup's. Lockout counters reset to zero because they're device-local state, not user
+     * data — the backup wasn't authorised to carry past failure counts forward.
+     */
+    fun applyPrivate(bundle: PrivateBundle) {
+        prefs.hiddenApps = bundle.hiddenApps
+        prefs.pinHash = bundle.pinHash
+        prefs.pinSalt = bundle.pinSalt
+        prefs.pinIterations = bundle.pinIterations
+        prefs.hiddenAppsSecurityEnabled = bundle.hiddenAppsSecurityEnabled
+        prefs.biometricEnabled = bundle.biometricEnabled
+        prefs.pinFailedAttempts = 0
+        prefs.pinLockoutUntilEpochMs = 0L
+        prefs.pinLockoutUntilElapsedMs = 0L
     }
 }

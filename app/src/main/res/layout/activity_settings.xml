@@ -1621,6 +1621,43 @@
                     android:textSize="17sp" />
             </LinearLayout>
 
+            <!-- Include hidden apps + PIN + biometric in backups. Off by default; toggling on
+                 shows a consent dialog explaining the privacy trade-off. -->
+            <LinearLayout
+                android:id="@+id/rowIncludePrivateInBackup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="14dp"
+                android:background="?attr/selectableItemBackground">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Include hidden apps in backups"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Off by default. Backups skip your hidden apps, PIN, and biometric setting."
+                        android:textSize="13sp"
+                        android:alpha="0.6" />
+                </LinearLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchIncludePrivateInBackup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
         </LinearLayout>
 
         <View
