@@ -64,6 +64,13 @@ class AppDrawerFragment : Fragment() {
     private var statusBarHeight = 0
     private var bottomInset = 0
     private var isImeVisible: Boolean = false
+    /**
+     * Reference to the currently-showing FAQ detail dialog (if any) so the fragment can dismiss
+     * it in onDestroyView and avoid a WindowLeaked exception when the activity is recreated
+     * (e.g. on configuration change) while the dialog is open. Mirrors the pattern used by
+     * [PrivacyPolicyDialog.activeDialog].
+     */
+    private var activeFaqDetailDialog: Dialog? = null
     private lateinit var singleFingerDetector: GestureDetector
     /** Null = main view; non-null = home is showing the contents of that folder. */
     private var currentFolderId: String? = null
@@ -331,6 +338,10 @@ class AppDrawerFragment : Fragment() {
         // but defensive cleanup costs nothing.
         quickStrip?.stop()
         quickStrip = null
+        // Tear down the FAQ detail dialog if it survived to view-destroy — without this, a
+        // configuration change while it was open would leak the window (WindowLeaked).
+        activeFaqDetailDialog?.let { runCatching { it.dismiss() } }
+        activeFaqDetailDialog = null
         super.onDestroyView()
     }
 
@@ -1515,6 +1526,9 @@ class AppDrawerFragment : Fragment() {
         val density = ctx.resources.displayMetrics.density
         val pad = (24 * density).toInt()
 
+        // Defensive: drop any prior detail dialog before opening a new one.
+        activeFaqDetailDialog?.let { runCatching { it.dismiss() } }
+
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -1527,7 +1541,8 @@ class AppDrawerFragment : Fragment() {
 
         val dialog = Dialog(ctx, R.style.SlateDialogTheme)
 
-        // Back arrow row
+        // Back arrow row — stays pinned at the top of the dialog; doesn't scroll with the
+        // answer body so the user can always return to the FAQ list mid-read.
         val mutedColor = if (isLight) Color.parseColor("#666666") else Color.parseColor("#888888")
         container.addView(TextView(ctx).apply {
             text = "← FAQ"
@@ -1544,6 +1559,8 @@ class AppDrawerFragment : Fragment() {
             }
         })
 
+        // Question — also pinned. Stays visible above the answer so the user keeps the
+        // context of what they tapped while reading a long answer.
         container.addView(TextView(ctx).apply {
             text = question
             textSize = 15f
@@ -1554,21 +1571,52 @@ class AppDrawerFragment : Fragment() {
             ).also { it.bottomMargin = (14 * density).toInt() }
         })
 
-        container.addView(TextView(ctx).apply {
-            text = answer
-            textSize = 15f
-            setTextColor(primaryColor)
-            setLineSpacing(4f * density, 1f)
-        })
+        // Answer is the only scrollable region. Convention follows WidgetArrangeDialog /
+        // WidgetPickerDialog / PrivacyPolicyDialog — dialog window is sized to a fixed
+        // fraction of the screen (below) and an internal ScrollView with weight=1 absorbs
+        // any overflow from the body. Previously this region was a bare TextView inside a
+        // WRAP_CONTENT dialog, so long answers (e.g. "How does the hidden apps lock work?")
+        // were clipped at the screen edge with no way to read past the cut-off.
+        val answerScroll = ScrollView(ctx).apply {
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            isFillViewport = false
+            addView(TextView(ctx).apply {
+                text = answer
+                textSize = 15f
+                setTextColor(primaryColor)
+                setLineSpacing(4f * density, 1f)
+                // Detect bare URLs in the answer body (e.g. the GitHub link in the
+                // open-source FAQ) and turn them into tappable links. Linkify auto-installs
+                // LinkMovementMethod, so taps open the URL externally without enabling text
+                // selection on the rest of the body.
+                setLinkTextColor(accentColor)
+                android.text.util.Linkify.addLinks(this, android.text.util.Linkify.WEB_URLS)
+            })
+        }
+        container.addView(answerScroll, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            0
+        ).apply { weight = 1f })
 
-        dialog.setContentView(container)
+        // MATCH_PARENT on the container so its children's weight=1 has a bounded parent to
+        // distribute against — without this the LinearLayout would only be as tall as its
+        // natural content and weight=1 would have no effect.
+        dialog.setContentView(container, ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.window?.setLayout(
             (ctx.resources.displayMetrics.widthPixels * 0.85).toInt(),
-            WindowManager.LayoutParams.WRAP_CONTENT
+            (ctx.resources.displayMetrics.heightPixels * 0.80).toInt()
         )
         dialog.window?.setGravity(Gravity.CENTER)
         dialog.setCanceledOnTouchOutside(true)
+        dialog.setOnDismissListener {
+            if (activeFaqDetailDialog === dialog) activeFaqDetailDialog = null
+        }
+        activeFaqDetailDialog = dialog
         dialog.show()
     }
 
