@@ -28,7 +28,7 @@ object DndWidget : QuickWidget() {
         val filter = nm?.currentInterruptionFilter ?: NotificationManager.INTERRUPTION_FILTER_ALL
         val on = filter != NotificationManager.INTERRUPTION_FILTER_ALL &&
                 filter != NotificationManager.INTERRUPTION_FILTER_UNKNOWN
-        return WidgetLabel("dnd", active = on)
+        return WidgetLabel("DND", active = on)
     }
     override fun onTap(context: Context) {
         // Scope A: don't write the policy (would require ACCESS_NOTIFICATION_POLICY special access).
@@ -73,7 +73,7 @@ object MediaVolumeWidget : QuickWidget() {
         val current = am.getStreamVolume(AudioManager.STREAM_MUSIC)
         val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
         val pct = (100 * current / max)
-        return WidgetLabel("vol ${pct}%", active = current > 0)
+        return WidgetLabel("Volume: ${pct}%", active = current > 0)
     }
     override fun onTap(context: Context) = openSoundSettings(context)
     override fun startObserving(context: Context, onChanged: () -> Unit): WidgetSubscription {
@@ -98,9 +98,9 @@ object RingerModeWidget : QuickWidget() {
     override fun renderLabel(context: Context): WidgetLabel {
         val am = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val text = when (am.ringerMode) {
-            AudioManager.RINGER_MODE_SILENT -> "silent"
-            AudioManager.RINGER_MODE_VIBRATE -> "vibrate"
-            else -> "ring"
+            AudioManager.RINGER_MODE_SILENT -> "Silent"
+            AudioManager.RINGER_MODE_VIBRATE -> "Vibrate"
+            else -> "Ring"
         }
         val active = am.ringerMode != AudioManager.RINGER_MODE_NORMAL
         return WidgetLabel(text, active = active)

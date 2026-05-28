@@ -48,7 +48,7 @@ object WifiWidget : QuickWidget() {
     override fun renderLabel(context: Context): WidgetLabel {
         val mgr = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
         val on = mgr?.isWifiEnabled == true
-        return WidgetLabel("wifi", active = on)
+        return WidgetLabel("Wi-Fi", active = on)
     }
     override fun onTap(context: Context) {
         // A29+: the inline Settings.Panel is the only sanctioned way for 3P apps to surface Wi-Fi
@@ -71,7 +71,7 @@ object BluetoothWidget : QuickWidget() {
         bluetoothAdapter(context) != null
     override fun renderLabel(context: Context): WidgetLabel {
         val on = bluetoothAdapter(context)?.isEnabled == true
-        return WidgetLabel("bt", active = on)
+        return WidgetLabel("Bluetooth", active = on)
     }
     override fun onTap(context: Context) {
         safeStart(context, Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
@@ -98,7 +98,7 @@ object MobileDataWidget : QuickWidget() {
         } catch (_: SecurityException) {
             false
         }
-        return WidgetLabel("data", active = on)
+        return WidgetLabel("Mobile data", active = on)
     }
     override fun onTap(context: Context) {
         safeStart(context, Intent(Settings.ACTION_DATA_USAGE_SETTINGS))
@@ -113,7 +113,7 @@ object AirplaneWidget : QuickWidget() {
         val on = Settings.Global.getInt(
             context.contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0
         ) != 0
-        return WidgetLabel("airplane", active = on)
+        return WidgetLabel("Airplane mode", active = on)
     }
     override fun onTap(context: Context) {
         safeStart(context, Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS))

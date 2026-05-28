@@ -51,7 +51,7 @@ object BatteryPercentWidget : QuickWidget() {
     override fun renderLabel(context: Context): WidgetLabel {
         val mgr = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         val pct = mgr.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-        val text = if (pct in 0..100) "${pct}%" else "—%"
+        val text = if (pct in 0..100) "Battery: ${pct}%" else "Battery: —"
         return WidgetLabel(text, active = true)
     }
     override fun onTap(context: Context) = openBatterySettings(context)
@@ -65,7 +65,7 @@ object ChargingWidget : QuickWidget() {
     override fun renderLabel(context: Context): WidgetLabel {
         val mgr = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         val charging = mgr.isCharging
-        return WidgetLabel(if (charging) "charging" else "charging", active = charging)
+        return WidgetLabel("Charging", active = charging)
     }
     override fun onTap(context: Context) = openBatterySettings(context)
     override fun startObserving(context: Context, onChanged: () -> Unit) =
@@ -79,9 +79,9 @@ object BatteryTempWidget : QuickWidget() {
         // EXTRA_TEMPERATURE is reported in tenths of a degree Celsius via the sticky broadcast.
         val sticky = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val tenthsC = sticky?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1) ?: -1
-        if (tenthsC < 0) return WidgetLabel("—", active = false)
+        if (tenthsC < 0) return WidgetLabel("Battery temp: —", active = false)
         val celsius = tenthsC / 10
-        return WidgetLabel("${celsius}°C", active = true)
+        return WidgetLabel("Battery temp: ${celsius}°C", active = true)
     }
     override fun startObserving(context: Context, onChanged: () -> Unit) =
         batteryReceiver(context, onChanged)
@@ -101,7 +101,7 @@ object UptimeWidget : QuickWidget() {
             hours > 0 -> "${hours}h ${minutes}m"
             else -> "${minutes}m"
         }
-        return WidgetLabel(text, active = true)
+        return WidgetLabel("Uptime: $text", active = true)
     }
     // No broadcast — strip will refresh on resume; close-enough granularity for an uptime label.
 }

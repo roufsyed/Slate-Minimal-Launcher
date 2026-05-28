@@ -39,7 +39,7 @@ object TorchWidget : QuickWidget() {
     override fun isAvailable(context: Context): Boolean = firstFlashCameraId(context) != null
 
     override fun renderLabel(context: Context): WidgetLabel =
-        WidgetLabel("torch", active = lastKnownOn)
+        WidgetLabel("Torch", active = lastKnownOn)
 
     override fun onTap(context: Context) {
         val mgr = context.applicationContext.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
@@ -83,9 +83,9 @@ object BrightnessWidget : QuickWidget() {
         val raw = runCatching {
             Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
         }.getOrDefault(-1)
-        if (raw < 0) return WidgetLabel("bri —", active = false)
+        if (raw < 0) return WidgetLabel("Brightness: —", active = false)
         val pct = (raw * 100 / 255).coerceIn(0, 100)
-        return WidgetLabel("bri ${pct}%", active = true)
+        return WidgetLabel("Brightness: ${pct}%", active = true)
     }
     override fun onTap(context: Context) {
         runCatching {
@@ -120,7 +120,7 @@ object LocationWidget : QuickWidget() {
             lm?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true ||
             lm?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
         }
-        return WidgetLabel("loc", active = on)
+        return WidgetLabel("Location", active = on)
     }
     override fun onTap(context: Context) {
         runCatching {
@@ -156,7 +156,7 @@ object NfcWidget : QuickWidget() {
     override fun renderLabel(context: Context): WidgetLabel {
         val adapter = NfcAdapter.getDefaultAdapter(context.applicationContext)
         val on = adapter?.isEnabled == true
-        return WidgetLabel("nfc", active = on)
+        return WidgetLabel("NFC", active = on)
     }
     override fun onTap(context: Context) {
         runCatching {

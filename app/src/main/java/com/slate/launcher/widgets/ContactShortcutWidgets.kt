@@ -16,7 +16,7 @@ import com.slate.launcher.PreferencesManager
 class CallShortcutWidget(private val shortcut: ContactShortcut) : QuickWidget() {
     override val id: String get() = shortcut.id
     override val displayName: String get() = "Call ${shortcut.displayName}"
-    override fun renderLabel(context: Context) = WidgetLabel("call ${shortcut.displayName}")
+    override fun renderLabel(context: Context) = WidgetLabel("Call ${shortcut.displayName}")
 
     /**
      * Standard tap handler. Direct-calls only when the user has chosen "tap" as the trigger
@@ -63,7 +63,7 @@ class CallShortcutWidget(private val shortcut: ContactShortcut) : QuickWidget() 
 class SmsShortcutWidget(private val shortcut: ContactShortcut) : QuickWidget() {
     override val id: String get() = shortcut.id
     override val displayName: String get() = "Text ${shortcut.displayName}"
-    override fun renderLabel(context: Context) = WidgetLabel("text ${shortcut.displayName}")
+    override fun renderLabel(context: Context) = WidgetLabel("Text ${shortcut.displayName}")
 
     override fun onTap(context: Context) {
         val smsUri = Uri.parse("smsto:${Uri.encode(shortcut.number)}")
