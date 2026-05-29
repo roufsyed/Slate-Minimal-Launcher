@@ -1,6 +1,6 @@
 # Slate — Minimal Android Launcher
 
-A text-only Android home screen built for focus. No icons, no widgets, no algorithmic feeds competing for your attention — just your apps, listed by name.
+A text-only Android home screen built for focus. No icons. No app drawers. No algorithmic feeds — just your apps, listed by name, with an optional row of quick toggles.
 
 **Website:** [roufsyed.github.io/Slate-Minimal-Launcher](https://roufsyed.github.io/Slate-Minimal-Launcher/)
 
@@ -48,12 +48,15 @@ Slate removes all of that. It presents your apps as plain text — the same way 
 - Pin apps to the top of the list regardless of sort order
 - Sort apps alphabetically or by most used
 - Group apps into custom folders — each folder is a text label with a `›` chevron; tap to expand inline (with a `‹ back` row), long-press the folder to rename, recolor, or delete. Apps inside a folder are hidden from the main list to reduce home-screen clutter; search still finds them globally
+- Optional quick-toggles strip — a row of text widgets at the top or bottom of the home screen showing Clock, Date, Next alarm, Battery %, Time to full, Wi-Fi, Bluetooth, Mobile data, DND, Volume, Brightness, Torch, and more. Off by default; pick which widgets, where they sit, and how they look from Settings → Quick toggles
+- Optional contact search — turn on Settings → Search → "Search contacts" to surface matching contacts inline with apps when you type. Read-only at search time, never stored. Tapping opens the dialer prepopulated with the contact's number. Includes a "Google contacts only" sub-toggle to skip duplicates from WhatsApp / Telegram / SIM / other sources
+- Optional direct-call contact widgets — pin a contact to the quick-toggles strip for one-tap dial or text. With Direct call enabled in Settings, tapping places the call immediately; otherwise it opens the dialer
 
 **Control**
 - Lock screen rotation to portrait
 - Optional persistent search bar on the home screen
-- Lock the hidden apps list behind a PIN (4–8 digits, PBKDF2-hashed) with optional biometric unlock
-- Export and import all settings as a JSON backup
+- Lock the hidden apps list behind a PIN (4–8 digits, PBKDF2-hashed) with optional biometric unlock. Hidden-app launches are also excluded from the Android Recents (Overview) screen so the launched app doesn't leak through there
+- Export and import all settings as a JSON backup. Hidden-apps list, PIN hash, and biometric setting are omitted by default — opt in via Settings → Backup → "Include hidden apps in backups". On import, the backup's PIN is verified in-memory before any hidden-apps data is written; three wrong PIN attempts refuse the entire import
 - Import settings during onboarding for returning users
 
 ---
@@ -75,6 +78,11 @@ The app requests only the permissions it actively uses:
 - `SET_WALLPAPER` — used only when the "Apply to lockscreen" toggle is enabled, to set a solid-color wallpaper on the lock screen matching the launcher's background color; never triggered without explicit user action
 - `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` — used only to show a system dialog asking you to exempt Slate from battery optimization, so features like notification highlight and double-tap to lock continue working reliably in the background; only triggered when you tap "Fix this" on the battery restriction warning banner
 - `USE_BIOMETRIC` — declared by the AndroidX Biometric library and only requested when you opt into biometric unlock for hidden apps in Settings → Security. Biometric data is handled by the OS via `BiometricPrompt`; Slate only receives a success/fail signal.
+- `READ_CONTACTS` — declared but never exercised by default. Only requested at runtime when you explicitly enable "Search contacts" under Settings → Search, after an in-app consent dialog explains the contract. Contacts are queried at the moment you type a search query, filtered in memory, and discarded immediately. Never stored, indexed, or transmitted.
+- `CALL_PHONE` — declared but never exercised by default. Only requested at runtime when you explicitly enable "Direct call" under Settings → Quick toggles → Direct call. With the setting off, tapping a contact shortcut opens the dialer (`ACTION_DIAL`) without placing the call.
+- `READ_BASIC_PHONE_STATE` — declared as a "normal" permission (no runtime prompt) for the Mobile data quick-toggle widget on Android 13+. Reads only whether mobile data is enabled and whether a SIM is ready. On older Android the widget hides itself.
+
+Slate also declares `<uses-feature android:name="android.hardware.telephony" android:required="false">`. Telephony hardware is explicitly marked optional so Slate can install on tablets, Chromebooks, and other devices that lack a cellular radio — without this declaration, Google Play would implicitly require telephony because of the `CALL_PHONE` permission and filter Slate off those devices.
 
 ---
 
