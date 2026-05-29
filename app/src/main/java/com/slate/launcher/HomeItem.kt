@@ -24,8 +24,10 @@ sealed class HomeItem {
      *
      * The phone number is deliberately NOT a render input: the row shows the contact's name
      * (optionally suffixed with the number type for multi-number contacts) and the dialer
-     * pre-populates with [number] on tap. Keeps the search list visually clean and avoids
-     * leaking numbers into a screen that's open while typing.
+     * pre-populates with [number] on tap. The contact's source account (Google, WhatsApp,
+     * SIM, etc.) is also intentionally NOT exposed — every contact row reads the same shape
+     * for visual consistency. Source-level filtering still happens in the query path via
+     * `prefs.googleContactsOnly`, but it's silent on the surface.
      *
      * @param displayName the contact's display name (DISPLAY_NAME_PRIMARY).
      * @param number the raw phone number — used to construct the `tel:` Uri for

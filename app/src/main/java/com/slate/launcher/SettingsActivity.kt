@@ -65,6 +65,13 @@ class SettingsActivity : AppCompatActivity() {
     // syncAccessibilityToggle pattern but without an `awaiting*` flag (biometric grant is
     // entirely in-app, no system-settings round-trip).
     private var biometricReconcile: (() -> Unit)? = null
+
+    // Captured during setupSearch; lets [attachContactSearchListener] (a class member
+    // function defined outside setupSearch's closure) refresh the search-section gates
+    // after the user flips the Search-contacts toggle, so the dependent Google-only sub-
+    // row updates its enabled/alpha/sub-label state immediately. Null until setupSearch
+    // runs; nulled implicitly when the activity is destroyed.
+    private var pendingSearchGateRefresh: (() -> Unit)? = null
     // awaitingAccessibilityPermission and awaitingNotificationPermission
     // are persisted in PreferencesManager to survive process death
 
@@ -209,6 +216,8 @@ class SettingsActivity : AppCompatActivity() {
             if (granted) {
                 prefs.contactSearchEnabled = true
                 switch.isChecked = true
+                // Parent toggle now on — un-grey the Google-only sub-row.
+                pendingSearchGateRefresh?.invoke()
             } else {
                 prefs.contactSearchEnabled = false
                 switch.isChecked = false
@@ -228,6 +237,8 @@ class SettingsActivity : AppCompatActivity() {
                         Toast.LENGTH_SHORT
                     ).show()
                 }
+                // Parent toggle ended OFF — keep the Google-only sub-row greyed.
+                pendingSearchGateRefresh?.invoke()
             }
             attachContactSearchListener(switch)
         }
@@ -414,7 +425,8 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchDirectCall),
             findViewById(R.id.switchQuickStripDivider),
             findViewById(R.id.switchIncludePrivateInBackup),
-            findViewById(R.id.switchContactSearch)
+            findViewById(R.id.switchContactSearch),
+            findViewById(R.id.switchGoogleContactsOnly)
         )
     }
 
@@ -1046,6 +1058,9 @@ class SettingsActivity : AppCompatActivity() {
         val rowContactSearch = findViewById<View>(R.id.rowContactSearch)
         val switchContactSearch = findViewById<MaterialSwitch>(R.id.switchContactSearch)
         val labelContactSearchSub = findViewById<TextView>(R.id.labelContactSearchSub)
+        val rowGoogleOnly = findViewById<View>(R.id.rowGoogleContactsOnly)
+        val switchGoogleOnly = findViewById<MaterialSwitch>(R.id.switchGoogleContactsOnly)
+        val labelGoogleOnlySub = findViewById<TextView>(R.id.labelGoogleContactsOnlySub)
 
         positionValue.setTextColor(secondary)
         positionValue.text = prefs.searchBarPosition.replaceFirstChar { it.uppercaseChar() }
@@ -1070,18 +1085,40 @@ class SettingsActivity : AppCompatActivity() {
         val blockedOnHomeSub = "Turn on Search to enable"
         val defaultContactSub = "Show matching contacts when you type"
         val blockedContactSub = "Turn on Search to enable"
+        val defaultGoogleOnlySub =
+            "Hide duplicates from WhatsApp, Telegram, SIM, and other sources"
+        val blockedGoogleOnlyMasterSub = "Turn on Search to enable"
+        val blockedGoogleOnlyParentSub = "Turn on Search contacts to enable"
         fun refreshSearchGates() {
-            val on = prefs.searchEnabled
-            switchOnHome.isEnabled = on
-            rowOnHome.alpha = if (on) 1f else 0.4f
-            labelOnHomeSub.text = if (on) defaultOnHomeSub else blockedOnHomeSub
-            switchContactSearch.isEnabled = on
-            rowContactSearch.alpha = if (on) 1f else 0.4f
-            labelContactSearchSub.text = if (on) defaultContactSub else blockedContactSub
+            val masterOn = prefs.searchEnabled
+            switchOnHome.isEnabled = masterOn
+            rowOnHome.alpha = if (masterOn) 1f else 0.4f
+            labelOnHomeSub.text = if (masterOn) defaultOnHomeSub else blockedOnHomeSub
+            switchContactSearch.isEnabled = masterOn
+            rowContactSearch.alpha = if (masterOn) 1f else 0.4f
+            labelContactSearchSub.text =
+                if (masterOn) defaultContactSub else blockedContactSub
             // Position sub-row only shows when BOTH the master and Show-on-home are on.
             rowPosition.visibility =
-                if (on && prefs.showSearchBarOnHome) View.VISIBLE else View.GONE
+                if (masterOn && prefs.showSearchBarOnHome) View.VISIBLE else View.GONE
+            // Two-level gate for the Google-only filter: the row needs BOTH the master
+            // Search toggle AND the Search-contacts sub-toggle to be on. Sub-label tells the
+            // user which switch they need to flip first.
+            val googleOnlyAvailable = masterOn && prefs.contactSearchEnabled
+            switchGoogleOnly.isEnabled = googleOnlyAvailable
+            rowGoogleOnly.alpha = if (googleOnlyAvailable) 1f else 0.4f
+            labelGoogleOnlySub.text = when {
+                !masterOn -> blockedGoogleOnlyMasterSub
+                !prefs.contactSearchEnabled -> blockedGoogleOnlyParentSub
+                else -> defaultGoogleOnlySub
+            }
         }
+        // Stored as a class-level reference via a member function delegation so the
+        // contact-search listener (a private member function defined outside this scope)
+        // can still trigger a gate refresh when the user flips Search-contacts on or off.
+        // The closure captures all the views above; assigning to a class field lets
+        // attachContactSearchListener invoke it after the pref change settles.
+        pendingSearchGateRefresh = ::refreshSearchGates
 
         switchEnable.isChecked = prefs.searchEnabled
         switchEnable.setOnCheckedChangeListener { _, checked ->
@@ -1117,6 +1154,14 @@ class SettingsActivity : AppCompatActivity() {
         }
         switchContactSearch.isChecked = prefs.contactSearchEnabled
         attachContactSearchListener(switchContactSearch)
+
+        // Google-only sub-toggle. No permission flow here (it's a pure preference), so the
+        // listener just shows the consent dialog on ON and silently reverts on Cancel.
+        // Persists independent of [prefs.contactSearchEnabled] — disabling contact search
+        // leaves this pref alone so the user's filter choice survives a parent-toggle
+        // round-trip. Refer to the Plan agent's #2 decision in the plan file.
+        switchGoogleOnly.isChecked = prefs.googleContactsOnly
+        attachGoogleContactsOnlyListener(switchGoogleOnly)
 
         rowPosition.setOnClickListener {
             SlateListDialog(
@@ -1158,6 +1203,10 @@ class SettingsActivity : AppCompatActivity() {
                             // but still set the pref to true; the in-app consent dialog was
                             // the user's authoritative opt-in.
                             prefs.contactSearchEnabled = true
+                            // Refresh the search-section gates so the Google-only sub-row
+                            // un-greys (now that its parent is on). The launcher-callback
+                            // path covers the deny / permanent-deny branches symmetrically.
+                            pendingSearchGateRefresh?.invoke()
                         } else {
                             requestReadContactsLauncher.launch(
                                 android.Manifest.permission.READ_CONTACTS
@@ -1172,8 +1221,107 @@ class SettingsActivity : AppCompatActivity() {
                 )
             } else {
                 prefs.contactSearchEnabled = false
+                // Toggle OFF — the Google-only sub-row immediately greys out, but the
+                // pref itself stays untouched so re-enabling Search contacts later
+                // restores the user's prior filter choice.
+                pendingSearchGateRefresh?.invoke()
             }
         }
+    }
+
+    /**
+     * Wires the "Google contacts only" toggle. Pure-preference toggle (no permission flow),
+     * so the listener just shows the explanatory dialog on ON and silently reverts on
+     * Cancel. Same detach-set-reattach idiom as [attachContactSearchListener]. The pref is
+     * NOT cascade-cleared when the parent Search-contacts toggle goes off — the user's
+     * filter choice persists across parent-toggle round-trips.
+     */
+    private fun attachGoogleContactsOnlyListener(switch: MaterialSwitch) {
+        switch.setOnCheckedChangeListener { _, checked ->
+            if (checked) {
+                showGoogleContactsOnlyConsentDialog(
+                    onConfirm = { prefs.googleContactsOnly = true },
+                    onCancel = {
+                        switch.setOnCheckedChangeListener(null)
+                        switch.isChecked = false
+                        attachGoogleContactsOnlyListener(switch)
+                    }
+                )
+            } else {
+                prefs.googleContactsOnly = false
+            }
+        }
+    }
+
+    /**
+     * Friendly explanation dialog for the "Google contacts only" toggle. Mirrors the shape
+     * of [showContactSearchConsentDialog] but with copy that names the trade-off concretely
+     * — duplicates go away, but users without a Google account see no results.
+     */
+    private fun showGoogleContactsOnlyConsentDialog(
+        onConfirm: () -> Unit,
+        onCancel: () -> Unit
+    ) {
+        val dialog = Dialog(this, R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.apply {
+            text = "GOOGLE CONTACTS ONLY?"
+            setTextColor(accent)
+        }
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
+            text = "Show contact matches from your Google account only. " +
+                    "Hides duplicates from WhatsApp, Telegram, SIM, and other sources."
+            setTextColor(primary)
+        }
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
+            text = "If you don't sync contacts with Google, search may show none. " +
+                    "Turn off any time."
+            setTextColor(secondary)
+        }
+
+        var consumed = false
+        dialog.findViewById<TextView>(R.id.btnCancel)?.apply {
+            setTextColor(secondary)
+            setOnClickListener {
+                consumed = true
+                dialog.dismiss()
+                onCancel()
+            }
+        }
+        dialog.findViewById<TextView>(R.id.btnContinue)?.apply {
+            text = "Turn on"
+            setTextColor(accent)
+            setOnClickListener {
+                consumed = true
+                dialog.dismiss()
+                onConfirm()
+            }
+        }
+        dialog.setOnDismissListener { if (!consumed) onCancel() }
+        dialog.show()
     }
 
     /**
@@ -1331,6 +1479,8 @@ class SettingsActivity : AppCompatActivity() {
         switch.setOnCheckedChangeListener(null)
         switch.isChecked = false
         attachContactSearchListener(switch)
+        // Parent toggle flipped off externally — re-grey the Google-only sub-row.
+        pendingSearchGateRefresh?.invoke()
     }
 
     /**

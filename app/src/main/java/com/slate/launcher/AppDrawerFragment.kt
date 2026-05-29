@@ -679,6 +679,7 @@ class AppDrawerFragment : Fragment() {
             ContactsContract.CommonDataKinds.Phone.NORMALIZED_NUMBER,
             ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY,
             ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+            ContactsContract.CommonDataKinds.Phone.RAW_CONTACT_ID,
             ContactsContract.CommonDataKinds.Phone.TYPE,
             ContactsContract.CommonDataKinds.Phone.LABEL,
         )
@@ -693,9 +694,13 @@ class AppDrawerFragment : Fragment() {
                 "COLLATE NOCASE ASC LIMIT 10"
 
         // Intermediate row carrying everything we need to decide whether a contact is multi-
-        // number (and thus needs a type-label suffix) without re-querying the provider.
+        // number (and thus needs a type-label suffix) without re-querying the provider. The
+        // [rawContactId] is used in a follow-up batch query against RawContacts to resolve
+        // the account source (google / whatsapp / sim / etc.) for each row, since duplicates
+        // typically arise from the same person existing under multiple account sources.
         data class Raw(
             val contactId: Long,
+            val rawContactId: Long,
             val name: String,
             val number: String,
             val type: Int,
@@ -721,6 +726,9 @@ class AppDrawerFragment : Fragment() {
                 val contactIdIdx = cursor.getColumnIndex(
                     ContactsContract.CommonDataKinds.Phone.CONTACT_ID
                 )
+                val rawContactIdIdx = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.RAW_CONTACT_ID
+                )
                 val typeIdx = cursor.getColumnIndex(
                     ContactsContract.CommonDataKinds.Phone.TYPE
                 )
@@ -733,12 +741,14 @@ class AppDrawerFragment : Fragment() {
                     if (name.isBlank() || number.isBlank()) continue
                     val lookupKey = if (lookupIdx >= 0) cursor.getString(lookupIdx) ?: "" else ""
                     val contactId = if (contactIdIdx >= 0) cursor.getLong(contactIdIdx) else 0L
+                    val rawContactId =
+                        if (rawContactIdIdx >= 0) cursor.getLong(rawContactIdIdx) else 0L
                     val type = if (typeIdx >= 0) cursor.getInt(typeIdx) else 0
                     val custom = if (labelIdx >= 0) cursor.getString(labelIdx) else null
                     val lookupUri = if (lookupKey.isNotEmpty() && contactId > 0L) {
                         ContactsContract.Contacts.getLookupUri(contactId, lookupKey)
                     } else Uri.EMPTY
-                    out.add(Raw(contactId, name, number, type, custom, lookupUri))
+                    out.add(Raw(contactId, rawContactId, name, number, type, custom, lookupUri))
                 }
                 out.toList()
             } ?: emptyList()
@@ -753,11 +763,57 @@ class AppDrawerFragment : Fragment() {
 
         if (raws.isEmpty()) return emptyList()
 
+        // Resolve account source per raw contact. Account info lives on RawContacts, not on
+        // the Phone (Data) table — we batch one extra query keyed on the raw_contact_ids
+        // we collected above. The result is a small map (≤ 10 entries) used to filter the
+        // result set to Google-sourced contacts only (see below) and folded into each row's
+        // [accountSource] for the accessibility label.
+        val sourceByRaw: Map<Long, String?> = run {
+            val ids = raws.map { it.rawContactId }.filter { it > 0L }.distinct()
+            if (ids.isEmpty()) emptyMap()
+            else runCatching {
+                val placeholders = ids.joinToString(",") { "?" }
+                val out = HashMap<Long, String?>(ids.size)
+                ctx.contentResolver.query(
+                    ContactsContract.RawContacts.CONTENT_URI,
+                    arrayOf(
+                        ContactsContract.RawContacts._ID,
+                        ContactsContract.RawContacts.ACCOUNT_TYPE,
+                    ),
+                    "${ContactsContract.RawContacts._ID} IN ($placeholders)",
+                    ids.map { it.toString() }.toTypedArray(),
+                    null
+                )?.use { c ->
+                    val idIdx = c.getColumnIndex(ContactsContract.RawContacts._ID)
+                    val typeIdx = c.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_TYPE)
+                    while (c.moveToNext()) {
+                        val id = if (idIdx >= 0) c.getLong(idIdx) else continue
+                        val accType = if (typeIdx >= 0) c.getString(typeIdx) else null
+                        out[id] = friendlyAccountSource(accType)
+                    }
+                }
+                out
+            }.getOrDefault(emptyMap())
+        }
+
+        // Pref-driven source filter. When the user has opted into "Google contacts only"
+        // (default OFF), drop all non-Google raws so duplicates from WhatsApp / Telegram /
+        // SIM / OEM-local sources are hidden. When the toggle is OFF (the default), every
+        // matched source comes through; the per-row source suffix below disambiguates the
+        // rare cross-source duplicates.
+        val filtered = if (prefs.googleContactsOnly) {
+            raws.filter { sourceByRaw[it.rawContactId] == "google" }
+        } else raws
+        if (filtered.isEmpty()) return emptyList()
+
         // Count matched-number rows per contact: a contact with >1 row gets a per-row type
         // label to disambiguate; a contact with exactly one row renders as just its name.
-        val rowsPerContact = raws.groupingBy { it.contactId }.eachCount()
+        // We intentionally do NOT expose the contact's source account on the rendered row —
+        // every result reads the same shape. Source-level filtering still happens above via
+        // `prefs.googleContactsOnly`, but the source itself is silent on the surface.
+        val rowsPerContact = filtered.groupingBy { it.contactId }.eachCount()
         val resources = ctx.resources
-        return raws.map { row ->
+        return filtered.map { row ->
             val label = if ((rowsPerContact[row.contactId] ?: 1) > 1) {
                 ContactsContract.CommonDataKinds.Phone
                     .getTypeLabel(resources, row.type, row.customLabel)
@@ -770,6 +826,33 @@ class AppDrawerFragment : Fragment() {
                 typeLabel = label,
                 lookupUri = row.lookupUri,
             )
+        }
+    }
+
+    /**
+     * Map a raw [account_type] reverse-DNS string to a short, lowercase, user-readable source
+     * label. Covers the common cases (Google, WhatsApp, Telegram, Signal, OEM phone/SIM
+     * stores) explicitly; falls back to the last `.`-separated segment for anything else
+     * (e.g., `com.linkedin.android` → `linkedin`). Returns null when the account_type itself
+     * is null or blank — usually means a local raw contact with no sync account.
+     */
+    private fun friendlyAccountSource(accountType: String?): String? {
+        if (accountType.isNullOrBlank()) return "phone"
+        return when {
+            accountType == "com.google" -> "google"
+            accountType == "com.whatsapp" -> "whatsapp"
+            accountType == "com.whatsapp.w4b" -> "whatsapp business"
+            accountType == "org.telegram.messenger" -> "telegram"
+            accountType == "org.thoughtcrime.securesms" -> "signal"
+            accountType == "com.viber.voip.account" -> "viber"
+            accountType == "com.skype.contacts.sync" -> "skype"
+            accountType.startsWith("vnd.sec.contact") -> "phone"
+            accountType.contains("sim", ignoreCase = true) -> "sim"
+            accountType.contains("xiaomi", ignoreCase = true) -> "xiaomi"
+            accountType.contains("huawei", ignoreCase = true) -> "huawei"
+            accountType.contains("oneplus", ignoreCase = true) -> "oneplus"
+            accountType.contains("oppo", ignoreCase = true) -> "oppo"
+            else -> accountType.substringAfterLast('.').lowercase()
         }
     }
 
@@ -1009,10 +1092,16 @@ class AppDrawerFragment : Fragment() {
         vPad: Int,
         gravity: Int,
     ): TextView = TextView(requireContext()).apply {
-        text = contact.typeLabel
-            ?.takeIf { it.isNotBlank() }
-            ?.let { "${contact.displayName} ($it)" }
-            ?: contact.displayName
+        // Visible text: name + optional (type) for multi-number contacts. Every contact row
+        // reads the same shape — source accounts (Google / WhatsApp / SIM / etc.) are
+        // intentionally never surfaced. Source-level filtering happens silently via
+        // `prefs.googleContactsOnly`. The contentDescription mirrors the visible text so
+        // TalkBack sees the same level of detail.
+        text = buildString {
+            append(contact.displayName)
+            contact.typeLabel?.takeIf { it.isNotBlank() }
+                ?.let { append(" (").append(it).append(')') }
+        }
         contentDescription = buildString {
             append("Contact: ")
             append(contact.displayName)
@@ -1784,7 +1873,7 @@ class AppDrawerFragment : Fragment() {
                 "No. Slate is 100% offline and collects zero data.\n\nThere is no analytics, no crash reporting, no tracking, and no network requests of any kind. All settings, usage counts, and customizations are stored locally on your device using Android's SharedPreferences and never leave it.",
 
             "Does Slate read my contacts?" to
-                "Only if you turn on \"Search contacts\" in Settings → Search. With that off (the default), Slate has no contacts permission at all. With it on, Slate reads your contact list each time you type a search query — to find matches alongside your apps. Nothing is stored, indexed, or sent anywhere. Quitting and relaunching the launcher starts with no contact data in memory.\n\nWork-profile contacts are not visible (Android isolates them from third-party launchers). Contacts without a phone number are skipped, since tapping a contact opens the dialer.",
+                "Only if you turn on \"Search contacts\" in Settings → Search. With that off (the default), Slate has no contacts permission at all. With it on, Slate reads your contact list each time you type a search query — to find matches alongside your apps. Nothing is stored, indexed, or sent anywhere. Quitting and relaunching the launcher starts with no contact data in memory.\n\nWork-profile contacts are not visible (Android isolates them from third-party launchers). Contacts without a phone number are skipped, since tapping a contact opens the dialer.\n\nIf the same person appears multiple times — they often do, because the same contact can exist under more than one source (Google, WhatsApp, Telegram, SIM, OEM contacts, etc.) — turn on \"Google contacts only\" in the same settings page to filter to your Google address book and skip the duplicates.",
 
             "What other permissions does Slate use?" to
                 "• EXPAND_STATUS_BAR — swipe-down notification panel gesture\n• ACCESS_WIFI_STATE / CHANGE_WIFI_STATE — Wi-Fi toggle gesture (Android 10+: opens system panel)\n• BLUETOOTH / BLUETOOTH_ADMIN — Bluetooth toggle on Android 11 and below\n• QUERY_ALL_PACKAGES — required to list all installed apps (Android 11+)\n• REQUEST_DELETE_PACKAGES — initiates the system uninstall flow when you choose to uninstall an app\n• REQUEST_IGNORE_BATTERY_OPTIMIZATIONS — used only when you tap \"Fix this\" on the battery restriction warning in Settings, to request that the system exempt Slate from battery optimization so background features keep working\n• USE_BIOMETRIC — declared by the AndroidX Biometric library; only requested when you opt into biometric unlock for hidden apps. Biometric data is processed by the OS and never reaches Slate.",
