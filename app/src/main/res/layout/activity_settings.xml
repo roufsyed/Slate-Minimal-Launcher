@@ -1026,6 +1026,44 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
+            <!-- Search contacts — opt-in, gated on master Search toggle. Toggling ON triggers a
+                 consent dialog before the system READ_CONTACTS prompt fires. -->
+            <LinearLayout
+                android:id="@+id/rowContactSearch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="10dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/labelContactSearch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Search contacts"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:id="@+id/labelContactSearchSub"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Show matching contacts when you type"
+                        android:textSize="13sp"
+                        android:alpha="0.6" />
+                </LinearLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchContactSearch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
             <!-- Position sub-row (visible when show-on-home is on) -->
             <LinearLayout
                 android:id="@+id/rowSearchBarPosition"

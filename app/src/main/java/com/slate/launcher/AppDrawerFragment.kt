@@ -12,6 +12,11 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.ContactsContract
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
 import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
@@ -72,6 +77,15 @@ class AppDrawerFragment : Fragment() {
      */
     private var activeFaqDetailDialog: Dialog? = null
     private lateinit var singleFingerDetector: GestureDetector
+
+    /**
+     * Main-thread handler used to debounce the contact-search query off the keystroke storm.
+     * Established async primitive in this codebase (QuickStripManager, SystemWidgets,
+     * GuidedTourManager all use the same Handler+postDelayed pattern). Cleared in
+     * onDestroyView so a late-fire after view teardown can't crash.
+     */
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var pendingContactQuery: Runnable? = null
     /** Null = main view; non-null = home is showing the contents of that folder. */
     private var currentFolderId: String? = null
 
@@ -296,6 +310,10 @@ class AppDrawerFragment : Fragment() {
         // AFTER the search-visibility branch above.
         applyChromeLayout()
         reconcileDoubleTapPref()
+        // Contact-search reconcile: if READ_CONTACTS was revoked from system Settings while
+        // the launcher was in the background, flip the pref off silently so subsequent
+        // searches take the apps-only path until the user re-opts in.
+        reconcileContactSearchPref()
     }
 
     /**
@@ -342,6 +360,10 @@ class AppDrawerFragment : Fragment() {
         // configuration change while it was open would leak the window (WindowLeaked).
         activeFaqDetailDialog?.let { runCatching { it.dismiss() } }
         activeFaqDetailDialog = null
+        // Clear any pending debounced contact query so a late-fire post-teardown can't run
+        // requireContext() / requireView() against a destroyed view tree.
+        mainHandler.removeCallbacksAndMessages(null)
+        pendingContactQuery = null
         super.onDestroyView()
     }
 
@@ -576,6 +598,10 @@ class AppDrawerFragment : Fragment() {
         if (query.isNotEmpty() && currentFolderId != null) {
             currentFolderId = null
         }
+        // Cancel any pending contact query whenever the query changes — keystrokes thrash the
+        // debounce; an empty query clears it entirely.
+        pendingContactQuery?.let { mainHandler.removeCallbacks(it) }
+        pendingContactQuery = null
         if (query.isEmpty()) {
             buildAppList()
             return
@@ -588,11 +614,191 @@ class AppDrawerFragment : Fragment() {
         // Compute visibleCount per matched folder so the Count style renders the same number
         // search results show as the main view would.
         val visiblePackages = all.mapTo(HashSet()) { it.packageName }
-        val items: List<HomeItem> = matchedFolders.map { folder ->
+        val baseItems: List<HomeItem> = matchedFolders.map { folder ->
             HomeItem.FolderItem(folder, folder.packages.count { it in visiblePackages })
         } + matchedApps.map { HomeItem.AppItem(it) }
-        renderItems(items, all)
+        // Render apps + folders synchronously — Slate's primary purpose is apps, that path
+        // can't wait on ContentProvider I/O.
+        renderItems(baseItems, all)
         fastScroll.visibility = View.GONE
+
+        // Contact search runs on a 250ms debounce so the keystroke storm doesn't hammer
+        // ContactsContract once per character. Gated on the user opt-in toggle AND the live
+        // READ_CONTACTS grant — the latter catches the case where the user revoked the
+        // permission via system Settings between the toggle write and now. The debounce
+        // window matches AOSP's Filter.MESSAGE_REQUEST_DELAY precedent (300ms).
+        if (!prefs.contactSearchEnabled) return
+        val hasContacts = ContextCompat.checkSelfPermission(
+            requireContext(), android.Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!hasContacts) return
+
+        val capturedQuery = query
+        val runnable = Runnable {
+            // The view may be torn down between the postDelayed and the fire; bail if so to
+            // avoid requireContext() / requireView() blowing up.
+            if (!isAdded || view == null) return@Runnable
+            val contacts = queryContacts(capturedQuery)
+            // Re-render the merged list. Apps + folders first (already visible), contacts at
+            // the tail — contacts are the bonus, apps are the launcher's primary purpose.
+            if (contacts.isNotEmpty()) {
+                renderItems(baseItems + contacts, all)
+            }
+        }
+        pendingContactQuery = runnable
+        mainHandler.postDelayed(runnable, 250L)
+    }
+
+    /**
+     * Query the system Contacts provider for rows whose display name or normalised number
+     * matches [query] as a substring. Limited to 10 rows. Returns one [HomeItem.ContactItem]
+     * per phone-number row (so a contact with three numbers contributes three results, each
+     * disambiguated by [HomeItem.ContactItem.typeLabel]).
+     *
+     * Queries `Phone.CONTENT_URI` directly because it includes ONLY contacts that have at
+     * least one phone number — contacts with email only are silently excluded, which matches
+     * the tap behaviour (we dial via `ACTION_DIAL`, so no-phone contacts have nothing to do).
+     *
+     * Number-side matching uses `NORMALIZED_NUMBER` (digits-only canonical form) with the
+     * digit-only filter on the query string, so a user typing `5551234` matches stored
+     * `(555) 123-4567` despite the punctuation difference.
+     *
+     * Type label disambiguation: a contact with multiple matched numbers gets each of its
+     * rows labelled with the localised Phone.TYPE label (mobile / work / home / custom). A
+     * contact with a single matched number renders with `typeLabel = null` so the row reads
+     * as just the bare display name — phone numbers are NEVER shown on the search surface.
+     *
+     * On `SecurityException` (permission revoked between the gate check and the cursor open):
+     * returns empty + posts a reconcile to flip the pref off cleanly.
+     */
+    private fun queryContacts(query: String): List<HomeItem.ContactItem> {
+        val ctx = context ?: return emptyList()
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME_PRIMARY,
+            ContactsContract.CommonDataKinds.Phone.NUMBER,
+            ContactsContract.CommonDataKinds.Phone.NORMALIZED_NUMBER,
+            ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY,
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+            ContactsContract.CommonDataKinds.Phone.TYPE,
+            ContactsContract.CommonDataKinds.Phone.LABEL,
+        )
+        val selection = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME_PRIMARY} LIKE ? " +
+                "OR ${ContactsContract.CommonDataKinds.Phone.NORMALIZED_NUMBER} LIKE ?"
+        val digitsOnly = query.filter { it.isDigit() }
+        val selectionArgs = arrayOf(
+            "%$query%",
+            if (digitsOnly.isEmpty()) "____no_digits____" else "%$digitsOnly%",
+        )
+        val sortOrder = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME_PRIMARY} " +
+                "COLLATE NOCASE ASC LIMIT 10"
+
+        // Intermediate row carrying everything we need to decide whether a contact is multi-
+        // number (and thus needs a type-label suffix) without re-querying the provider.
+        data class Raw(
+            val contactId: Long,
+            val name: String,
+            val number: String,
+            val type: Int,
+            val customLabel: String?,
+            val lookupUri: Uri,
+        )
+
+        val raws = runCatching {
+            ctx.contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                projection, selection, selectionArgs, sortOrder
+            )?.use { cursor ->
+                val out = mutableListOf<Raw>()
+                val nameIdx = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME_PRIMARY
+                )
+                val numberIdx = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.NUMBER
+                )
+                val lookupIdx = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY
+                )
+                val contactIdIdx = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID
+                )
+                val typeIdx = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.TYPE
+                )
+                val labelIdx = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.LABEL
+                )
+                while (cursor.moveToNext()) {
+                    val name = if (nameIdx >= 0) cursor.getString(nameIdx) ?: "" else ""
+                    val number = if (numberIdx >= 0) cursor.getString(numberIdx) ?: "" else ""
+                    if (name.isBlank() || number.isBlank()) continue
+                    val lookupKey = if (lookupIdx >= 0) cursor.getString(lookupIdx) ?: "" else ""
+                    val contactId = if (contactIdIdx >= 0) cursor.getLong(contactIdIdx) else 0L
+                    val type = if (typeIdx >= 0) cursor.getInt(typeIdx) else 0
+                    val custom = if (labelIdx >= 0) cursor.getString(labelIdx) else null
+                    val lookupUri = if (lookupKey.isNotEmpty() && contactId > 0L) {
+                        ContactsContract.Contacts.getLookupUri(contactId, lookupKey)
+                    } else Uri.EMPTY
+                    out.add(Raw(contactId, name, number, type, custom, lookupUri))
+                }
+                out.toList()
+            } ?: emptyList()
+        }.getOrElse { err ->
+            // SecurityException means the OS revoked the grant between our pre-check and the
+            // cursor open. Reconcile silently and return empty so apps still render.
+            if (err is SecurityException) {
+                mainHandler.post { reconcileContactSearchPref() }
+            }
+            emptyList()
+        }
+
+        if (raws.isEmpty()) return emptyList()
+
+        // Count matched-number rows per contact: a contact with >1 row gets a per-row type
+        // label to disambiguate; a contact with exactly one row renders as just its name.
+        val rowsPerContact = raws.groupingBy { it.contactId }.eachCount()
+        val resources = ctx.resources
+        return raws.map { row ->
+            val label = if ((rowsPerContact[row.contactId] ?: 1) > 1) {
+                ContactsContract.CommonDataKinds.Phone
+                    .getTypeLabel(resources, row.type, row.customLabel)
+                    ?.toString()
+                    ?.lowercase()
+            } else null
+            HomeItem.ContactItem(
+                displayName = row.name,
+                number = row.number,
+                typeLabel = label,
+                lookupUri = row.lookupUri,
+            )
+        }
+    }
+
+    /**
+     * Open the system dialer prepopulated with [number]. Never `ACTION_CALL` — that would
+     * direct-dial on tap, the worst possible UX failure mode for a launcher. The user taps
+     * the call button in the dialer to actually place the call.
+     */
+    private fun dialContact(number: String) {
+        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(number)}"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { startActivity(intent) }
+            .onFailure {
+                Toast.makeText(requireContext(), "No dialer installed", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    /**
+     * Reconcile the contact-search pref against the live READ_CONTACTS grant. Called from
+     * onResume and from inside [queryContacts] on a mid-flight SecurityException. Silent —
+     * matches the pattern of [reconcileDoubleTapPref] for the accessibility-driven lock.
+     */
+    private fun reconcileContactSearchPref() {
+        if (!prefs.contactSearchEnabled) return
+        val ctx = context ?: return
+        val granted = ContextCompat.checkSelfPermission(
+            ctx, android.Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) prefs.contactSearchEnabled = false
     }
 
     // ── Gesture execution ─────────────────────────────────────────
@@ -732,6 +938,9 @@ class AppDrawerFragment : Fragment() {
         is HomeItem.AppItem -> computeFontSize(prefs.getUsageCount(item.info.packageName), maxUsage)
         is HomeItem.FolderItem ->
             computeFontSize(item.folder.packages.sumOf { prefs.getUsageCount(it) }, maxUsage)
+        // Contact results carry no usage signal — render at the minimum (least-prominent)
+        // size so they don't dominate the paragraph alongside frequently-used apps.
+        is HomeItem.ContactItem -> prefs.minFontSize.toFloat()
         // "‹ back" is an affordance, not a data row — render at the minimum size so it doesn't
         // dominate the paragraph.
         HomeItem.BackOut -> prefs.minFontSize.toFloat()
@@ -764,12 +973,65 @@ class AppDrawerFragment : Fragment() {
             typeface = typeface,
             hPad = hPad, vPad = vPad, gravity = gravity
         )
+        is HomeItem.ContactItem -> createContactTextView(
+            contact = item,
+            size = size,
+            color = defaultTextColor,
+            typeface = typeface,
+            hPad = hPad, vPad = vPad, gravity = gravity
+        )
         HomeItem.BackOut -> createBackOutTextView(
             size = size,
             color = defaultTextColor,
             typeface = typeface,
             hPad = hPad, vPad = vPad, gravity = gravity
         )
+    }
+
+    /**
+     * Render a contact search result. Format is `Name` for single-number contacts and
+     * `Name (type)` for multi-number contacts where the type label disambiguates the row
+     * (mobile / work / home / etc.). The phone number is never visible on the search
+     * surface — tapping opens the dialer pre-populated with the number, which is where
+     * the user sees and confirms it.
+     *
+     * Single-number contact rows render identically to apps named the same thing. This
+     * is a deliberate UX trade-off: the user opted into contact search, accepts that
+     * `Calendar` (the contact) and `Calendar` (the app) look alike, and a mis-tap is a
+     * one-back-press recovery.
+     */
+    private fun createContactTextView(
+        contact: HomeItem.ContactItem,
+        size: Float,
+        color: Int,
+        typeface: Typeface,
+        hPad: Int,
+        vPad: Int,
+        gravity: Int,
+    ): TextView = TextView(requireContext()).apply {
+        text = contact.typeLabel
+            ?.takeIf { it.isNotBlank() }
+            ?.let { "${contact.displayName} ($it)" }
+            ?: contact.displayName
+        contentDescription = buildString {
+            append("Contact: ")
+            append(contact.displayName)
+            contact.typeLabel?.takeIf { it.isNotBlank() }?.let { append(", ").append(it) }
+            append(", double tap to dial")
+        }
+        textSize = size
+        setTextColor(color)
+        this.typeface = typeface
+        this.gravity = gravity
+        setPadding(hPad, vPad, hPad, vPad)
+        setOnClickListener { dialContact(contact.number) }
+        // Forward touches to the host gesture detector so swipes that start on a contact row
+        // still fire home gestures rather than dying on the chrome.
+        setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = true
+            singleFingerDetector.onTouchEvent(event)
+            false
+        }
     }
 
     private fun createFolderTextView(
@@ -1520,6 +1782,9 @@ class AppDrawerFragment : Fragment() {
 
             "Does Slate collect any data?" to
                 "No. Slate is 100% offline and collects zero data.\n\nThere is no analytics, no crash reporting, no tracking, and no network requests of any kind. All settings, usage counts, and customizations are stored locally on your device using Android's SharedPreferences and never leave it.",
+
+            "Does Slate read my contacts?" to
+                "Only if you turn on \"Search contacts\" in Settings → Search. With that off (the default), Slate has no contacts permission at all. With it on, Slate reads your contact list each time you type a search query — to find matches alongside your apps. Nothing is stored, indexed, or sent anywhere. Quitting and relaunching the launcher starts with no contact data in memory.\n\nWork-profile contacts are not visible (Android isolates them from third-party launchers). Contacts without a phone number are skipped, since tapping a contact opens the dialer.",
 
             "What other permissions does Slate use?" to
                 "• EXPAND_STATUS_BAR — swipe-down notification panel gesture\n• ACCESS_WIFI_STATE / CHANGE_WIFI_STATE — Wi-Fi toggle gesture (Android 10+: opens system panel)\n• BLUETOOTH / BLUETOOTH_ADMIN — Bluetooth toggle on Android 11 and below\n• QUERY_ALL_PACKAGES — required to list all installed apps (Android 11+)\n• REQUEST_DELETE_PACKAGES — initiates the system uninstall flow when you choose to uninstall an app\n• REQUEST_IGNORE_BATTERY_OPTIMIZATIONS — used only when you tap \"Fix this\" on the battery restriction warning in Settings, to request that the system exempt Slate from battery optimization so background features keep working\n• USE_BIOMETRIC — declared by the AndroidX Biometric library; only requested when you opt into biometric unlock for hidden apps. Biometric data is processed by the OS and never reaches Slate.",

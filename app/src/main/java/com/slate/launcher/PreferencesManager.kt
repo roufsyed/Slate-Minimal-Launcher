@@ -20,6 +20,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_SEARCH_ENABLED = "search_enabled"
         private const val KEY_SEARCH_BAR_ON_HOME = "search_bar_on_home"
         private const val KEY_SEARCH_BAR_POSITION = "search_bar_position"
+        private const val KEY_CONTACT_SEARCH_ENABLED = "contact_search_enabled"
         private const val KEY_FONT_FAMILY = "font_family"
         private const val KEY_FONT_WEIGHT = "font_weight"
         private const val KEY_LINE_SPACING = "line_spacing"
@@ -148,6 +149,19 @@ class PreferencesManager(context: Context) {
     var searchBarPosition: String
         get() = prefs.getString(KEY_SEARCH_BAR_POSITION, "top") ?: "top"
         set(value) = prefs.edit().putString(KEY_SEARCH_BAR_POSITION, value).apply()
+
+    /**
+     * When true (opt-in via Settings → Search → "Search contacts"), `filterApps` queries the
+     * system Contacts provider and merges matches into the search results. Default OFF.
+     *
+     * Per-device only: NEVER written to a backup file (omitted from BackupManager.toJson and
+     * not read by applyNonPrivate, same rule as [includePrivateInBackup]). A restored backup
+     * on a new device starts with this OFF and requires the user to opt in again, with the
+     * full consent dialog + system permission flow firing fresh.
+     */
+    var contactSearchEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CONTACT_SEARCH_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_CONTACT_SEARCH_ENABLED, value).apply()
 
     var fontFamily: String
         get() = prefs.getString(KEY_FONT_FAMILY, DEFAULT_FONT_FAMILY) ?: DEFAULT_FONT_FAMILY

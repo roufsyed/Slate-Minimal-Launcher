@@ -55,6 +55,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var batteryExemptLauncher: ActivityResultLauncher<Intent>
     private lateinit var pickContactLauncher: ActivityResultLauncher<Intent>
     private lateinit var requestCallPhoneLauncher: ActivityResultLauncher<String>
+    private lateinit var requestReadContactsLauncher: ActivityResultLauncher<String>
     // Tracks whether the user is currently adding a "call" or "sms" shortcut so the picker
     // callback knows which widget kind to construct.
     private var pendingShortcutType: ContactShortcut.Type? = null
@@ -195,6 +196,42 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        // Mirrors the CALL_PHONE flow. Fires after the system READ_CONTACTS prompt resolves;
+        // writes the final pref + switch state and detach-set-reattaches the listener so the
+        // silent revert doesn't re-fire the user-toggle callback. The permanent-deny case
+        // ("Don't ask again") is detected via shouldShowRequestPermissionRationale and offers
+        // a Settings deep-link instead of leaving the user with a silent no-op toggle.
+        requestReadContactsLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            val switch = findViewById<MaterialSwitch>(R.id.switchContactSearch)
+            switch.setOnCheckedChangeListener(null)
+            if (granted) {
+                prefs.contactSearchEnabled = true
+                switch.isChecked = true
+            } else {
+                prefs.contactSearchEnabled = false
+                switch.isChecked = false
+                // shouldShowRequestPermissionRationale returns false in two cases: never asked,
+                // OR the user picked "Don't ask again". Since we just asked, false here means
+                // permanent denial — offer the Settings deep-link rather than a Toast that
+                // leaves the user stuck.
+                if (!androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+                        this, android.Manifest.permission.READ_CONTACTS
+                    )
+                ) {
+                    showContactSearchSettingsDialog()
+                } else {
+                    Toast.makeText(
+                        this,
+                        "Permission required to enable contact search",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            attachContactSearchListener(switch)
+        }
+
         prefs = PreferencesManager(this)
         setContentView(R.layout.activity_settings)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -246,6 +283,9 @@ class SettingsActivity : AppCompatActivity() {
         // flips `prefs.biometricEnabled` off when enrollment is gone. No-op when biometric
         // is still available or pref is already false.
         biometricReconcile?.invoke()
+        // Contact-search reconcile: same shape — pref flips off (with switch silent-revert)
+        // when READ_CONTACTS has been revoked while Settings was in the background.
+        syncContactSearchToggle()
     }
 
     private fun syncAccessibilityToggle() {
@@ -373,7 +413,8 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchQuickStrip),
             findViewById(R.id.switchDirectCall),
             findViewById(R.id.switchQuickStripDivider),
-            findViewById(R.id.switchIncludePrivateInBackup)
+            findViewById(R.id.switchIncludePrivateInBackup),
+            findViewById(R.id.switchContactSearch)
         )
     }
 
@@ -1002,6 +1043,9 @@ class SettingsActivity : AppCompatActivity() {
         val labelOnHomeSub = findViewById<TextView>(R.id.labelSearchOnHomeSub)
         val rowPosition = findViewById<View>(R.id.rowSearchBarPosition)
         val positionValue = findViewById<TextView>(R.id.searchBarPositionValue)
+        val rowContactSearch = findViewById<View>(R.id.rowContactSearch)
+        val switchContactSearch = findViewById<MaterialSwitch>(R.id.switchContactSearch)
+        val labelContactSearchSub = findViewById<TextView>(R.id.labelContactSearchSub)
 
         positionValue.setTextColor(secondary)
         positionValue.text = prefs.searchBarPosition.replaceFirstChar { it.uppercaseChar() }
@@ -1012,6 +1056,10 @@ class SettingsActivity : AppCompatActivity() {
         if (!prefs.searchEnabled && prefs.showSearchBarOnHome) {
             prefs.showSearchBarOnHome = false
         }
+        // Same normalisation for contact search — it can't exist without master Search either.
+        if (!prefs.searchEnabled && prefs.contactSearchEnabled) {
+            prefs.contactSearchEnabled = false
+        }
 
         // Cross-row gate for the Search section. "Show on home" can't exist without Search
         // itself, so we visibly disable + grey the row when the master is off, and the sub-
@@ -1020,11 +1068,16 @@ class SettingsActivity : AppCompatActivity() {
         // silent auto-enable (the old behaviour, which surprised users).
         val defaultOnHomeSub = "Keep search bar visible, closes with keyboard"
         val blockedOnHomeSub = "Turn on Search to enable"
+        val defaultContactSub = "Show matching contacts when you type"
+        val blockedContactSub = "Turn on Search to enable"
         fun refreshSearchGates() {
             val on = prefs.searchEnabled
             switchOnHome.isEnabled = on
             rowOnHome.alpha = if (on) 1f else 0.4f
             labelOnHomeSub.text = if (on) defaultOnHomeSub else blockedOnHomeSub
+            switchContactSearch.isEnabled = on
+            rowContactSearch.alpha = if (on) 1f else 0.4f
+            labelContactSearchSub.text = if (on) defaultContactSub else blockedContactSub
             // Position sub-row only shows when BOTH the master and Show-on-home are on.
             rowPosition.visibility =
                 if (on && prefs.showSearchBarOnHome) View.VISIBLE else View.GONE
@@ -1034,18 +1087,36 @@ class SettingsActivity : AppCompatActivity() {
         switchEnable.setOnCheckedChangeListener { _, checked ->
             prefs.searchEnabled = checked
             if (!checked) {
-                // Master OFF cascades the sub-option off so it can't linger as a stale-but-
-                // disabled "ON" state (which would also show the wrong slider in the gate).
+                // Master OFF cascades the sub-options off so they can't linger as stale-but-
+                // disabled "ON" states (which would also show the wrong slider in the gate).
                 prefs.showSearchBarOnHome = false
                 switchOnHome.setOnCheckedChangeListener(null)
                 switchOnHome.isChecked = false
                 attachOnHomeListener(switchOnHome, rowPosition)
+
+                prefs.contactSearchEnabled = false
+                switchContactSearch.setOnCheckedChangeListener(null)
+                switchContactSearch.isChecked = false
+                attachContactSearchListener(switchContactSearch)
             }
             refreshSearchGates()
         }
 
         switchOnHome.isChecked = prefs.showSearchBarOnHome
         attachOnHomeListener(switchOnHome, rowPosition)
+
+        // Initial state — reconcile against the live READ_CONTACTS grant before attaching the
+        // listener. If the user revoked permission externally between sessions, the pref flips
+        // off here silently and the switch renders OFF on this open.
+        if (prefs.contactSearchEnabled &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.READ_CONTACTS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            prefs.contactSearchEnabled = false
+        }
+        switchContactSearch.isChecked = prefs.contactSearchEnabled
+        attachContactSearchListener(switchContactSearch)
 
         rowPosition.setOnClickListener {
             SlateListDialog(
@@ -1061,6 +1132,205 @@ class SettingsActivity : AppCompatActivity() {
 
         // Initial gate pass — handles a freshly-opened Settings.
         refreshSearchGates()
+    }
+
+    /**
+     * Wires the "Search contacts" toggle with the silent-revert idiom. On toggle ON we always
+     * show the in-app consent dialog first (Slate's privacy promise), then check the system
+     * permission. If already granted, the system prompt is suppressed and the pref flips on
+     * directly. If not granted, the system prompt fires via [requestReadContactsLauncher],
+     * whose callback writes the final state.
+     *
+     * On Cancel of the consent dialog (or any dismissal), the switch silently reverts via
+     * detach-set-reattach. The user never sees the system permission prompt unless they
+     * explicitly tapped "Turn on".
+     */
+    private fun attachContactSearchListener(switch: MaterialSwitch) {
+        switch.setOnCheckedChangeListener { _, checked ->
+            if (checked) {
+                showContactSearchConsentDialog(
+                    onConfirm = {
+                        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+                            this, android.Manifest.permission.READ_CONTACTS
+                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        if (granted) {
+                            // Already granted from a previous session — skip the system prompt
+                            // but still set the pref to true; the in-app consent dialog was
+                            // the user's authoritative opt-in.
+                            prefs.contactSearchEnabled = true
+                        } else {
+                            requestReadContactsLauncher.launch(
+                                android.Manifest.permission.READ_CONTACTS
+                            )
+                        }
+                    },
+                    onCancel = {
+                        switch.setOnCheckedChangeListener(null)
+                        switch.isChecked = false
+                        attachContactSearchListener(switch)
+                    }
+                )
+            } else {
+                prefs.contactSearchEnabled = false
+            }
+        }
+    }
+
+    /**
+     * In-app disclosure dialog shown BEFORE the system READ_CONTACTS prompt fires. Required
+     * by Play Store's Prominent Disclosure policy and Slate's brand promise — the user reads
+     * the privacy contract here, not in the OS-rendered permission prompt (which only shows
+     * the boilerplate "Allow Slate to access your contacts?" line).
+     */
+    private fun showContactSearchConsentDialog(onConfirm: () -> Unit, onCancel: () -> Unit) {
+        val dialog = Dialog(this, R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.apply {
+            text = "SEARCH CONTACTS?"
+            setTextColor(accent)
+        }
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
+            text = "Turn this on to find contacts when you type in the search bar. " +
+                    "Matching contacts appear next to apps; tap one to open the dialer with their number."
+            setTextColor(primary)
+        }
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
+            text = "Slate reads your contacts only at the moment you type a search query. " +
+                    "Nothing is stored on disk, sent anywhere, or remembered between searches. " +
+                    "Restarting the launcher starts fresh."
+            setTextColor(secondary)
+        }
+
+        var consumed = false
+        dialog.findViewById<TextView>(R.id.btnCancel)?.apply {
+            setTextColor(secondary)
+            setOnClickListener {
+                consumed = true
+                dialog.dismiss()
+                onCancel()
+            }
+        }
+        dialog.findViewById<TextView>(R.id.btnContinue)?.apply {
+            text = "Turn on"
+            setTextColor(accent)
+            setOnClickListener {
+                consumed = true
+                dialog.dismiss()
+                onConfirm()
+            }
+        }
+        dialog.setOnDismissListener { if (!consumed) onCancel() }
+        dialog.show()
+    }
+
+    /**
+     * Shown after a permanent-deny ("Don't ask again") of the READ_CONTACTS prompt. Offers a
+     * Settings deep-link to the app's permission page so the user can re-grant manually. The
+     * pref is already flipped off by the launcher callback before this dialog appears, so OK
+     * here just dismisses.
+     */
+    private fun showContactSearchSettingsDialog() {
+        val dialog = Dialog(this, R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_accessibility_info)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.apply {
+            text = "PERMISSION NEEDED"
+            setTextColor(accent)
+        }
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
+            text = "Slate needs Contacts permission to search them. You can enable it in " +
+                    "system Settings."
+            setTextColor(primary)
+        }
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
+            text = "Tap Open Settings to grant the permission. You can revoke it any time."
+            setTextColor(secondary)
+        }
+        dialog.findViewById<TextView>(R.id.btnCancel)?.apply {
+            setTextColor(secondary)
+            setOnClickListener { dialog.dismiss() }
+        }
+        dialog.findViewById<TextView>(R.id.btnContinue)?.apply {
+            text = "Open Settings"
+            setTextColor(accent)
+            setOnClickListener {
+                dialog.dismiss()
+                runCatching {
+                    startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.parse("package:$packageName")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                    )
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    /**
+     * Reconcile the `contactSearchEnabled` pref against the live READ_CONTACTS grant. Called
+     * from [syncPermissionToggles] so a permission revoked via Android system Settings (while
+     * Slate Settings was in the background) is detected the next time the user opens this
+     * activity. Silent reconciliation — no Toast, just flip the pref + switch off. Matches the
+     * pattern used by [reconcileDoubleTapPref] on the home side.
+     */
+    private fun syncContactSearchToggle() {
+        if (!prefs.contactSearchEnabled) return
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.READ_CONTACTS
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (granted) return
+        prefs.contactSearchEnabled = false
+        val switch = findViewById<MaterialSwitch>(R.id.switchContactSearch) ?: return
+        switch.setOnCheckedChangeListener(null)
+        switch.isChecked = false
+        attachContactSearchListener(switch)
     }
 
     /**
