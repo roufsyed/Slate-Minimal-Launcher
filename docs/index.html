@@ -4,17 +4,17 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Slate — A text-only Android launcher</title>
-<meta name="description" content="Slate is a minimal, text-only Android home screen built for focus. No icons. No widgets. No feeds. Just your apps." />
+<meta name="description" content="Slate is a minimal, text-only Android home screen built for focus. No icons. No app drawers. No algorithmic feeds — just your apps, listed by name." />
 
 <!-- Open Graph / social previews -->
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Slate — A text-only Android launcher" />
-<meta property="og:description" content="A minimal, text-only home screen for Android. No icons, no widgets, no feeds. Just your apps." />
+<meta property="og:description" content="A minimal, text-only home screen for Android. No icons. No app drawers. No algorithmic feeds — just your apps, listed by name." />
 <meta property="og:url" content="https://roufsyed.github.io/Slate-Minimal-Launcher/" />
 <meta property="og:image" content="https://roufsyed.github.io/Slate-Minimal-Launcher/assets/slate_home_white.jpg" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Slate — A text-only Android launcher" />
-<meta name="twitter:description" content="A minimal, text-only home screen for Android. No icons, no widgets, no feeds. Just your apps." />
+<meta name="twitter:description" content="A minimal, text-only home screen for Android. No icons. No app drawers. No algorithmic feeds — just your apps, listed by name." />
 <meta name="twitter:image" content="https://roufsyed.github.io/Slate-Minimal-Launcher/assets/slate_home_white.jpg" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -692,7 +692,7 @@
       <div class="hero-copy">
         <div class="eyebrow">A minimal Android launcher</div>
         <h1 class="display">Less screen,<br/><em>more life.</em></h1>
-        <p class="hero-sub"><strong>Slate</strong> is a text-only home screen for Android. No icons. No widgets. No algorithmic feeds competing for your attention&nbsp;— just your apps, listed by name.</p>
+        <p class="hero-sub"><strong>Slate</strong> is a text-only home screen for Android. No icons. No app drawers. No algorithmic feeds competing for your attention&nbsp;— just your apps, listed by name, with an optional row of quick toggles.</p>
 
         <div class="cta-row">
           <a class="btn btn-primary" href="https://github.com/roufsyed/Slate-Minimal-Launcher/releases" target="_blank" rel="noopener">
@@ -812,6 +812,9 @@
           <li><span class="n">05</span><span><strong>Long-press the screen</strong><span class="d">Open settings or manage hidden apps.</span></span></li>
           <li><span class="n">06</span><span><strong>Pin to top</strong><span class="d">Keep favorites above the alphabet.</span></span></li>
           <li><span class="n">07</span><span><strong>Sort A→Z or by usage</strong><span class="d">Whichever way your hand already knows.</span></span></li>
+          <li><span class="n">08</span><span><strong>Custom folders</strong><span class="d">Group apps under a text label with a chevron — tap to expand inline.</span></span></li>
+          <li><span class="n">09</span><span><strong>Quick toggles strip</strong><span class="d">Optional row of text widgets — clock, battery, Wi-Fi, brightness, torch, more.</span></span></li>
+          <li><span class="n">10</span><span><strong>Contact search</strong><span class="d">Opt-in. Surfaces matching contacts inline. Read at search time, never stored.</span></span></li>
         </ul>
       </div>
 
@@ -821,10 +824,11 @@
           <li><span class="n">01</span><span><strong>Lock to portrait</strong><span class="d">Stop accidental rotation.</span></span></li>
           <li><span class="n">02</span><span><strong>Hide the status bar</strong><span class="d">A truly empty page. Swipe down to peek.</span></span></li>
           <li><span class="n">03</span><span><strong>Persistent search bar</strong><span class="d">Optional. Always one tap away.</span></span></li>
-          <li><span class="n">04</span><span><strong>JSON backup</strong><span class="d">Export and import every preference, plain text.</span></span></li>
+          <li><span class="n">04</span><span><strong>JSON backup</strong><span class="d">Export and import every preference. Hidden apps and PIN are excluded by default — opt in if you need them.</span></span></li>
           <li><span class="n">05</span><span><strong>Onboarding import</strong><span class="d">Returning user? Drop in your file and you’re back.</span></span></li>
           <li><span class="n">06</span><span><strong>System launcher picker</strong><span class="d">Set as default in two taps from inside Slate.</span></span></li>
           <li><span class="n">07</span><span><strong>No account, no sign-in</strong><span class="d">Install and use. Nothing to register.</span></span></li>
+          <li><span class="n">08</span><span><strong>Hidden apps lock</strong><span class="d">4–8 digit PIN, PBKDF2-hashed, optional biometric. Launches stay off Recents.</span></span></li>
         </ul>
       </div>
     </div>
@@ -902,6 +906,22 @@
         <div class="perm">
           <code>REQUEST_IGNORE_BATTERY_OPTIMIZATIONS</code>
           <p>Asks the system to exempt Slate so background features stay reliable. Only triggered from “Fix this”.</p>
+        </div>
+        <div class="perm">
+          <code>USE_BIOMETRIC</code>
+          <p>Declared by the AndroidX Biometric library. Only requested when you opt into biometric unlock for hidden apps. Biometric data stays inside the OS — Slate sees only a success or fail callback.</p>
+        </div>
+        <div class="perm">
+          <code>READ_CONTACTS</code>
+          <p>Optional. Only requested when you turn on “Search contacts” in Settings → Search, after an in-app consent dialog. Contacts are read in memory per keystroke and discarded — never stored, indexed, or transmitted.</p>
+        </div>
+        <div class="perm">
+          <code>CALL_PHONE</code>
+          <p>Optional. Only requested when you turn on “Direct call” for a pinned contact shortcut. Off by default — taps open the dialer instead of placing the call.</p>
+        </div>
+        <div class="perm">
+          <code>READ_BASIC_PHONE_STATE</code>
+          <p>Normal permission (no runtime prompt) used by the Mobile data quick-toggle widget on Android 13+. Reads only whether mobile data is enabled and a SIM is present.</p>
         </div>
       </div>
     </div>
