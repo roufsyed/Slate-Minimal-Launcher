@@ -1,9 +1,13 @@
 package com.slate.launcher
 
+import android.net.Uri
+
 /**
  * One renderable cell in the home-screen list. The renderer dispatches on this type — apps and
  * folders look subtly different (folders gain a trailing chevron, optional custom colour), and
  * [BackOut] is the leading "‹ back" affordance shown only while inside an expanded folder.
+ * Contact results only ever appear in the live search list (never on the static home list) and
+ * only when the user has opted into Search → Search contacts.
  */
 sealed class HomeItem {
     data class AppItem(val info: AppInfo) : HomeItem()
@@ -13,5 +17,31 @@ sealed class HomeItem {
      * number matches what the user sees on expand; ignored by the other styles.
      */
     data class FolderItem(val folder: Folder, val visibleCount: Int) : HomeItem()
+    /**
+     * A contact match shown inline alongside app matches when the user has opted into contact
+     * search. One instance per phone-number row, so a contact with multiple numbers shows
+     * multiple list items — and those rows are disambiguated via [typeLabel].
+     *
+     * The phone number is deliberately NOT a render input: the row shows the contact's name
+     * (optionally suffixed with the number type for multi-number contacts) and the dialer
+     * pre-populates with [number] on tap. Keeps the search list visually clean and avoids
+     * leaking numbers into a screen that's open while typing.
+     *
+     * @param displayName the contact's display name (DISPLAY_NAME_PRIMARY).
+     * @param number the raw phone number — used to construct the `tel:` Uri for
+     *     [Intent.ACTION_DIAL] when the row is tapped. Never displayed.
+     * @param typeLabel localised type label ("mobile" / "work" / "home" / etc.), populated
+     *     only when the contact has more than one phone number — that's the case where we
+     *     need to disambiguate the row visually. `null` for single-number contacts so the
+     *     row renders as just the bare name.
+     * @param lookupUri stable contact URI; reserved for future "view contact" affordances.
+     *     Not used at tap time today — the cached [number] is always sufficient for dialing.
+     */
+    data class ContactItem(
+        val displayName: String,
+        val number: String,
+        val typeLabel: String?,
+        val lookupUri: Uri
+    ) : HomeItem()
     data object BackOut : HomeItem()
 }

@@ -27,6 +27,13 @@
          setting off (default), CallShortcutWidget uses ACTION_DIAL and
          this permission is never exercised. -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
+    <!-- Required ONLY when the user explicitly enables "Search contacts" in
+         Settings → Search. The runtime grant is requested at toggle-ON time
+         after a consent dialog explains the privacy contract. With the toggle
+         off (default), no contacts data is ever read; the manifest declaration
+         is dormant. Contacts are queried ephemerally per keystroke, filtered
+         in memory, and discarded — never stored, indexed, or transmitted. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <application
         android:allowBackup="true"

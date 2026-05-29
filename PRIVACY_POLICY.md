@@ -30,6 +30,14 @@ Slate requests permission to read active notifications solely to highlight app l
 
 Slate requests accessibility service permission solely to perform the screen lock action when the user assigns it to a double-tap or swipe gesture. The service does not observe, record, or transmit any on-screen content or user interactions.
 
+## Contact search (optional, off by default)
+
+Slate's search bar can optionally include matching contacts alongside matching apps. This feature is off by default and requires explicit opt-in via Settings → Search → "Search contacts". Toggling it on shows a consent dialog explaining the privacy contract before the standard Android READ_CONTACTS permission prompt fires.
+
+With the toggle on, Slate queries the system Contacts provider at the moment you type a search query, filters matches in memory, and displays them inline with app results. The data is held only as long as needed to render the result list and is discarded immediately after. Slate does not store contact data on disk, transmit it anywhere, or index it for future searches. Restarting the launcher starts with no contact data in memory.
+
+Tapping a contact result opens the system dialer prepopulated with that contact's number; Slate does not place the call itself. Revoking the permission in system Settings causes the toggle to flip off automatically the next time you open Slate or its Settings.
+
 ## Hidden apps security
 
 When the "Lock hidden apps" toggle in Settings → Security is enabled, Slate stores a one-way verifier of your PIN — a salted PBKDF2-HMAC-SHA256 hash with 120,000 iterations and a per-device 16-byte random salt — in the app's private SharedPreferences. The plain-text PIN is never written to disk and is zeroed in memory immediately after hashing.

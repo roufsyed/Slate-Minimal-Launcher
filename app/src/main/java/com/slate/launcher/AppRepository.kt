@@ -109,6 +109,9 @@ class AppRepository(private val context: Context, private val prefs: Preferences
                     // Folder weight is the sum of contained apps' usage counts.
                     is HomeItem.FolderItem ->
                         item.folder.packages.sumOf { prefs.getUsageCount(it) }
+                    // ContactItem only appears in the live search list, never the static home
+                    // mix that this sort serves. Defensive 0 keeps the `when` exhaustive.
+                    is HomeItem.ContactItem -> 0
                     HomeItem.BackOut -> 0
                 }
             }
@@ -117,6 +120,7 @@ class AppRepository(private val context: Context, private val prefs: Preferences
                 when (item) {
                     is HomeItem.AppItem -> item.info.name.lowercase()
                     is HomeItem.FolderItem -> item.folder.name.lowercase()
+                    is HomeItem.ContactItem -> ""
                     HomeItem.BackOut -> ""
                 }
             }
