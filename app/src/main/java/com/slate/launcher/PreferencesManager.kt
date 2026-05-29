@@ -21,6 +21,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_SEARCH_BAR_ON_HOME = "search_bar_on_home"
         private const val KEY_SEARCH_BAR_POSITION = "search_bar_position"
         private const val KEY_CONTACT_SEARCH_ENABLED = "contact_search_enabled"
+        private const val KEY_GOOGLE_CONTACTS_ONLY = "google_contacts_only"
         private const val KEY_FONT_FAMILY = "font_family"
         private const val KEY_FONT_WEIGHT = "font_weight"
         private const val KEY_LINE_SPACING = "line_spacing"
@@ -162,6 +163,22 @@ class PreferencesManager(context: Context) {
     var contactSearchEnabled: Boolean
         get() = prefs.getBoolean(KEY_CONTACT_SEARCH_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_CONTACT_SEARCH_ENABLED, value).apply()
+
+    /**
+     * When true, contact search results are filtered to contacts whose raw-contact account
+     * type is `com.google`. Useful for users who see the same person appear multiple times
+     * because they exist as separate raw contacts under different sources (Google,
+     * WhatsApp, SIM, OEM local, etc.). Default OFF — show everything by default and rely on
+     * the per-row source suffix to disambiguate the rare cases of cross-source duplication.
+     *
+     * Per-device only: NEVER written to a backup file (same rule as [contactSearchEnabled]
+     * and [includePrivateInBackup]). Persists across [contactSearchEnabled] toggling — the
+     * user's filter preference is preserved if they disable contact search and re-enable it
+     * later, since the pref isn't permission-gated.
+     */
+    var googleContactsOnly: Boolean
+        get() = prefs.getBoolean(KEY_GOOGLE_CONTACTS_ONLY, false)
+        set(value) = prefs.edit().putBoolean(KEY_GOOGLE_CONTACTS_ONLY, value).apply()
 
     var fontFamily: String
         get() = prefs.getString(KEY_FONT_FAMILY, DEFAULT_FONT_FAMILY) ?: DEFAULT_FONT_FAMILY

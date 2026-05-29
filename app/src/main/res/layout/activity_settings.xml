@@ -1064,6 +1064,48 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
+            <!-- Google contacts only — second-level opt-in under Search → Search contacts.
+                 When ON, filters search results to com.google raw contacts, hiding duplicates
+                 from WhatsApp / Telegram / SIM / OEM-local sources. Off by default; rolling
+                 it under contactSearch (rather than gating on the master toggle alone) lets
+                 the row sit adjacent to its logical parent. Visually flat to match the rest
+                 of the Search section's sibling sub-rows. -->
+            <LinearLayout
+                android:id="@+id/rowGoogleContactsOnly"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="10dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/labelGoogleContactsOnly"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Google contacts only"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:id="@+id/labelGoogleContactsOnlySub"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Hide duplicates from WhatsApp, Telegram, SIM, and other sources"
+                        android:textSize="13sp"
+                        android:alpha="0.6" />
+                </LinearLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchGoogleContactsOnly"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
             <!-- Position sub-row (visible when show-on-home is on) -->
             <LinearLayout
                 android:id="@+id/rowSearchBarPosition"
