@@ -20,7 +20,7 @@ import com.slate.launcher.R
 /**
  * Reorder dialog for the quick-toggles strip. Renders the currently-enabled widgets in order,
  * each with up/down arrow buttons. Tapping an arrow swaps with the adjacent row and writes the
- * new order to [PreferencesManager.quickStripWidgets] immediately — no explicit save. The strip
+ * new order to [PreferencesManager.quickStripWidgets] immediately - no explicit save. The strip
  * picks up the new order on the next home foreground.
  *
  * Disabled widgets and unresolvable IDs are silently dropped from the list (orphaned shortcut
@@ -36,7 +36,7 @@ class WidgetArrangeDialog(
     companion object {
         private var active: WidgetArrangeDialog? = null
 
-        /** Dismiss any showing instance — call from host Activity.onDestroy() to avoid leaks. */
+        /** Dismiss any showing instance - call from host Activity.onDestroy() to avoid leaks. */
         fun dismissActive() {
             active?.let { runCatching { it.dismiss() } }
             active = null
@@ -132,7 +132,7 @@ class WidgetArrangeDialog(
         // (e.g., a contact shortcut whose data was cleared) are dropped here AND immediately
         // evicted from prefs, so the stored CSV doesn't bloat with stale ids when the user
         // opens-and-closes the dialog without making changes. QuickStripManager also filters
-        // unresolvable ids at render time — this is a belt-and-braces cleanup.
+        // unresolvable ids at render time - this is a belt-and-braces cleanup.
         val stored = prefs.quickStripWidgets
         orderedIds.clear()
         stored.forEach { id ->
@@ -174,11 +174,11 @@ class WidgetArrangeDialog(
                 .apply { weight = 1f }
         })
 
-        // Up button — disabled on first row.
+        // Up button - disabled on first row.
         row.addView(arrowButton("↑", "Move up", enabled = index > 0) {
             swap(index, index - 1)
         })
-        // Down button — disabled on last row.
+        // Down button - disabled on last row.
         row.addView(arrowButton("↓", "Move down", enabled = index < orderedIds.size - 1) {
             swap(index, index + 1)
         })
@@ -197,7 +197,7 @@ class WidgetArrangeDialog(
             textSize = 22f
             setTextColor(if (enabled) accent else secondary)
             alpha = if (enabled) 1f else 0.3f
-            // Big tap target — arrows need room for one-handed reach.
+            // Big tap target - arrows need room for one-handed reach.
             val hPad = (14 * density).toInt()
             val vPad = (8 * density).toInt()
             setPadding(hPad, vPad, hPad, vPad)

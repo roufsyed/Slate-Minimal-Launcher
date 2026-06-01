@@ -25,7 +25,7 @@ class SlateAccessibilityService : AccessibilityService() {
          *
          * Note: this reflects the OS-level "is the service enabled" state, which can be true
          * even when `instance` is still null (the service hasn't been bound to our process yet
-         * — common during the moments after the user toggles it on, especially on slower
+         * - common during the moments after the user toggles it on, especially on slower
          * OEMs). Callers that need "is the service usable RIGHT NOW" should also check
          * [lockScreen]'s return value or guard their action separately.
          */

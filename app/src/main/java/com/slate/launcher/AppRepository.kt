@@ -55,7 +55,7 @@ class AppRepository(private val context: Context, private val prefs: Preferences
      *     falls back to the main view rather than rendering nothing.
      *
      * Folders containing no currently-visible apps (everything inside is hidden or uninstalled)
-     * are omitted from the main view — we'd otherwise render a folder row that expands to an
+     * are omitted from the main view - we'd otherwise render a folder row that expands to an
      * empty list. Reconciliation against the live install set also prunes stale package entries
      * from each folder's persisted list.
      */
@@ -87,7 +87,7 @@ class AppRepository(private val context: Context, private val prefs: Preferences
         }
         // A folder shows on the main list if it has at least one *visible* (not-hidden) app.
         // A folder containing only hidden apps stays in the data model but is omitted from
-        // render — so unhiding a member restores the folder cleanly.
+        // render - so unhiding a member restores the folder cleanly.
         val visiblePackages = allApps.mapTo(HashSet()) { it.packageName }
         val visibleFolders = FolderStore.all(prefs).filter { folder ->
             folder.packages.any { pkg -> pkg in visiblePackages }
@@ -132,7 +132,7 @@ class AppRepository(private val context: Context, private val prefs: Preferences
     /**
      * Set of every launcher-visible package on the device, ignoring the user's hidden-apps
      * preference. Used by [FolderStore.reconcile] so a folder containing a hidden app doesn't
-     * get its membership pruned — unhiding must restore the original folder layout.
+     * get its membership pruned - unhiding must restore the original folder layout.
      */
     private fun queryAllInstalledLauncherPackages(): Set<String> {
         val intent = Intent(Intent.ACTION_MAIN).apply {

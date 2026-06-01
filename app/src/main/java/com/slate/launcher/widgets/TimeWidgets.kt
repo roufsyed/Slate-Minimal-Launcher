@@ -61,7 +61,7 @@ object DateWidget : QuickWidget() {
         }
     }
     override fun startObserving(context: Context, onChanged: () -> Unit): WidgetSubscription {
-        // Date changes at midnight — TIME_TICK fires before midnight transitions in practice.
+        // Date changes at midnight - TIME_TICK fires before midnight transitions in practice.
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context?, i: Intent?) = onChanged()
         }

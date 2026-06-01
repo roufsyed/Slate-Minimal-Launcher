@@ -32,7 +32,7 @@ object TorchWidget : QuickWidget() {
     override val displayName = "Torch"
 
     // The widget tracks the latest state from TorchCallback in a process-singleton so renderLabel
-    // is cheap and synchronous. The callback is the only state source — CameraManager has no
+    // is cheap and synchronous. The callback is the only state source - CameraManager has no
     // "isTorchOn" getter.
     @Volatile private var lastKnownOn: Boolean = false
 
@@ -45,7 +45,7 @@ object TorchWidget : QuickWidget() {
         val mgr = context.applicationContext.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
             ?: return
         val id = firstFlashCameraId(context) ?: return
-        // Optimistically flip the cached state before the callback confirms — gives instant UI
+        // Optimistically flip the cached state before the callback confirms - gives instant UI
         // feedback even though the official source of truth is the callback.
         val next = !lastKnownOn
         runCatching { mgr.setTorchMode(id, next) }
@@ -78,12 +78,12 @@ object BrightnessWidget : QuickWidget() {
     override val id = "brightness"
     override val displayName = "Brightness"
     override fun renderLabel(context: Context): WidgetLabel {
-        // Settings.System.SCREEN_BRIGHTNESS is 0..255 in legacy units. Read-only here — writing
+        // Settings.System.SCREEN_BRIGHTNESS is 0..255 in legacy units. Read-only here - writing
         // would require WRITE_SETTINGS special access, which we don't take.
         val raw = runCatching {
             Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
         }.getOrDefault(-1)
-        if (raw < 0) return WidgetLabel("Brightness: —", active = false)
+        if (raw < 0) return WidgetLabel("Brightness: -", active = false)
         val pct = (raw * 100 / 255).coerceIn(0, 100)
         return WidgetLabel("Brightness: ${pct}%", active = true)
     }

@@ -705,7 +705,7 @@
                 style="@style/SectionLabel"
                 android:text="Colors" />
 
-            <!-- Background row — tap to open picker -->
+            <!-- Background row - tap to open picker -->
             <LinearLayout
                 android:id="@+id/rowBgColor"
                 android:layout_width="match_parent"
@@ -738,7 +738,7 @@
                     android:fontFamily="monospace" />
             </LinearLayout>
 
-            <!-- App text row — tap to open picker -->
+            <!-- App text row - tap to open picker -->
             <LinearLayout
                 android:id="@+id/rowTextColor"
                 android:layout_width="match_parent"
@@ -925,7 +925,7 @@
                 style="@style/SectionLabel"
                 android:text="Gestures" />
 
-            <!-- Directional gesture rows — populated programmatically -->
+            <!-- Directional gesture rows - populated programmatically -->
             <LinearLayout
                 android:id="@+id/gesturesContainer"
                 android:layout_width="match_parent"
@@ -1026,7 +1026,7 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
-            <!-- Search contacts — opt-in, gated on master Search toggle. Toggling ON triggers a
+            <!-- Search contacts - opt-in, gated on master Search toggle. Toggling ON triggers a
                  consent dialog before the system READ_CONTACTS prompt fires. -->
             <LinearLayout
                 android:id="@+id/rowContactSearch"
@@ -1064,7 +1064,7 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
-            <!-- Google contacts only — second-level opt-in under Search → Search contacts.
+            <!-- Google contacts only - second-level opt-in under Search → Search contacts.
                  When ON, filters search results to com.google raw contacts, hiding duplicates
                  from WhatsApp / Telegram / SIM / OEM-local sources. Off by default; rolling
                  it under contactSearch (rather than gating on the master toggle alone) lets
@@ -1415,7 +1415,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="A hairline between the strip and the app list — just a visual touch"
+                        android:text="A hairline between the strip and the app list - just a visual touch"
                         android:textSize="13sp"
                         android:alpha="0.6" />
                 </LinearLayout>

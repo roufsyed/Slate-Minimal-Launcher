@@ -26,10 +26,10 @@ import com.slate.launcher.MainActivity.Companion.parseColorSafe
  *   - Step state is persisted in [PreferencesManager.guidedTourStepIndex] so a process-death
  *     mid-tour resumes at the same step. `-1` signals "tour complete".
  *   - Conditional steps (gestures, double-tap, quick strip) are silently dropped when the
- *     corresponding feature is disabled — re-pitching opted-out features feels nag-y and tanks
+ *     corresponding feature is disabled - re-pitching opted-out features feels nag-y and tanks
  *     completion. Folders is always shown because it's high-value and zero-config-by-default.
  *
- * Bump [CURRENT_TOUR_VERSION] when meaningful content changes — existing users with a lower
+ * Bump [CURRENT_TOUR_VERSION] when meaningful content changes - existing users with a lower
  * `seenVersion` re-see the tour on next resume.
  */
 object GuidedTourManager {
@@ -61,7 +61,7 @@ object GuidedTourManager {
         pendingTrigger?.let { decor.removeCallbacks(it) }
         val trigger = Runnable {
             pendingTrigger = null
-            // Don't show on a destroyed OR paused activity — Dialog.show on a paused window can
+            // Don't show on a destroyed OR paused activity - Dialog.show on a paused window can
             // throw BadTokenException on some OEMs and would land on top of whatever foreground
             // app the user has just switched to.
             if (activity.isFinishing || activity.isDestroyed) return@Runnable
@@ -72,7 +72,7 @@ object GuidedTourManager {
             launchInternal(activity, prefs, resumeFromCurrentStep = true)
         }
         pendingTrigger = trigger
-        // Delay so the home content paints first — landing in a modal on a blank black screen
+        // Delay so the home content paints first - landing in a modal on a blank black screen
         // feels jarring.
         decor.postDelayed(trigger, AUTO_TRIGGER_DELAY_MS)
     }
@@ -85,7 +85,7 @@ object GuidedTourManager {
 
     /** Dismiss any showing dialog. Call from host Activity.onDestroy to avoid window leaks. */
     fun dismissActive() {
-        // Drop any pending postDelayed callback too — its captured Activity will be gone.
+        // Drop any pending postDelayed callback too - its captured Activity will be gone.
         activeDialog?.let { d ->
             val decor = runCatching { d.window?.decorView }.getOrNull()
             pendingTrigger?.let { decor?.removeCallbacks(it) }
@@ -115,7 +115,7 @@ object GuidedTourManager {
     private fun buildSteps(prefs: PreferencesManager): List<TourStep> = buildList {
         add(TourStep(
             "Welcome to Slate",
-            "Slate shows your apps as plain text — no icons, no widgets. " +
+            "Slate shows your apps as plain text - no icons, no widgets. " +
                     "Here's a 30-second tour of how to use it."
         ))
         add(TourStep(
@@ -142,7 +142,7 @@ object GuidedTourManager {
         add(TourStep(
             "Folders",
             "Long-press an app and pick \"Move to folder\" to group related apps. " +
-                    "A folder appears as \"Name ›\" — tap to expand, long-press to rename or delete."
+                    "A folder appears as \"Name ›\" - tap to expand, long-press to rename or delete."
         ))
         if (hasCustomGestures(prefs)) {
             add(TourStep(
@@ -168,7 +168,7 @@ object GuidedTourManager {
         }
         add(TourStep(
             "Customize more",
-            "Fonts, colors, gestures, search bar, security, theme, and backup — all live in " +
+            "Fonts, colors, gestures, search bar, security, theme, and backup - all live in " +
                     "Settings. Long-press the home screen → Customize to open them."
         ))
         add(TourStep(
@@ -214,7 +214,7 @@ object GuidedTourManager {
             WindowManager.LayoutParams.WRAP_CONTENT
         )
         dialog.window?.setGravity(Gravity.CENTER)
-        // No outside-tap dismissal — accidental taps shouldn't silently skip the tour. Cancelable
+        // No outside-tap dismissal - accidental taps shouldn't silently skip the tour. Cancelable
         // is FALSE so a predictive-back gesture (A33+ OnBackInvokedDispatcher) can't silently
         // dismiss the dialog and lose tour state; the BACK keypath below is the only way to
         // navigate backwards.
@@ -267,7 +267,7 @@ object GuidedTourManager {
         val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
         val density = activity.resources.displayMetrics.density
 
-        // Look up the outer root by id rather than walking parents — robust against XML
+        // Look up the outer root by id rather than walking parents - robust against XML
         // restructure that would invalidate any `.parent.parent` chain.
         dialog.findViewById<ViewGroup>(R.id.tourRoot)?.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE

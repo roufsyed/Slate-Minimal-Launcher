@@ -4,8 +4,8 @@ import com.slate.launcher.PreferencesManager
 
 /**
  * Source of truth for the available widget set. Two flavours:
- *   1. Static widgets ([staticWidgets]) — fixed, stateless singletons, one entry per kind.
- *   2. Dynamic contact-shortcut widgets — one instance per pinned contact, persisted via
+ *   1. Static widgets ([staticWidgets]) - fixed, stateless singletons, one entry per kind.
+ *   2. Dynamic contact-shortcut widgets - one instance per pinned contact, persisted via
  *      [ContactShortcutStore]. Resolved by id prefix ("call:" / "sms:").
  */
 object WidgetCatalog {

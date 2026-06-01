@@ -61,7 +61,7 @@ class SettingsActivity : AppCompatActivity() {
     private var pendingShortcutType: ContactShortcut.Type? = null
     // Re-runs the biometric-row visibility/reconcile closure from setupSecurity. Captured on
     // setup; invoked from syncPermissionToggles so a biometric-enrollment change made outside
-    // Slate (Android system Settings) is detected on the next onResume — mirrors the
+    // Slate (Android system Settings) is detected on the next onResume - mirrors the
     // syncAccessibilityToggle pattern but without an `awaiting*` flag (biometric grant is
     // entirely in-app, no system-settings round-trip).
     private var biometricReconcile: (() -> Unit)? = null
@@ -80,7 +80,7 @@ class SettingsActivity : AppCompatActivity() {
         private val MAX_SIZES     = (20..60).toList()
         private val LINE_SPACINGS = (0..24).toList()
         private val WORD_SPACINGS = (2..28).toList()
-        // Widget-strip typography ranges. Text size capped at 32 — labels are short, so a
+        // Widget-strip typography ranges. Text size capped at 32 - labels are short, so a
         // narrower range than the app list is appropriate. Word gap floored at 2 (mirrors
         // WORD_SPACINGS) to prevent adjacent widget labels from running into each other.
         private val WIDGET_TEXT_SIZES = (10..32).toList()
@@ -90,7 +90,7 @@ class SettingsActivity : AppCompatActivity() {
         // Fixed sample labels for the Settings preview. Chosen to span the four widget label
         // shapes used on the home strip: short state toggle, long state toggle, Name:value with
         // a time, Name:value with a percentage. Kept identical in style to live home-screen
-        // labels so the preview is faithful — what the user sees here is what they get there.
+        // labels so the preview is faithful - what the user sees here is what they get there.
         // Independent of the user's actual widget selection so the preview is deterministic.
         private val PREVIEW_SAMPLE_LABELS =
             listOf("Wi-Fi", "Bluetooth", "Time: 12:34", "Battery: 65%")
@@ -130,7 +130,7 @@ class SettingsActivity : AppCompatActivity() {
             ColorPreset("#0f3460", "#d0d0d0"),
         )
 
-        // (pref value, picker label) — order here drives picker order and the default-on-unknown
+        // (pref value, picker label) - order here drives picker order and the default-on-unknown
         // fallback in `folderStyleDisplayLabel`. Keep Chevron first so it doubles as the default.
         val FOLDER_STYLE_LABELS: List<Pair<String, String>> = listOf(
             PreferencesManager.FOLDER_STYLE_CHEVRON  to "Chevron",
@@ -179,7 +179,7 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        // CALL_PHONE runtime grant. Owned by the Direct-call setup flow — we register the
+        // CALL_PHONE runtime grant. Owned by the Direct-call setup flow - we register the
         // launcher unconditionally (must be done before STARTED), but it is only `launch`ed
         // when the user toggles Direct call ON without an existing grant. The callback writes
         // the final pref + switch state; the detach-set-reattach inside the callback prevents
@@ -216,14 +216,14 @@ class SettingsActivity : AppCompatActivity() {
             if (granted) {
                 prefs.contactSearchEnabled = true
                 switch.isChecked = true
-                // Parent toggle now on — un-grey the Google-only sub-row.
+                // Parent toggle now on - un-grey the Google-only sub-row.
                 pendingSearchGateRefresh?.invoke()
             } else {
                 prefs.contactSearchEnabled = false
                 switch.isChecked = false
                 // shouldShowRequestPermissionRationale returns false in two cases: never asked,
                 // OR the user picked "Don't ask again". Since we just asked, false here means
-                // permanent denial — offer the Settings deep-link rather than a Toast that
+                // permanent denial - offer the Settings deep-link rather than a Toast that
                 // leaves the user stuck.
                 if (!androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
                         this, android.Manifest.permission.READ_CONTACTS
@@ -237,7 +237,7 @@ class SettingsActivity : AppCompatActivity() {
                         Toast.LENGTH_SHORT
                     ).show()
                 }
-                // Parent toggle ended OFF — keep the Google-only sub-row greyed.
+                // Parent toggle ended OFF - keep the Google-only sub-row greyed.
                 pendingSearchGateRefresh?.invoke()
             }
             attachContactSearchListener(switch)
@@ -294,7 +294,7 @@ class SettingsActivity : AppCompatActivity() {
         // flips `prefs.biometricEnabled` off when enrollment is gone. No-op when biometric
         // is still available or pref is already false.
         biometricReconcile?.invoke()
-        // Contact-search reconcile: same shape — pref flips off (with switch silent-revert)
+        // Contact-search reconcile: same shape - pref flips off (with switch silent-revert)
         // when READ_CONTACTS has been revoked while Settings was in the background.
         syncContactSearchToggle()
     }
@@ -303,14 +303,14 @@ class SettingsActivity : AppCompatActivity() {
         val accessibilityEnabled = isAccessibilityServiceEnabled()
 
         if (prefs.awaitingAccessibilityPermission && accessibilityEnabled) {
-            // Returning from permission grant flow and service is enabled — auto-enable
+            // Returning from permission grant flow and service is enabled - auto-enable
             prefs.doubleTapToLock = true
             switchDoubleTap.setOnCheckedChangeListener(null)
             switchDoubleTap.isChecked = true
             setupDoubleTapListener()
             prefs.awaitingAccessibilityPermission = false
         } else if (prefs.awaitingAccessibilityPermission && !accessibilityEnabled) {
-            // Returned from settings but service not detected yet — retry after delay
+            // Returned from settings but service not detected yet - retry after delay
             // (service binding can lag behind the secure setting on some OEMs)
             prefs.awaitingAccessibilityPermission = false
             switchDoubleTap.postDelayed({
@@ -322,7 +322,7 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }, 500)
         } else if (prefs.doubleTapToLock && !accessibilityEnabled) {
-            // Permission was revoked externally — but give the service a moment
+            // Permission was revoked externally - but give the service a moment
             // to bind before aggressively disabling the toggle
             switchDoubleTap.postDelayed({
                 if (!isAccessibilityServiceEnabled()) {
@@ -642,7 +642,7 @@ class SettingsActivity : AppCompatActivity() {
             }.show()
         }
 
-        // Folder style — picker maps human labels to the FOLDER_STYLE_* pref values.
+        // Folder style - picker maps human labels to the FOLDER_STYLE_* pref values.
         val folderStyleValue = findViewById<TextView>(R.id.folderStyleValue)
         folderStyleValue.setTextColor(secondary)
         folderStyleValue.text = folderStyleDisplayLabel(prefs.folderStyle)
@@ -654,7 +654,7 @@ class SettingsActivity : AppCompatActivity() {
                 items = FOLDER_STYLE_LABELS.map { it.second },
                 bgColor = prefs.backgroundColor,
                 // Right-column preview shows exactly how the marker renders for a folder named
-                // "Work". Order MUST match FOLDER_STYLE_LABELS one-for-one — the dialog falls
+                // "Work". Order MUST match FOLDER_STYLE_LABELS one-for-one - the dialog falls
                 // back to single-column on a size mismatch, so the alignment is enforced by
                 // building this list from the same source.
                 secondaryItems = FOLDER_STYLE_LABELS.map { (key, _) ->
@@ -676,7 +676,7 @@ class SettingsActivity : AppCompatActivity() {
      * Sample render of each folder marker style for the picker preview column. Mirrors the
      * `folderLabel` helper in AppDrawerFragment but with a fixed sample folder name and a
      * fixed visible-count so the preview is stable. Uses a regular space (not NBSP) for the
-     * bullet/count styles — orphan-wrap protection only matters in Flow's wrapping paragraph,
+     * bullet/count styles - orphan-wrap protection only matters in Flow's wrapping paragraph,
      * not inside a single dialog row.
      */
     private fun folderStylePreview(styleKey: String): String =
@@ -765,7 +765,7 @@ class SettingsActivity : AppCompatActivity() {
             if (!ok) Toast.makeText(this, "Could not set lockscreen wallpaper", Toast.LENGTH_SHORT).show()
         }
 
-        // Entire row opens the picker — no keyboard input
+        // Entire row opens the picker - no keyboard input
         fun openBgPicker() {
             ColorPickerDialog(
                 context = this,
@@ -1037,7 +1037,7 @@ class SettingsActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    // Kept as a thin wrapper for readability — the 4 call sites within Settings already use
+    // Kept as a thin wrapper for readability - the 4 call sites within Settings already use
     // this name. The OEM-compat logic lives in [SlateAccessibilityService.isEnabled] so the
     // home reconciliation in AppDrawerFragment.onResume can share it.
     private fun isAccessibilityServiceEnabled(): Boolean =
@@ -1071,7 +1071,7 @@ class SettingsActivity : AppCompatActivity() {
         if (!prefs.searchEnabled && prefs.showSearchBarOnHome) {
             prefs.showSearchBarOnHome = false
         }
-        // Same normalisation for contact search — it can't exist without master Search either.
+        // Same normalisation for contact search - it can't exist without master Search either.
         if (!prefs.searchEnabled && prefs.contactSearchEnabled) {
             prefs.contactSearchEnabled = false
         }
@@ -1079,7 +1079,7 @@ class SettingsActivity : AppCompatActivity() {
         // Cross-row gate for the Search section. "Show on home" can't exist without Search
         // itself, so we visibly disable + grey the row when the master is off, and the sub-
         // label explains how to unlock it. Pattern matches the Sort-by-usage × Fast-scroll
-        // gate added earlier — keeps the dependency self-documenting instead of relying on a
+        // gate added earlier - keeps the dependency self-documenting instead of relying on a
         // silent auto-enable (the old behaviour, which surprised users).
         val defaultOnHomeSub = "Keep search bar visible, closes with keyboard"
         val blockedOnHomeSub = "Turn on Search to enable"
@@ -1142,7 +1142,7 @@ class SettingsActivity : AppCompatActivity() {
         switchOnHome.isChecked = prefs.showSearchBarOnHome
         attachOnHomeListener(switchOnHome, rowPosition)
 
-        // Initial state — reconcile against the live READ_CONTACTS grant before attaching the
+        // Initial state - reconcile against the live READ_CONTACTS grant before attaching the
         // listener. If the user revoked permission externally between sessions, the pref flips
         // off here silently and the switch renders OFF on this open.
         if (prefs.contactSearchEnabled &&
@@ -1157,7 +1157,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // Google-only sub-toggle. No permission flow here (it's a pure preference), so the
         // listener just shows the consent dialog on ON and silently reverts on Cancel.
-        // Persists independent of [prefs.contactSearchEnabled] — disabling contact search
+        // Persists independent of [prefs.contactSearchEnabled] - disabling contact search
         // leaves this pref alone so the user's filter choice survives a parent-toggle
         // round-trip. Refer to the Plan agent's #2 decision in the plan file.
         switchGoogleOnly.isChecked = prefs.googleContactsOnly
@@ -1175,7 +1175,7 @@ class SettingsActivity : AppCompatActivity() {
             }.show()
         }
 
-        // Initial gate pass — handles a freshly-opened Settings.
+        // Initial gate pass - handles a freshly-opened Settings.
         refreshSearchGates()
     }
 
@@ -1199,7 +1199,7 @@ class SettingsActivity : AppCompatActivity() {
                             this, android.Manifest.permission.READ_CONTACTS
                         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                         if (granted) {
-                            // Already granted from a previous session — skip the system prompt
+                            // Already granted from a previous session - skip the system prompt
                             // but still set the pref to true; the in-app consent dialog was
                             // the user's authoritative opt-in.
                             prefs.contactSearchEnabled = true
@@ -1221,7 +1221,7 @@ class SettingsActivity : AppCompatActivity() {
                 )
             } else {
                 prefs.contactSearchEnabled = false
-                // Toggle OFF — the Google-only sub-row immediately greys out, but the
+                // Toggle OFF - the Google-only sub-row immediately greys out, but the
                 // pref itself stays untouched so re-enabling Search contacts later
                 // restores the user's prior filter choice.
                 pendingSearchGateRefresh?.invoke()
@@ -1233,7 +1233,7 @@ class SettingsActivity : AppCompatActivity() {
      * Wires the "Google contacts only" toggle. Pure-preference toggle (no permission flow),
      * so the listener just shows the explanatory dialog on ON and silently reverts on
      * Cancel. Same detach-set-reattach idiom as [attachContactSearchListener]. The pref is
-     * NOT cascade-cleared when the parent Search-contacts toggle goes off — the user's
+     * NOT cascade-cleared when the parent Search-contacts toggle goes off - the user's
      * filter choice persists across parent-toggle round-trips.
      */
     private fun attachGoogleContactsOnlyListener(switch: MaterialSwitch) {
@@ -1256,7 +1256,7 @@ class SettingsActivity : AppCompatActivity() {
     /**
      * Friendly explanation dialog for the "Google contacts only" toggle. Mirrors the shape
      * of [showContactSearchConsentDialog] but with copy that names the trade-off concretely
-     * — duplicates go away, but users without a Google account see no results.
+     * - duplicates go away, but users without a Google account see no results.
      */
     private fun showGoogleContactsOnlyConsentDialog(
         onConfirm: () -> Unit,
@@ -1326,7 +1326,7 @@ class SettingsActivity : AppCompatActivity() {
 
     /**
      * In-app disclosure dialog shown BEFORE the system READ_CONTACTS prompt fires. Required
-     * by Play Store's Prominent Disclosure policy and Slate's brand promise — the user reads
+     * by Play Store's Prominent Disclosure policy and Slate's brand promise - the user reads
      * the privacy contract here, not in the OS-rendered permission prompt (which only shows
      * the boilerplate "Allow Slate to access your contacts?" line).
      */
@@ -1465,7 +1465,7 @@ class SettingsActivity : AppCompatActivity() {
      * Reconcile the `contactSearchEnabled` pref against the live READ_CONTACTS grant. Called
      * from [syncPermissionToggles] so a permission revoked via Android system Settings (while
      * Slate Settings was in the background) is detected the next time the user opens this
-     * activity. Silent reconciliation — no Toast, just flip the pref + switch off. Matches the
+     * activity. Silent reconciliation - no Toast, just flip the pref + switch off. Matches the
      * pattern used by [reconcileDoubleTapPref] on the home side.
      */
     private fun syncContactSearchToggle() {
@@ -1479,7 +1479,7 @@ class SettingsActivity : AppCompatActivity() {
         switch.setOnCheckedChangeListener(null)
         switch.isChecked = false
         attachContactSearchListener(switch)
-        // Parent toggle flipped off externally — re-grey the Google-only sub-row.
+        // Parent toggle flipped off externally - re-grey the Google-only sub-row.
         pendingSearchGateRefresh?.invoke()
     }
 
@@ -1587,7 +1587,7 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
         attachStub = attachIncludeListener
-        // Initial state — sync UI with prefs before attaching the listener.
+        // Initial state - sync UI with prefs before attaching the listener.
         switchInclude.setOnCheckedChangeListener(null)
         switchInclude.isChecked = prefs.includePrivateInBackup
         attachIncludeListener()
@@ -1631,7 +1631,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val privateBundle = contents.privateBundle
         if (privateBundle == null) {
-            // No private bundle to gate on — apply non-private and finish.
+            // No private bundle to gate on - apply non-private and finish.
             mgr.applyNonPrivate(contents)
             finishImport(ImportOutcome.SETTINGS_RESTORED)
             return
@@ -1639,10 +1639,10 @@ class SettingsActivity : AppCompatActivity() {
 
         val pinManager = PinManager(prefs)
         if (!pinManager.hasPin()) {
-            // Case A — no device PIN to overwrite. Go straight to the PIN-verify dialog.
+            // Case A - no device PIN to overwrite. Go straight to the PIN-verify dialog.
             showImportPinDialog(contents, privateBundle)
         } else {
-            // Case B — the device already has its own PIN. Warn the user that restoring will
+            // Case B - the device already has its own PIN. Warn the user that restoring will
             // replace it, otherwise an unaware user could lose their current PIN trying to
             // "help" by entering a PIN they happen to remember from the backup.
             showImportPrivateConflictDialog(
@@ -1699,7 +1699,7 @@ class SettingsActivity : AppCompatActivity() {
             setTextColor(primary)
         }
         dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
-            text = "Turn this on if you want hidden apps to come back when restoring a backup — " +
+            text = "Turn this on if you want hidden apps to come back when restoring a backup - " +
                     "for example, when setting up a new phone. The backup will then contain your " +
                     "hidden-apps list and a hashed verifier of your PIN. A short PIN is easier to " +
                     "guess if someone gets the backup file."
@@ -1775,7 +1775,7 @@ class SettingsActivity : AppCompatActivity() {
             setTextColor(primary)
         }
         dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
-            text = "Your current settings are already in place — pick Cancel to keep them and " +
+            text = "Your current settings are already in place - pick Cancel to keep them and " +
                     "skip the backup's hidden apps."
             setTextColor(secondary)
         }
@@ -1820,7 +1820,7 @@ class SettingsActivity : AppCompatActivity() {
      *     finish as PRIVATE_SKIPPED.
      *   - Three wrong attempts → REFUSE the import, apply nothing, finish as REFUSED.
      *
-     * Wrong-attempt counting is session-local — this flow never touches the device's own
+     * Wrong-attempt counting is session-local - this flow never touches the device's own
      * pinFailedAttempts / pinLockout state.
      */
     private fun showImportPinDialog(
@@ -1851,8 +1851,8 @@ class SettingsActivity : AppCompatActivity() {
                 mgr.applyPrivate(privateBundle)
                 finishImport(ImportOutcome.PRIVATE_RESTORED)
             } else if (attempts >= maxAttempts) {
-                // Three wrong attempts — REFUSE the entire import. Apply nothing. The user
-                // could not prove they own the backup, so we won't trust any of its data —
+                // Three wrong attempts - REFUSE the entire import. Apply nothing. The user
+                // could not prove they own the backup, so we won't trust any of its data -
                 // not even the non-private prefs. Show a proper modal so the outcome can't
                 // be missed (the previous Toast-only signal was too quiet).
                 settled = true
@@ -1878,7 +1878,7 @@ class SettingsActivity : AppCompatActivity() {
             bgColor = prefs.backgroundColor,
             title = "RESTORE HIDDEN APPS",
             message = "This backup contains hidden apps protected by a PIN. Enter the PIN to restore them. " +
-                    "Three wrong attempts will refuse the import entirely — your current settings won't change.",
+                    "Three wrong attempts will refuse the import entirely - your current settings won't change.",
             confirmLabel = "Verify",
             onConfirm = onConfirm,
             onCancel = onCancel,
@@ -1906,11 +1906,11 @@ class SettingsActivity : AppCompatActivity() {
             context = this,
             bgColor = prefs.backgroundColor,
             title = "RESTORE HIDDEN APPS",
-            // Body stays static across retries — the wrong-PIN feedback lives in the inline
+            // Body stays static across retries - the wrong-PIN feedback lives in the inline
             // error line (red) via setError below, which is the conventional pattern for form
             // validation errors and lets the user keep their bearings between attempts.
             message = "This backup contains hidden apps protected by a PIN. Enter the PIN to restore them. " +
-                    "Three wrong attempts will refuse the import entirely — your current settings won't change.",
+                    "Three wrong attempts will refuse the import entirely - your current settings won't change.",
             confirmLabel = "Verify",
             onConfirm = { pin ->
                 attempts++
@@ -1940,14 +1940,14 @@ class SettingsActivity : AppCompatActivity() {
             },
         )
         dialog.show()
-        // setError must run AFTER show() — the dialog's content view is inflated lazily inside
+        // setError must run AFTER show() - the dialog's content view is inflated lazily inside
         // show() → onCreate(), so the error TextView isn't findable until then.
         dialog.setError("Wrong PIN. $remaining $plural left.")
     }
 
     /**
      * Modal shown after three wrong PINs at import. Reuses the standard accessibility-info
-     * layout but hides the Cancel button and renames Continue to OK — the user has no choice
+     * layout but hides the Cancel button and renames Continue to OK - the user has no choice
      * here, only an acknowledgement. The activity recreates on dismiss so the import button
      * resets cleanly.
      */
@@ -1961,7 +1961,7 @@ class SettingsActivity : AppCompatActivity() {
             WindowManager.LayoutParams.WRAP_CONTENT
         )
         dialog.window?.setGravity(Gravity.CENTER)
-        // Force the user to acknowledge — back-press still dismisses but at least an outside
+        // Force the user to acknowledge - back-press still dismisses but at least an outside
         // tap doesn't silently close the only signal that the import was rejected.
         dialog.setCanceledOnTouchOutside(false)
 
@@ -2027,13 +2027,13 @@ class SettingsActivity : AppCompatActivity() {
         val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#AAAAAA")
         val density = resources.displayMetrics.density
 
-        // Sort by usage — also gates Alphabetical fast scroll (see refreshAlphaFastScrollGate
+        // Sort by usage - also gates Alphabetical fast scroll (see refreshAlphaFastScrollGate
         // below). Local closures are used to keep the cross-row dependency explicit and
         // co-located with both setters.
         val switchSortUsage = findViewById<MaterialSwitch>(R.id.switchSortByUsage)
         switchSortUsage.isChecked = prefs.sortByUsage
         // Listener registered AFTER the gate closure is declared below so the listener can
-        // call refreshAlphaFastScrollGate() — see below.
+        // call refreshAlphaFastScrollGate() - see below.
 
         // Lock orientation
         val switchLockOrientation = findViewById<MaterialSwitch>(R.id.switchLockOrientation)
@@ -2104,7 +2104,7 @@ class SettingsActivity : AppCompatActivity() {
         //   - VISIBLE + DISABLED + greyed when sortByUsage is on, because alphabetical fast
         //     scroll only makes sense over an alphabetical list. The sub-label changes to tell
         //     the user how to enable it. Keeping the row visible (rather than hiding it again)
-        //     preserves discoverability — if we hid it on `sortByUsage`, users who enable
+        //     preserves discoverability - if we hid it on `sortByUsage`, users who enable
         //     sort-by-usage would think the feature vanished.
         //   - VISIBLE + ENABLED otherwise.
         // The pref value `alphabeticalFastScroll` is PRESERVED across both transitions so the
@@ -2150,7 +2150,7 @@ class SettingsActivity : AppCompatActivity() {
             refreshAlphaFastScrollGate()
         }
 
-        // Initial state for the gate — covers a fresh open of Settings.
+        // Initial state for the gate - covers a fresh open of Settings.
         refreshAlphaFastScrollGate()
 
         // Default launcher row
@@ -2337,14 +2337,14 @@ class SettingsActivity : AppCompatActivity() {
             rowArrangeWidgets.visibility =
                 if (on && prefs.quickStripWidgets.size >= 2) View.VISIBLE else View.GONE
             // Direct call sub-row mirrors the master. The Trigger sub-sub-row appears only when
-            // BOTH master Quick toggles AND Direct call are on — showing the trigger picker
+            // BOTH master Quick toggles AND Direct call are on - showing the trigger picker
             // while Direct call is off would be meaningless.
             rowDirectCall.visibility = if (on) View.VISIBLE else View.GONE
             rowDirectCallTrigger.visibility =
                 if (on && prefs.directCallEnabled) View.VISIBLE else View.GONE
-            // Divider toggle mirrors the master gate — the divider can't exist without a strip.
+            // Divider toggle mirrors the master gate - the divider can't exist without a strip.
             rowDivider.visibility = if (on) View.VISIBLE else View.GONE
-            // Preview + typography controls (pickers and sliders) mirror the master gate — only
+            // Preview + typography controls (pickers and sliders) mirror the master gate - only
             // meaningful when the strip is going to render at all.
             previewHeader.visibility = if (on) View.VISIBLE else View.GONE
             previewLayout.visibility = if (on) View.VISIBLE else View.GONE
@@ -2436,7 +2436,7 @@ class SettingsActivity : AppCompatActivity() {
         // ── Live preview + picker rows ──────────────────────────────────
         // The preview is a small FlexboxLayout populated with fixed sample labels so the
         // rendering is deterministic for every user. It mirrors the home strip's styling via
-        // [Typography.applyWidgetStyle] — single source of truth for "how a widget looks".
+        // [Typography.applyWidgetStyle] - single source of truth for "how a widget looks".
         fun refreshPreview() {
             val bg = parseColorSafe(prefs.backgroundColor)
             previewLayout.setBackgroundColor(bg)
@@ -2468,7 +2468,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // Resolve the persisted (family, weight, alignment) values to their human-readable row
         // labels. `widgetFontFamily=""` and `widgetFontWeight=0` are sentinels meaning "use theme
-        // default" — both render as "Default" in the row value.
+        // default" - both render as "Default" in the row value.
         fun widgetFontDisplayName(key: String): String = when {
             key.isEmpty() -> "Default"
             key.startsWith("/") -> File(key).nameWithoutExtension
@@ -2495,7 +2495,7 @@ class SettingsActivity : AppCompatActivity() {
         refreshWeightValueLabel()
         refreshAlignmentValueLabel()
 
-        // Font picker — "Default" is index 0; subsequent entries map 1-to-1 onto FONTS.
+        // Font picker - "Default" is index 0; subsequent entries map 1-to-1 onto FONTS.
         rowFont.setOnClickListener {
             val items = listOf("Default") + FONTS.map { it.displayName }
             SlateListDialog(
@@ -2511,7 +2511,7 @@ class SettingsActivity : AppCompatActivity() {
             }.show()
         }
 
-        // Weight picker — same Default-prepend pattern as the font picker.
+        // Weight picker - same Default-prepend pattern as the font picker.
         rowWeight.setOnClickListener {
             val items = listOf("Default") + WEIGHTS.map { it.second }
             SlateListDialog(
@@ -2527,7 +2527,7 @@ class SettingsActivity : AppCompatActivity() {
             }.show()
         }
 
-        // Alignment picker — mirrors the apps' Alignment dialog (left/center/right).
+        // Alignment picker - mirrors the apps' Alignment dialog (left/center/right).
         rowAlignment.setOnClickListener {
             SlateListDialog(
                 context = this,
@@ -2542,7 +2542,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         // Widget typography sliders. Out-of-range stored values (e.g., from an older backup with
-        // different range bounds) fall back to the default index — pref on disk stays untouched
+        // different range bounds) fall back to the default index - pref on disk stays untouched
         // until the user moves the slider. Labels use the same "{value}{unit}" idiom as the
         // existing typography sliders (sp for font, dp for padding).
         fun initSlider(
@@ -2586,7 +2586,7 @@ class SettingsActivity : AppCompatActivity() {
         })
 
         // Initial preview population so the user sees a rendered strip the moment the section
-        // becomes visible — no need to touch a control first.
+        // becomes visible - no need to touch a control first.
         refreshPreview()
     }
 
@@ -2595,7 +2595,7 @@ class SettingsActivity : AppCompatActivity() {
      * launcher's callback owns the final pref / switch state. Detach-set-reattach pattern in
      * the callback prevents recursion on a silent revert.
      *
-     * Toggling OFF writes the pref to false immediately — no permission interaction. Also
+     * Toggling OFF writes the pref to false immediately - no permission interaction. Also
      * hides the Trigger sub-row.
      */
     private fun attachDirectCallListener(switchDirectCall: MaterialSwitch) {
@@ -2613,7 +2613,7 @@ class SettingsActivity : AppCompatActivity() {
                 prefs.directCallEnabled = true
                 rowTrigger.visibility = View.VISIBLE
             } else {
-                // Don't write the pref yet — the launcher callback owns the final state. The
+                // Don't write the pref yet - the launcher callback owns the final state. The
                 // Trigger row stays hidden until the grant succeeds.
                 requestCallPhoneLauncher.launch(android.Manifest.permission.CALL_PHONE)
             }
@@ -2719,7 +2719,7 @@ class SettingsActivity : AppCompatActivity() {
             // Android system Settings while we were elsewhere, `prefs.biometricEnabled` is
             // still true but `canUseBiometric` now returns false. Without this flip the
             // switch renders as a confusing checked-but-greyed-out state. Functionally
-            // AuthGate.authenticate already falls back to PIN — this fixes the UI to tell
+            // AuthGate.authenticate already falls back to PIN - this fixes the UI to tell
             // the truth.
             if (prefs.biometricEnabled && !bioAvailable) {
                 prefs.biometricEnabled = false
@@ -2808,7 +2808,7 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        // Initial state — sync UI with prefs and attach listeners
+        // Initial state - sync UI with prefs and attach listeners
         switchMaster.setOnCheckedChangeListener(null)
         switchMaster.isChecked = prefs.hiddenAppsSecurityEnabled && pinManager.hasPin()
         switchBio.setOnCheckedChangeListener(null)
@@ -2985,7 +2985,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val versionName = try {
             packageManager.getPackageInfo(packageName, 0).versionName
-        } catch (_: Exception) { "—" }
+        } catch (_: Exception) { "-" }
         findViewById<TextView>(R.id.labelAppVersion)?.apply {
             text = "v$versionName"
             setTextColor(secondary)

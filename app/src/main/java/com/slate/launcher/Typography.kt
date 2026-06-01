@@ -18,7 +18,7 @@ object Typography {
     /**
      * Resolve a (fontFamily, fontWeight) pref pair to a [Typeface].
      *
-     * Returns `null` only when BOTH inputs are sentinels (empty family AND zero weight) — the
+     * Returns `null` only when BOTH inputs are sentinels (empty family AND zero weight) - the
      * signal that the caller wants NO override and should let the theme default apply. A
      * partial override is still meaningful:
      *   - `("", 700)`               → theme default at bold weight (user picked Weight only)
@@ -69,7 +69,7 @@ object Typography {
      * `QuickStripManager.createWidgetView()` AND by the Settings preview so the two renderings
      * are byte-for-byte identical.
      *
-     * Does NOT set [TextView.setTextColor] / gravity / click behaviour — those are caller
+     * Does NOT set [TextView.setTextColor] / gravity / click behaviour - those are caller
      * responsibilities (the home strip needs taps; the preview does not).
      */
     fun applyWidgetStyle(
@@ -89,7 +89,7 @@ object Typography {
 
     /**
      * Map the bundled Google Font key (the part after `"gf:"`) to the R.font resource id.
-     * Returns 0 for unknown keys — caller falls back to [Typeface.DEFAULT].
+     * Returns 0 for unknown keys - caller falls back to [Typeface.DEFAULT].
      */
     fun googleFontResId(name: String): Int = when (name) {
         "tex_gyre_adventor_bold" -> R.font.tex_gyre_adventor_bold

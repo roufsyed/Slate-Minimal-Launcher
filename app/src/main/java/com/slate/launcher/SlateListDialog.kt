@@ -23,13 +23,13 @@ class SlateListDialog(
      * [items], each row renders as a two-column layout: primary label on the left, preview on
      * the right (both in the dialog's primary text colour so the preview reads exactly as it
      * will on the home screen). If null or size-mismatched, falls back to the standard
-     * single-column layout — preserves behaviour for all existing call sites.
+     * single-column layout - preserves behaviour for all existing call sites.
      */
     private val secondaryItems: List<String>? = null,
     /**
      * Optional per-row long-press handler. When non-null, each row reports `(index, label)` on
      * long-press AND consumes the gesture so the subsequent click doesn't also fire. The
-     * dialog is NOT auto-dismissed on long-press — the caller stays open so it can present a
+     * dialog is NOT auto-dismissed on long-press - the caller stays open so it can present a
      * follow-up (e.g., a confirmation). Only one call site uses this today (the Hidden Apps
      * dialog) but the param is generic.
      */
@@ -71,7 +71,7 @@ class SlateListDialog(
             cornerRadius = density * 12
         }
 
-        // Title and divider — hide both when title is empty
+        // Title and divider - hide both when title is empty
         val titleView = findViewById<TextView>(R.id.dialogTitle) ?: return
         val divider = findViewById<View>(R.id.titleDivider) ?: return
 

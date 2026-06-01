@@ -11,7 +11,7 @@ import org.json.JSONObject
  * access or the contact is renamed.
  *
  * Persisted as a JSON array under [PreferencesManager.contactShortcutsJson]. The format is
- * intentionally trivial — no schema migration needed.
+ * intentionally trivial - no schema migration needed.
  */
 data class ContactShortcut(
     val type: Type,

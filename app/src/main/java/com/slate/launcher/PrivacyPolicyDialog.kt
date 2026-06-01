@@ -62,7 +62,7 @@ object PrivacyPolicyDialog {
             return
         }
 
-        // Dismiss any prior dialog before creating a new one (defensive — also clears stale ref
+        // Dismiss any prior dialog before creating a new one (defensive - also clears stale ref
         // if the activity that created it has since been destroyed).
         dismissActive()
 
@@ -118,7 +118,7 @@ object PrivacyPolicyDialog {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         } catch (_: Exception) {
-            // Last resort — nothing else we can do.
+            // Last resort - nothing else we can do.
         }
     }
 

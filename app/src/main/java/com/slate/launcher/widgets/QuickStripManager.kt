@@ -19,7 +19,7 @@ import com.slate.launcher.Typography
 
 /**
  * Renders the home-screen quick-toggles strip into a FlexboxLayout and manages each enabled
- * widget's observer lifecycle. The strip is a passive consumer of [PreferencesManager] — call
+ * widget's observer lifecycle. The strip is a passive consumer of [PreferencesManager] - call
  * [bind] from the fragment whenever pref state may have changed (onResume, or after Settings
  * returns), and [start] / [stop] from the fragment's resume / pause.
  *
@@ -55,7 +55,7 @@ class QuickStripManager(
 
     /**
      * Forward touches that land on the strip container's blank space (no widget hit) into the
-     * gesture detector. Returns true on every event to claim the touch sequence — a
+     * gesture detector. Returns true on every event to claim the touch sequence - a
      * non-clickable ViewGroup that returns false on ACTION_DOWN never receives subsequent
      * MOVE/UP events, which would break swipe-from-empty-strip-space gestures.
      */
@@ -104,7 +104,7 @@ class QuickStripManager(
         started = true
         activeWidgets.forEachIndexed { index, w ->
             subscriptions += w.startObserving(context) {
-                // Marshal back to UI thread — some observers (e.g., TorchCallback) already fire on
+                // Marshal back to UI thread - some observers (e.g., TorchCallback) already fire on
                 // main, but content observers and Telephony callbacks can land on a worker.
                 mainHandler.post { refreshWidget(index) }
             }
@@ -191,7 +191,7 @@ class QuickStripManager(
             text = widget.id
             setTextColor(color)
             gravity = Gravity.CENTER
-            // Typography (font size, padding, typeface override) — shared with the Settings
+            // Typography (font size, padding, typeface override) - shared with the Settings
             // preview via [Typography.applyWidgetStyle] so the two renderings stay in lockstep.
             Typography.applyWidgetStyle(this, prefs, context, density)
             isClickable = true

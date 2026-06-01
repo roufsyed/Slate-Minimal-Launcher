@@ -3,7 +3,7 @@ package com.slate.launcher.widgets
 import android.content.Context
 
 /**
- * A widget rendered in the home-screen quick-toggles strip. Widgets are stateless singletons —
+ * A widget rendered in the home-screen quick-toggles strip. Widgets are stateless singletons -
  * the actual state is read live from system APIs in [renderLabel]. Implementations override
  * [startObserving] when they need to react to state changes (broadcasts, callbacks, content
  * observers); the returned [WidgetSubscription] is closed when the strip leaves the foreground.
@@ -22,7 +22,7 @@ abstract class QuickWidget {
     /**
      * Optional user-facing caveat shown as a sub-label under the widget's display name in the
      * Widget Picker. Use for short, plain-language hints that explain a behaviour the user might
-     * otherwise see as a bug — e.g., "Not all phones report this. Shows '—' when unavailable."
+     * otherwise see as a bug - e.g., "Not all phones report this. Shows '-' when unavailable."
      * for OEM-inconsistent system readings. Independent of [requiresSpecialAccess]: a widget can
      * have both a permission requirement AND a behaviour caveat, surfaced as separate sub-labels.
      */
@@ -34,12 +34,12 @@ abstract class QuickWidget {
     /** Compute the current label and active state. Called on the UI thread. */
     abstract fun renderLabel(context: Context): WidgetLabel
 
-    /** Direct toggle or deep-link intent — called on the UI thread. */
+    /** Direct toggle or deep-link intent - called on the UI thread. */
     open fun onTap(context: Context) {}
 
     /**
      * Optional observer. Implementations register a broadcast/callback and invoke [onChanged]
-     * (which is already main-thread-safe — the manager posts to the UI thread itself) whenever
+     * (which is already main-thread-safe - the manager posts to the UI thread itself) whenever
      * state may have changed. The returned subscription is closed on stop.
      */
     open fun startObserving(context: Context, onChanged: () -> Unit): WidgetSubscription =

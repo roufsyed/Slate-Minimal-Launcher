@@ -12,12 +12,12 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "com.slate.launcher"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.slate.launcher"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 2
         versionName = "1.1"
     }
@@ -79,7 +79,7 @@ val privacyPolicyDest = layout.projectDirectory.file("src/main/assets/PRIVACY_PO
 val copyPrivacyPolicy by tasks.registering(Copy::class) {
     doFirst {
         check(privacyPolicySource.exists()) {
-            "Privacy policy source missing at $privacyPolicySource — cannot build without it."
+            "Privacy policy source missing at $privacyPolicySource - cannot build without it."
         }
     }
     from(privacyPolicySource)

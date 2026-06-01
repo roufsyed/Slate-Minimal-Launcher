@@ -67,7 +67,7 @@ class OnboardingActivity : AppCompatActivity() {
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri == null) return@registerForActivityResult
-        // Re-verify consent — the picker callback can fire after the user has unchecked the box
+        // Re-verify consent - the picker callback can fire after the user has unchecked the box
         // (e.g., they backgrounded onboarding while the picker was open).
         if (!hasAcceptedPrivacy()) {
             Toast.makeText(this, "Please accept the privacy policy first", Toast.LENGTH_SHORT).show()
@@ -200,8 +200,8 @@ class OnboardingActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         // Gate auto-completion on the consent checkbox so users who set Slate as default outside
-        // our flow (Android Settings) — or who back-out of the role picker after unchecking the
-        // box — still have to accept the policy before onboarding completes.
+        // our flow (Android Settings) - or who back-out of the role picker after unchecking the
+        // box - still have to accept the policy before onboarding completes.
         if (isDefaultLauncher() && hasAcceptedPrivacy()) {
             finishOnboarding()
         }

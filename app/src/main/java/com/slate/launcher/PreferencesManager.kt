@@ -76,7 +76,7 @@ class PreferencesManager(context: Context) {
         const val FOLDER_STYLE_BRACKETS = "brackets"   // "[Work]"
         const val FOLDER_STYLE_COUNT = "count"         // "Work (5)"
         const val FOLDER_STYLE_PLAIN = "plain"         // "Work"
-        // Comma-separated ordered list of widget ids — small payload, simple format.
+        // Comma-separated ordered list of widget ids - small payload, simple format.
         const val DEFAULT_QUICK_STRIP_WIDGETS = "clock,battery"
 
         const val VIEW_FLOW = "flow"
@@ -92,7 +92,7 @@ class PreferencesManager(context: Context) {
         const val DEFAULT_BACKGROUND_COLOR = "#000000"
         const val DEFAULT_TEXT_COLOR = "#808080"
 
-        // Widget-strip typography defaults — these MUST match the legacy hardcoded values
+        // Widget-strip typography defaults - these MUST match the legacy hardcoded values
         // inside QuickStripManager.createWidgetView() so existing users (no pref written) see
         // a visually identical strip after the update. Drift here = silent visual regression.
         const val DEFAULT_WIDGET_TEXT_SIZE = 14   // matches QuickStripManager.createWidgetView:138
@@ -107,7 +107,7 @@ class PreferencesManager(context: Context) {
         const val DEFAULT_WIDGET_TEXT_ALIGNMENT = "center"
 
         // Default trigger for the opt-in direct-call feature. "tap" matches the original
-        // one-tap-calling framing — short tap places the call, long-press preserves the
+        // one-tap-calling framing - short tap places the call, long-press preserves the
         // existing home long-press menu. Users who want the safer gesture can pick
         // "longPress" in Settings.
         const val DEFAULT_DIRECT_CALL_TRIGGER = "tap"
@@ -168,11 +168,11 @@ class PreferencesManager(context: Context) {
      * When true, contact search results are filtered to contacts whose raw-contact account
      * type is `com.google`. Useful for users who see the same person appear multiple times
      * because they exist as separate raw contacts under different sources (Google,
-     * WhatsApp, SIM, OEM local, etc.). Default OFF — show everything by default and rely on
+     * WhatsApp, SIM, OEM local, etc.). Default OFF - show everything by default and rely on
      * the per-row source suffix to disambiguate the rare cases of cross-source duplication.
      *
      * Per-device only: NEVER written to a backup file (same rule as [contactSearchEnabled]
-     * and [includePrivateInBackup]). Persists across [contactSearchEnabled] toggling — the
+     * and [includePrivateInBackup]). Persists across [contactSearchEnabled] toggling - the
      * user's filter preference is preserved if they disable contact search and re-enable it
      * later, since the pref isn't permission-gated.
      */
@@ -269,12 +269,12 @@ class PreferencesManager(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC_ENABLED, value).apply()
 
     /**
-     * When false (the default), the JSON backup omits the entire private bundle — hidden-apps
+     * When false (the default), the JSON backup omits the entire private bundle - hidden-apps
      * list, security flag, biometric flag, and the PIN's PBKDF2 hash / salt / iteration count.
      * This pref is per-device and is NEVER written into a backup file: a restored backup must
      * not carry the source device's privacy preference here, otherwise turning the toggle off
      * on the source device would silently turn back on when restored. Default OFF is the
-     * privacy-conservative choice — opt-in only via the Settings → Backup row, which shows a
+     * privacy-conservative choice - opt-in only via the Settings → Backup row, which shows a
      * consent dialog when the user turns it on.
      */
     var includePrivateInBackup: Boolean
@@ -324,13 +324,13 @@ class PreferencesManager(context: Context) {
             .split(',').map { it.trim() }.filter { it.isNotEmpty() }
         set(value) = prefs.edit().putString(KEY_QUICK_STRIP_WIDGETS, value.joinToString(",")).apply()
 
-    /** "top" or "bottom" — where the quick toggles strip sits on the home screen. */
+    /** "top" or "bottom" - where the quick toggles strip sits on the home screen. */
     var quickStripPosition: String
         get() = prefs.getString(KEY_QUICK_STRIP_POSITION, "bottom") ?: "bottom"
         set(value) = prefs.edit().putString(KEY_QUICK_STRIP_POSITION, value).apply()
 
     /**
-     * Opt-in cosmetic hairline along the strip's inner edge — below the strip when it's at the
+     * Opt-in cosmetic hairline along the strip's inner edge - below the strip when it's at the
      * top, above the strip when it's at the bottom. Has no effect when the strip itself is
      * hidden (master off, or no configured widget is available on the device).
      */
@@ -340,7 +340,7 @@ class PreferencesManager(context: Context) {
 
     /**
      * Widget label text size in sp. Applied by QuickStripManager.createWidgetView() to every
-     * widget in the strip. Single value (not min/max) — unlike apps, widget labels don't have
+     * widget in the strip. Single value (not min/max) - unlike apps, widget labels don't have
      * a usage signal that drives scaling.
      */
     var widgetTextSize: Int
@@ -376,7 +376,7 @@ class PreferencesManager(context: Context) {
         set(value) = prefs.edit().putString(KEY_WIDGET_FONT_FAMILY, value).apply()
 
     /**
-     * Widget typeface weight (e.g., 300/400/500/700). Zero = "no weight override" — paired with
+     * Widget typeface weight (e.g., 300/400/500/700). Zero = "no weight override" - paired with
      * an empty [widgetFontFamily], the strip falls back to the theme default.
      */
     var widgetFontWeight: Int
@@ -439,12 +439,12 @@ class PreferencesManager(context: Context) {
         set(value) = prefs.edit().putInt(KEY_GUIDED_TOUR_STEP, value).apply()
 
     // The last CURRENT_TOUR_VERSION the user actually saw. Bumping the in-code constant past
-    // this re-triggers the tour on next resume — used to surface meaningful content updates.
+    // this re-triggers the tour on next resume - used to surface meaningful content updates.
     var guidedTourSeenVersion: Int
         get() = prefs.getInt(KEY_GUIDED_TOUR_VERSION_SEEN, 0)
         set(value) = prefs.edit().putInt(KEY_GUIDED_TOUR_VERSION_SEEN, value).apply()
 
-    /** One of the `FOLDER_STYLE_*` constants. Default is chevron — matches current behaviour. */
+    /** One of the `FOLDER_STYLE_*` constants. Default is chevron - matches current behaviour. */
     var folderStyle: String
         get() = prefs.getString(KEY_FOLDER_STYLE, FOLDER_STYLE_CHEVRON) ?: FOLDER_STYLE_CHEVRON
         set(value) = prefs.edit().putString(KEY_FOLDER_STYLE, value).apply()

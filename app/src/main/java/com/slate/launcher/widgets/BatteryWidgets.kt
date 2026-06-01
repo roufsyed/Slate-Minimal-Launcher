@@ -52,7 +52,7 @@ object BatteryPercentWidget : QuickWidget() {
     override fun renderLabel(context: Context): WidgetLabel {
         val mgr = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         val pct = mgr.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-        val text = if (pct in 0..100) "Battery: ${pct}%" else "Battery: —"
+        val text = if (pct in 0..100) "Battery: ${pct}%" else "Battery: -"
         return WidgetLabel(text, active = true)
     }
     override fun onTap(context: Context) = openBatterySettings(context)
@@ -80,7 +80,7 @@ object BatteryTempWidget : QuickWidget() {
         // EXTRA_TEMPERATURE is reported in tenths of a degree Celsius via the sticky broadcast.
         val sticky = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val tenthsC = sticky?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1) ?: -1
-        if (tenthsC < 0) return WidgetLabel("Battery temp: —", active = false)
+        if (tenthsC < 0) return WidgetLabel("Battery temp: -", active = false)
         val celsius = tenthsC / 10
         return WidgetLabel("Battery temp: ${celsius}°C", active = true)
     }
@@ -93,30 +93,30 @@ object TimeToFullWidget : QuickWidget() {
     override val displayName = "Time to full"
     // Surfaced in the widget picker so users on devices where BatteryManager doesn't expose a
     // charge-time estimate (common on Xiaomi / Samsung / various MediaTek-based OEMs) know to
-    // expect "—" instead of treating it as a bug. The strip itself stays minimal — this hint
+    // expect "-" instead of treating it as a bug. The strip itself stays minimal - this hint
     // lives only at opt-in time.
     override val pickerNote =
-        "Not all phones report this. Shows \"—\" when unavailable."
+        "Not all phones report this. Shows \"-\" when unavailable."
 
     // computeChargeTimeRemaining is API 28+ (Android 9). On older releases the widget is hidden
-    // entirely via the catalog's isAvailable filter rather than rendering a permanent "—".
+    // entirely via the catalog's isAvailable filter rather than rendering a permanent "-".
     override fun isAvailable(context: Context): Boolean =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
 
     override fun renderLabel(context: Context): WidgetLabel {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-            return WidgetLabel("Time to full: —", active = false)
+            return WidgetLabel("Time to full: -", active = false)
         }
         val mgr = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         if (!mgr.isCharging) {
-            return WidgetLabel("Time to full: —", active = false)
+            return WidgetLabel("Time to full: -", active = false)
         }
         // -1 = OEM didn't wire up an estimate. 0 = at-or-near-full (trickle / topping). Both
-        // collapse to "—" because there's no meaningful number to surface; the user can read
+        // collapse to "-" because there's no meaningful number to surface; the user can read
         // the actual charge level from the Battery % widget next to this one.
         val ms = mgr.computeChargeTimeRemaining()
         if (ms <= 0L) {
-            return WidgetLabel("Time to full: —", active = false)
+            return WidgetLabel("Time to full: -", active = false)
         }
         val totalMinutes = ms / 60_000L
         val hours = totalMinutes / 60
@@ -146,5 +146,5 @@ object UptimeWidget : QuickWidget() {
         }
         return WidgetLabel("Uptime: $text", active = true)
     }
-    // No broadcast — strip will refresh on resume; close-enough granularity for an uptime label.
+    // No broadcast - strip will refresh on resume; close-enough granularity for an uptime label.
 }

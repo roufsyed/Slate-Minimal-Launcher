@@ -6,7 +6,7 @@ import java.util.UUID
 
 /**
  * Persistence and invariant enforcement for [Folder] objects. The whole library is stored as a
- * single JSON array in [PreferencesManager.foldersJson] — atomic writes, simple schema. The
+ * single JSON array in [PreferencesManager.foldersJson] - atomic writes, simple schema. The
  * format is intentionally trivial; no migration story needed for additive future fields.
  *
  * Invariants enforced by every mutating call:
@@ -14,7 +14,7 @@ import java.util.UUID
  *   - Folders are pruned when empty (or when their last visible app leaves).
  *   - Pinning a package removes it from any folder it was in.
  *
- * Hiding an app does NOT alter folder membership — the app is simply filtered at render time so
+ * Hiding an app does NOT alter folder membership - the app is simply filtered at render time so
  * unhiding restores the previous home layout cleanly.
  */
 object FolderStore {
@@ -30,7 +30,7 @@ object FolderStore {
     fun folderContaining(prefs: PreferencesManager, packageName: String): Folder? =
         all(prefs).firstOrNull { packageName in it.packages }
 
-    /** Returns the set of all packages currently inside any folder — cheap O(1) lookup helper. */
+    /** Returns the set of all packages currently inside any folder - cheap O(1) lookup helper. */
     fun packagesInAnyFolder(prefs: PreferencesManager): Set<String> =
         all(prefs).flatMap { it.packages }.toSet()
 
@@ -47,7 +47,7 @@ object FolderStore {
 
     /** Adds [packageName] to [folderId]; removes it from any other folder it was in. */
     fun addAppToFolder(prefs: PreferencesManager, folderId: String, packageName: String) {
-        // Pinned apps cannot live in folders — enforce by unpinning first.
+        // Pinned apps cannot live in folders - enforce by unpinning first.
         if (prefs.isPinned(packageName)) prefs.unpinApp(packageName)
         val list = all(prefs).toMutableList()
         list.forEachIndexed { i, f ->
@@ -103,7 +103,7 @@ object FolderStore {
      * Drop any package from folders that no longer corresponds to an installed app. Prunes the
      * folder ONLY if removal actually emptied a previously non-empty folder (i.e. all of its
      * apps were uninstalled). Freshly-created empty folders are preserved so the user can add
-     * apps to them via the "Move to folder" flow — otherwise a stray rebuild between
+     * apps to them via the "Move to folder" flow - otherwise a stray rebuild between
      * createEmpty() and addAppToFolder() would silently nuke the new folder.
      */
     fun reconcile(prefs: PreferencesManager, installedPackages: Set<String>) {

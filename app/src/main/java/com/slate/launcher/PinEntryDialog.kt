@@ -19,7 +19,7 @@ import com.slate.launcher.MainActivity.Companion.parseColorSafe
 
 /**
  * A themed PIN entry dialog. Used as a building block for setup, verify, and change flows.
- * The entered PIN is delivered to [onConfirm] as a [CharArray] — callers MUST zero it after use.
+ * The entered PIN is delivered to [onConfirm] as a [CharArray] - callers MUST zero it after use.
  */
 class PinEntryDialog(
     context: Context,

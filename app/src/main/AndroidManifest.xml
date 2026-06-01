@@ -32,7 +32,7 @@
          after a consent dialog explains the privacy contract. With the toggle
          off (default), no contacts data is ever read; the manifest declaration
          is dormant. Contacts are queried ephemerally per keystroke, filtered
-         in memory, and discarded — never stored, indexed, or transmitted. -->
+         in memory, and discarded - never stored, indexed, or transmitted. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <application
@@ -59,13 +59,13 @@
                   task root.
               (b) Some OEM Overview implementations re-evaluate task visibility against the
                   currently foregrounded activity, surfacing the task whenever Settings or
-                  Onboarding is on top — even though MainActivity (the root) is excluded.
+                  Onboarding is on top - even though MainActivity (the root) is excluded.
 
             Defense in depth: every activity declares excludeFromRecents="true" AND
             taskAffinity="" so:
               (a) whichever activity ends up as the task root, the task stays hidden;
               (b) all activities share the same empty affinity, so they always co-locate
-                  in MainActivity's task — no `am start` or stray FLAG_ACTIVITY_NEW_TASK
+                  in MainActivity's task - no `am start` or stray FLAG_ACTIVITY_NEW_TASK
                   can fork a sibling Slate task that would be Recents-visible.
 
             clearTaskOnLaunch on MainActivity returns the launcher stack to a clean root

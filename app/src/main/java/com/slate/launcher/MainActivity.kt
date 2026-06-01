@@ -37,7 +37,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         applySystemBarColors()
 
-        // Never exit — this is a launcher
+        // Never exit - this is a launcher
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {}
         })

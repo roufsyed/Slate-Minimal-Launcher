@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <!-- Search bar — hidden until triggered -->
+    <!-- Search bar - hidden until triggered -->
     <LinearLayout
         android:id="@+id/searchContainer"
         android:layout_width="match_parent"

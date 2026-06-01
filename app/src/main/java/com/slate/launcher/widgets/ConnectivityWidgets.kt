@@ -12,7 +12,7 @@ import android.provider.Settings
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 
-/** BluetoothAdapter resolved via BluetoothManager — getDefaultAdapter() is deprecated API 31+. */
+/** BluetoothAdapter resolved via BluetoothManager - getDefaultAdapter() is deprecated API 31+. */
 private fun bluetoothAdapter(context: Context): BluetoothAdapter? {
     val mgr = context.applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
     return mgr?.adapter
@@ -85,7 +85,7 @@ object MobileDataWidget : QuickWidget() {
     override val displayName = "Mobile data"
     override fun isAvailable(context: Context): Boolean {
         // Reading isDataEnabled() requires READ_BASIC_PHONE_STATE (normal) on API 33+.
-        // On older Android the only safe read needs the dangerous READ_PHONE_STATE — we won't
+        // On older Android the only safe read needs the dangerous READ_PHONE_STATE - we won't
         // declare that, so the widget hides itself.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
         val tm = context.applicationContext.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
@@ -103,7 +103,7 @@ object MobileDataWidget : QuickWidget() {
     override fun onTap(context: Context) {
         safeStart(context, Intent(Settings.ACTION_DATA_USAGE_SETTINGS))
     }
-    // No cheap event observer without TelephonyCallback + dangerous perm — refresh on resume.
+    // No cheap event observer without TelephonyCallback + dangerous perm - refresh on resume.
 }
 
 object AirplaneWidget : QuickWidget() {

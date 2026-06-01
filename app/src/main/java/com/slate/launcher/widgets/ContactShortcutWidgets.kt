@@ -29,10 +29,10 @@ class CallShortcutWidget(private val shortcut: ContactShortcut) : QuickWidget() 
     }
 
     /**
-     * Long-press handler — called from AppDrawerFragment.onLongPress when the touch hit-tests
+     * Long-press handler - called from AppDrawerFragment.onLongPress when the touch hit-tests
      * to this widget AND the user has chosen "longPress" as the direct-call trigger. The
      * caller has already verified the trigger pref; this helper just resolves direct vs dialer
-     * based on the live permission state. Never surfaces the home long-press menu — by the
+     * based on the live permission state. Never surfaces the home long-press menu - by the
      * time this runs the caller has already committed to the call-shortcut interaction.
      */
     fun onLongPressDirect(context: Context) {
@@ -43,7 +43,7 @@ class CallShortcutWidget(private val shortcut: ContactShortcut) : QuickWidget() 
      * Build the call/dial intent. [direct] is the caller's authoritative "should we try direct
      * call here?" decision; we still re-check permission live because the user can revoke it
      * between Settings and home with no signal to us. Permission-denied falls through to
-     * ACTION_DIAL — the same safe behaviour the user had before opting in.
+     * ACTION_DIAL - the same safe behaviour the user had before opting in.
      */
     private fun dispatchCall(context: Context, direct: Boolean) {
         val telUri = Uri.parse("tel:${Uri.encode(shortcut.number)}")

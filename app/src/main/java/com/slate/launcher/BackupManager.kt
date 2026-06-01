@@ -6,12 +6,12 @@ import org.json.JSONObject
 class BackupManager(private val prefs: PreferencesManager) {
 
     /**
-     * The private bundle inside a backup file — hidden-apps list, security flag, biometric
+     * The private bundle inside a backup file - hidden-apps list, security flag, biometric
      * flag, and the PIN's PBKDF2 verifier. Surfaced as a separate type so the import flow can
      * (a) detect its presence cheaply via [BackupContents.privateBundle] and (b) verify the
      * backup's PIN in-memory via [PinManager.verifyAgainst] BEFORE committing any of this to
      * device prefs. A backup is considered to have a private bundle only when ALL of pinHash,
-     * pinSalt, pinIterations are present and the hidden-apps key resolves cleanly — degenerate
+     * pinSalt, pinIterations are present and the hidden-apps key resolves cleanly - degenerate
      * cases (e.g., a hand-edited file with pinHash but no pinSalt) parse as a null bundle and
      * the hidden-apps key is silently ignored rather than written without a gate.
      */
@@ -95,11 +95,11 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.getAllAppCustomNames().forEach { (k, v) -> namesObj.put(k, v) }
         root.put("appCustomNames", namesObj)
 
-        // Private bundle — hidden apps + PIN + biometric. Opt-in via Settings → Backup. When
+        // Private bundle - hidden apps + PIN + biometric. Opt-in via Settings → Backup. When
         // OFF (the default), none of these keys appear in the JSON, so the backup file cannot
         // carry the user's hidden-apps list or the PIN's PBKDF2 verifier off-device. The
         // toggle itself (`includePrivateInBackup`) is intentionally NOT written into the
-        // backup — it's a per-device privacy preference.
+        // backup - it's a per-device privacy preference.
         if (prefs.includePrivateInBackup) {
             val hiddenArr = JSONArray()
             prefs.hiddenApps.forEach { hiddenArr.put(it) }
@@ -133,7 +133,7 @@ class BackupManager(private val prefs: PreferencesManager) {
         // User-created folders. Same human-readable strategy as contactShortcuts.
         root.put("folders", JSONArray(prefs.foldersJson))
 
-        // Guided tour: persist the version the user finished — restoring on a new device should
+        // Guided tour: persist the version the user finished - restoring on a new device should
         // NOT re-trigger the tour. Don't persist `stepIndex`; mid-tour state is device-local.
         root.put("guidedTourSeenVersion", prefs.guidedTourSeenVersion)
 
@@ -144,7 +144,7 @@ class BackupManager(private val prefs: PreferencesManager) {
     }
 
     /**
-     * Pure parse — no writes. Returns the JSON for non-private fields plus an optional
+     * Pure parse - no writes. Returns the JSON for non-private fields plus an optional
      * [PrivateBundle]. Caller is responsible for orchestrating the dialogs that gate the
      * privateBundle's eventual application via [applyPrivate].
      */
@@ -181,7 +181,7 @@ class BackupManager(private val prefs: PreferencesManager) {
     /**
      * Apply every non-private pref from a parsed [BackupContents] to disk. Theme, gestures,
      * folders, widgets, pinned apps, custom names/colors, contact shortcuts, etc. The private
-     * bundle is NOT touched here — see [applyPrivate].
+     * bundle is NOT touched here - see [applyPrivate].
      */
     fun applyNonPrivate(contents: BackupContents) {
         val root = contents.nonPrivate
@@ -240,7 +240,7 @@ class BackupManager(private val prefs: PreferencesManager) {
 
         // Quick toggles strip
         prefs.quickStripEnabled = root.optBoolean("quickStripEnabled", false)
-        // Absence falls back to "bottom" — current behaviour for older backups.
+        // Absence falls back to "bottom" - current behaviour for older backups.
         prefs.quickStripPosition = root.optString("quickStripPosition", "bottom")
             .takeIf { it == "top" || it == "bottom" } ?: "bottom"
         prefs.quickStripDividerEnabled = root.optBoolean("quickStripDividerEnabled", false)
@@ -249,7 +249,7 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.widgetWordGap  = root.optInt("widgetWordGap",  PreferencesManager.DEFAULT_WIDGET_WORD_GAP)
         prefs.widgetFontFamily = root.optString("widgetFontFamily", PreferencesManager.DEFAULT_WIDGET_FONT_FAMILY)
         prefs.widgetFontWeight = root.optInt("widgetFontWeight", PreferencesManager.DEFAULT_WIDGET_FONT_WEIGHT)
-        // Sanitise the alignment string — only "left"/"center"/"right" are valid. A backup with
+        // Sanitise the alignment string - only "left"/"center"/"right" are valid. A backup with
         // a typo or a future-version value falls back to the default rather than persisting an
         // unsupported state.
         prefs.widgetTextAlignment = root.optString(
@@ -257,7 +257,7 @@ class BackupManager(private val prefs: PreferencesManager) {
         ).takeIf { it == "left" || it == "center" || it == "right" }
             ?: PreferencesManager.DEFAULT_WIDGET_TEXT_ALIGNMENT
         prefs.directCallEnabled = root.optBoolean("directCallEnabled", false)
-        // Sanitise: only "tap"/"longPress" are accepted. Defence-in-depth — the pref getter
+        // Sanitise: only "tap"/"longPress" are accepted. Defence-in-depth - the pref getter
         // also guards against an unknown stored value, so a corrupt write here resolves to
         // default on read.
         prefs.directCallTrigger = root.optString(
@@ -303,7 +303,7 @@ class BackupManager(private val prefs: PreferencesManager) {
      * verified the backup's PIN in-memory against [PinManager.verifyAgainst]. Replaces the
      * device's hidden-apps list, security flag, biometric flag, and PIN verifier with the
      * backup's. Lockout counters reset to zero because they're device-local state, not user
-     * data — the backup wasn't authorised to carry past failure counts forward.
+     * data - the backup wasn't authorised to carry past failure counts forward.
      */
     fun applyPrivate(bundle: PrivateBundle) {
         prefs.hiddenApps = bundle.hiddenApps

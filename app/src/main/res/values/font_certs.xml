@@ -2,7 +2,7 @@
 <!--
     Google Fonts provider certificates.
     If fonts don't load, regenerate these via Android Studio:
-    res > New > Font resource file > select "Downloadable" — Android Studio will
+    res > New > Font resource file > select "Downloadable" - Android Studio will
     auto-populate the correct cert values for your build environment.
 -->
 <resources>

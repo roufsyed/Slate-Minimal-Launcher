@@ -39,7 +39,7 @@ class WidgetPickerDialog(
     companion object {
         private var active: WidgetPickerDialog? = null
 
-        /** Dismiss any showing instance — call from host Activity.onDestroy() to avoid leaks. */
+        /** Dismiss any showing instance - call from host Activity.onDestroy() to avoid leaks. */
         fun dismissActive() {
             active?.let { runCatching { it.dismiss() } }
             active = null
@@ -138,7 +138,7 @@ class WidgetPickerDialog(
         refreshList()
     }
 
-    /** Rebuild the list — called on first show and from [refreshActive] after picker results. */
+    /** Rebuild the list - called on first show and from [refreshActive] after picker results. */
     fun refreshList() {
         if (!::listContainer.isInitialized) return
         listContainer.removeAllViews()

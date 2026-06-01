@@ -110,7 +110,7 @@ class AppDrawerFragment : Fragment() {
         // Forward touches that begin on the strip into the home gesture detector so swipes
         // starting on the chrome execute the user's configured 1-finger gestures (instead of
         // dying because the strip has no scroll/gesture handlers of its own). Clearing the
-        // `touchStartedOnApp` flag on DOWN matches the blank-home-space semantics — long-press
+        // `touchStartedOnApp` flag on DOWN matches the blank-home-space semantics - long-press
         // on the strip then opens the home long-press menu, not an app menu. The lambda reads
         // `singleFingerDetector` lazily; the detector is initialised later in this same
         // onViewCreated but always before any touch fires.
@@ -140,7 +140,7 @@ class AppDrawerFragment : Fragment() {
                     // Direct-call-on-long-press: when the user has bound long-press as their
                     // direct-call trigger AND the touch hit-tests to a CallShortcutWidget,
                     // fire the call here and consume the gesture. We deliberately do NOT also
-                    // show the home menu — that would race with the freshly-fired call intent
+                    // show the home menu - that would race with the freshly-fired call intent
                     // and surprise the user with a customisation dialog they didn't ask for.
                     if (prefs.directCallEnabled && prefs.directCallTrigger == "longPress") {
                         val widget = quickStrip?.widgetForRawTouch(e.rawX, e.rawY)
@@ -162,14 +162,14 @@ class AppDrawerFragment : Fragment() {
                     if (!prefs.doubleTapToLock) return false
                     // Suppress the screen-lock when the second tap landed on interactive content
                     // rather than blank home space. Two cases:
-                    //   1. A strip widget — `touchStartedOnApp` is false here (the touchForwarder
+                    //   1. A strip widget - `touchStartedOnApp` is false here (the touchForwarder
                     //      clears it), so we explicitly hit-test the strip. Without this guard,
                     //      rapid widget toggling (e.g., torch on → torch off within 300 ms)
                     //      would accidentally lock the user's phone.
-                    //   2. An app / folder / back-out row — `touchStartedOnApp` is true (set by
+                    //   2. An app / folder / back-out row - `touchStartedOnApp` is true (set by
                     //      the row's own setOnTouchListener). In practice the first tap launches
                     //      the app and the second tap goes to the launched app, so this branch
-                    //      rarely fires — but the check is defensive symmetry with onLongPress.
+                    //      rarely fires - but the check is defensive symmetry with onLongPress.
                     if (touchStartedOnApp) return false
                     if (quickStrip?.widgetForRawTouch(e.rawX, e.rawY) != null) return false
                     lockScreen()
@@ -189,7 +189,7 @@ class AppDrawerFragment : Fragment() {
                     if (absDx < 120f && absDy < 120f) return false
                     // Require meaningful velocity
                     if (abs(velocityX) < 500f && abs(velocityY) < 500f) return false
-                    // Require mostly straight swipe — secondary axis < 65% of primary
+                    // Require mostly straight swipe - secondary axis < 65% of primary
                     val ratio = if (absDx > absDy) absDy / absDx else absDx / absDy
                     if (ratio > 0.65f) return false
 
@@ -249,7 +249,7 @@ class AppDrawerFragment : Fragment() {
                 dismissSearchBar()
             }
             // Combine the status-bar inset with the display-cutout inset (camera punch hole,
-            // notch). `getInsets(typeA or typeB)` returns the per-edge UNION/max — so when the
+            // notch). `getInsets(typeA or typeB)` returns the per-edge UNION/max - so when the
             // status bar is visible it already covers the cutout (no change); when the status
             // bar is hidden via `prefs.hideStatusBar`, the cutout inset takes over and the
             // top-edge chrome (e.g., the quick-toggles strip at the top position) is padded
@@ -262,7 +262,7 @@ class AppDrawerFragment : Fragment() {
                 applyChromeLayout()
             }
             val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            // Same cutout-union treatment at the bottom — handles the (rare) bottom display
+            // Same cutout-union treatment at the bottom - handles the (rare) bottom display
             // cutout. The nav-bar inset is what this evaluates to on almost every device.
             val navBottom = insets.getInsets(
                 WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.displayCutout()
@@ -296,7 +296,7 @@ class AppDrawerFragment : Fragment() {
             isSearchOpen = false
             searchContainer.visibility = View.GONE
         }
-        // Always land on the main list when returning to home — folder state is a transient
+        // Always land on the main list when returning to home - folder state is a transient
         // navigation, not a persisted view.
         currentFolderId = null
         buildAppList()
@@ -325,7 +325,7 @@ class AppDrawerFragment : Fragment() {
      * double-taps either work (service genuinely enabled) or do nothing AND a Settings open
      * shows the toggle truthfully OFF.
      *
-     * The 500ms re-check mirrors Settings — protects against an OEM where the secure-setting
+     * The 500ms re-check mirrors Settings - protects against an OEM where the secure-setting
      * flip lags the actual service binding. Skipping the work entirely when the pref is
      * already false or the service is already enabled keeps the common path free of any
      * scheduled handler.
@@ -356,7 +356,7 @@ class AppDrawerFragment : Fragment() {
         // but defensive cleanup costs nothing.
         quickStrip?.stop()
         quickStrip = null
-        // Tear down the FAQ detail dialog if it survived to view-destroy — without this, a
+        // Tear down the FAQ detail dialog if it survived to view-destroy - without this, a
         // configuration change while it was open would leak the window (WindowLeaked).
         activeFaqDetailDialog?.let { runCatching { it.dismiss() } }
         activeFaqDetailDialog = null
@@ -391,17 +391,17 @@ class AppDrawerFragment : Fragment() {
         val stripAtBottom = prefs.quickStripPosition == "bottom"
 
         // Strip-visibility override: hide the quick-strip while the soft keyboard is up.
-        // Without this, adjustResize shrinks the window and the strip — pinned to the bottom
-        // edge of the root LinearLayout via the weight=1 FrameLayout above it — rides up onto
+        // Without this, adjustResize shrinks the window and the strip - pinned to the bottom
+        // edge of the root LinearLayout via the weight=1 FrameLayout above it - rides up onto
         // the keyboard's leading edge. The strip's "intended" visibility (configured + enabled
         // widgets exist) is owned by QuickStripManager.bind(); applyChromeLayout layers this
         // contextual GONE on top. Inset routing below already filters by visibility, so a GONE
         // strip transparently hands the bottomInset off to the next visible child (FrameLayout).
         val stripIntended =
             quickStrip?.hasActiveWidgets() == true && prefs.quickStripEnabled
-        // Hide-conditions: (1) IME visible — the post-keyboard-up safety net (also covers the
+        // Hide-conditions: (1) IME visible - the post-keyboard-up safety net (also covers the
         // persistent-search-bar mode where a tap-into-search bypasses openSearch); (2) search
-        // open AND not in persistent-search-bar mode — the pre-IME branch that lets openSearch
+        // open AND not in persistent-search-bar mode - the pre-IME branch that lets openSearch
         // collapse the strip into the same layout pass as the search-container reveal, BEFORE
         // adjustResize starts animating, so the IME slides up against a static layout instead
         // of one mid-flip. The !showSearchBarOnHome guard preserves persistent-bar behaviour
@@ -436,7 +436,7 @@ class AppDrawerFragment : Fragment() {
             )
         }
 
-        // The divider always rides immediately adjacent to the strip on its INNER edge — below
+        // The divider always rides immediately adjacent to the strip on its INNER edge - below
         // it when the strip is at top, above it when the strip is at bottom. The strip itself
         // remains the absolute screen-edge child, so inset routing (below) is unchanged for the
         // strip/search/frame siblings; the divider never becomes the edge child.
@@ -462,7 +462,7 @@ class AppDrawerFragment : Fragment() {
         }
 
         // Route insets to whichever child is *visibly* at each edge. A GONE strip / GONE search
-        // bar / GONE divider must not absorb the inset — the next visible child gets it instead.
+        // bar / GONE divider must not absorb the inset - the next visible child gets it instead.
         val visibleChildren = orderedChildren.filter { it.visibility != View.GONE }
         val topEdge = visibleChildren.firstOrNull()
         val bottomEdge = visibleChildren.lastOrNull()
@@ -539,12 +539,12 @@ class AppDrawerFragment : Fragment() {
         isSearchOpen = true
         applySearchColors()
         searchContainer.visibility = View.VISIBLE
-        // Commit the chrome relayout SYNCHRONOUSLY here — strip-hide, search-container-visible,
+        // Commit the chrome relayout SYNCHRONOUSLY here - strip-hide, search-container-visible,
         // and any status-bar / nav-bar inset routing change all collapse into a single measure
         // pass before the postDelayed showSoftInput fires the IME animation. Without this, the
         // strip's GONE flip was happening mid-IME-animation (via the inset-listener path),
         // which collapsed the strip's allocated layout space while the window was still
-        // resizing — a one-frame jolt the user perceived as choppy.
+        // resizing - a one-frame jolt the user perceived as choppy.
         applyChromeLayout()
         searchInput.requestFocus()
         searchInput.setText("")
@@ -570,7 +570,7 @@ class AppDrawerFragment : Fragment() {
         // Search-bar visibility changed → the bottom-edge child of the visible-children list
         // may have flipped, so the inset-routing pass inside applyChromeLayout must re-run.
         // The IME-close inset event will also trigger this incidentally, but only when the
-        // keyboard was actually up — code paths that call closeSearch without ever having
+        // keyboard was actually up - code paths that call closeSearch without ever having
         // shown the keyboard would otherwise leave routing stale.
         applyChromeLayout()
     }
@@ -592,13 +592,13 @@ class AppDrawerFragment : Fragment() {
 
     private fun filterApps(query: String) {
         val all = repository.getAllApps(forceAlphabetical = useFastScroll())
-        // Starting to type drops folder context entirely — the user is now searching globally,
+        // Starting to type drops folder context entirely - the user is now searching globally,
         // and clearing the query should restore the main list rather than a half-remembered
         // folder view. This makes "type → clear" a predictable round-trip.
         if (query.isNotEmpty() && currentFolderId != null) {
             currentFolderId = null
         }
-        // Cancel any pending contact query whenever the query changes — keystrokes thrash the
+        // Cancel any pending contact query whenever the query changes - keystrokes thrash the
         // debounce; an empty query clears it entirely.
         pendingContactQuery?.let { mainHandler.removeCallbacks(it) }
         pendingContactQuery = null
@@ -617,14 +617,14 @@ class AppDrawerFragment : Fragment() {
         val baseItems: List<HomeItem> = matchedFolders.map { folder ->
             HomeItem.FolderItem(folder, folder.packages.count { it in visiblePackages })
         } + matchedApps.map { HomeItem.AppItem(it) }
-        // Render apps + folders synchronously — Slate's primary purpose is apps, that path
+        // Render apps + folders synchronously - Slate's primary purpose is apps, that path
         // can't wait on ContentProvider I/O.
         renderItems(baseItems, all)
         fastScroll.visibility = View.GONE
 
         // Contact search runs on a 250ms debounce so the keystroke storm doesn't hammer
         // ContactsContract once per character. Gated on the user opt-in toggle AND the live
-        // READ_CONTACTS grant — the latter catches the case where the user revoked the
+        // READ_CONTACTS grant - the latter catches the case where the user revoked the
         // permission via system Settings between the toggle write and now. The debounce
         // window matches AOSP's Filter.MESSAGE_REQUEST_DELAY precedent (300ms).
         if (!prefs.contactSearchEnabled) return
@@ -640,7 +640,7 @@ class AppDrawerFragment : Fragment() {
             if (!isAdded || view == null) return@Runnable
             val contacts = queryContacts(capturedQuery)
             // Re-render the merged list. Apps + folders first (already visible), contacts at
-            // the tail — contacts are the bonus, apps are the launcher's primary purpose.
+            // the tail - contacts are the bonus, apps are the launcher's primary purpose.
             if (contacts.isNotEmpty()) {
                 renderItems(baseItems + contacts, all)
             }
@@ -656,7 +656,7 @@ class AppDrawerFragment : Fragment() {
      * disambiguated by [HomeItem.ContactItem.typeLabel]).
      *
      * Queries `Phone.CONTENT_URI` directly because it includes ONLY contacts that have at
-     * least one phone number — contacts with email only are silently excluded, which matches
+     * least one phone number - contacts with email only are silently excluded, which matches
      * the tap behaviour (we dial via `ACTION_DIAL`, so no-phone contacts have nothing to do).
      *
      * Number-side matching uses `NORMALIZED_NUMBER` (digits-only canonical form) with the
@@ -666,7 +666,7 @@ class AppDrawerFragment : Fragment() {
      * Type label disambiguation: a contact with multiple matched numbers gets each of its
      * rows labelled with the localised Phone.TYPE label (mobile / work / home / custom). A
      * contact with a single matched number renders with `typeLabel = null` so the row reads
-     * as just the bare display name — phone numbers are NEVER shown on the search surface.
+     * as just the bare display name - phone numbers are NEVER shown on the search surface.
      *
      * On `SecurityException` (permission revoked between the gate check and the cursor open):
      * returns empty + posts a reconcile to flip the pref off cleanly.
@@ -764,7 +764,7 @@ class AppDrawerFragment : Fragment() {
         if (raws.isEmpty()) return emptyList()
 
         // Resolve account source per raw contact. Account info lives on RawContacts, not on
-        // the Phone (Data) table — we batch one extra query keyed on the raw_contact_ids
+        // the Phone (Data) table - we batch one extra query keyed on the raw_contact_ids
         // we collected above. The result is a small map (≤ 10 entries) used to filter the
         // result set to Google-sourced contacts only (see below) and folded into each row's
         // [accountSource] for the accessibility label.
@@ -808,7 +808,7 @@ class AppDrawerFragment : Fragment() {
 
         // Count matched-number rows per contact: a contact with >1 row gets a per-row type
         // label to disambiguate; a contact with exactly one row renders as just its name.
-        // We intentionally do NOT expose the contact's source account on the rendered row —
+        // We intentionally do NOT expose the contact's source account on the rendered row -
         // every result reads the same shape. Source-level filtering still happens above via
         // `prefs.googleContactsOnly`, but the source itself is silent on the surface.
         val rowsPerContact = filtered.groupingBy { it.contactId }.eachCount()
@@ -834,7 +834,7 @@ class AppDrawerFragment : Fragment() {
      * label. Covers the common cases (Google, WhatsApp, Telegram, Signal, OEM phone/SIM
      * stores) explicitly; falls back to the last `.`-separated segment for anything else
      * (e.g., `com.linkedin.android` → `linkedin`). Returns null when the account_type itself
-     * is null or blank — usually means a local raw contact with no sync account.
+     * is null or blank - usually means a local raw contact with no sync account.
      */
     private fun friendlyAccountSource(accountType: String?): String? {
         if (accountType.isNullOrBlank()) return "phone"
@@ -857,7 +857,7 @@ class AppDrawerFragment : Fragment() {
     }
 
     /**
-     * Open the system dialer prepopulated with [number]. Never `ACTION_CALL` — that would
+     * Open the system dialer prepopulated with [number]. Never `ACTION_CALL` - that would
      * direct-dial on tap, the worst possible UX failure mode for a launcher. The user taps
      * the call button in the dialer to actually place the call.
      */
@@ -872,7 +872,7 @@ class AppDrawerFragment : Fragment() {
 
     /**
      * Reconcile the contact-search pref against the live READ_CONTACTS grant. Called from
-     * onResume and from inside [queryContacts] on a mid-flight SecurityException. Silent —
+     * onResume and from inside [queryContacts] on a mid-flight SecurityException. Silent -
      * matches the pattern of [reconcileDoubleTapPref] for the accessibility-driven lock.
      */
     private fun reconcileContactSearchPref() {
@@ -1021,10 +1021,10 @@ class AppDrawerFragment : Fragment() {
         is HomeItem.AppItem -> computeFontSize(prefs.getUsageCount(item.info.packageName), maxUsage)
         is HomeItem.FolderItem ->
             computeFontSize(item.folder.packages.sumOf { prefs.getUsageCount(it) }, maxUsage)
-        // Contact results carry no usage signal — render at the minimum (least-prominent)
+        // Contact results carry no usage signal - render at the minimum (least-prominent)
         // size so they don't dominate the paragraph alongside frequently-used apps.
         is HomeItem.ContactItem -> prefs.minFontSize.toFloat()
-        // "‹ back" is an affordance, not a data row — render at the minimum size so it doesn't
+        // "‹ back" is an affordance, not a data row - render at the minimum size so it doesn't
         // dominate the paragraph.
         HomeItem.BackOut -> prefs.minFontSize.toFloat()
     }
@@ -1075,7 +1075,7 @@ class AppDrawerFragment : Fragment() {
      * Render a contact search result. Format is `Name` for single-number contacts and
      * `Name (type)` for multi-number contacts where the type label disambiguates the row
      * (mobile / work / home / etc.). The phone number is never visible on the search
-     * surface — tapping opens the dialer pre-populated with the number, which is where
+     * surface - tapping opens the dialer pre-populated with the number, which is where
      * the user sees and confirms it.
      *
      * Single-number contact rows render identically to apps named the same thing. This
@@ -1093,7 +1093,7 @@ class AppDrawerFragment : Fragment() {
         gravity: Int,
     ): TextView = TextView(requireContext()).apply {
         // Visible text: name + optional (type) for multi-number contacts. Every contact row
-        // reads the same shape — source accounts (Google / WhatsApp / SIM / etc.) are
+        // reads the same shape - source accounts (Google / WhatsApp / SIM / etc.) are
         // intentionally never surfaced. Source-level filtering happens silently via
         // `prefs.googleContactsOnly`. The contentDescription mirrors the visible text so
         // TalkBack sees the same level of detail.
@@ -1154,7 +1154,7 @@ class AppDrawerFragment : Fragment() {
     /**
      * Compose the folder label per [PreferencesManager.folderStyle]. Any unrecognised stored
      * value (e.g., from a future style we later remove) falls through to the chevron default
-     * rather than rendering an empty marker — never breaks the layout. NBSP (U+00A0) keeps the
+     * rather than rendering an empty marker - never breaks the layout. NBSP (U+00A0) keeps the
      * chevron glued to the name when Flow wraps mid-paragraph.
      */
     private fun folderLabel(folder: Folder, visibleCount: Int): String =
@@ -1183,7 +1183,7 @@ class AppDrawerFragment : Fragment() {
         alpha = 0.7f
         setPadding(hPad, vPad, hPad, vPad)
         setOnClickListener { exitFolder() }
-        // No long-press menu — back is purely an affordance.
+        // No long-press menu - back is purely an affordance.
         setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = true
             singleFingerDetector.onTouchEvent(event)
@@ -1251,7 +1251,7 @@ class AppDrawerFragment : Fragment() {
     // Fast scroll only operates over an alphabetical list, so it's mutually exclusive with
     // Sort by usage. We preserve `prefs.alphabeticalFastScroll` even when Sort by usage is on
     // (so the toggle re-lights at the user's previous position when they switch sort modes),
-    // but this getter is the single source of truth for the render path — returning false here
+    // but this getter is the single source of truth for the render path - returning false here
     // suppresses both the fast-scroll widget and the forced-alphabetical override in
     // AppRepository, so Sort by usage takes effect immediately when the user enables it.
     private fun useFastScroll(): Boolean =
@@ -1261,7 +1261,7 @@ class AppDrawerFragment : Fragment() {
 
     /**
      * Resolve the apps-list typeface. `fontFamily` defaults to a non-empty Google Font key, so
-     * [Typography.buildTypeface] never returns null here — the `?: Typeface.DEFAULT` fallback
+     * [Typography.buildTypeface] never returns null here - the `?: Typeface.DEFAULT` fallback
      * is defensive only (would only trip if a future code path wrote both sentinels to the apps'
      * pref).
      */
@@ -1453,7 +1453,7 @@ class AppDrawerFragment : Fragment() {
         }.show()
     }
 
-    /** Long-press on a folder label — Rename / Delete / Custom color. */
+    /** Long-press on a folder label - Rename / Delete / Custom color. */
     private fun showFolderMenu(folder: Folder, anchor: View) {
         SlateListDialog(
             context = requireContext(),
@@ -1705,7 +1705,7 @@ class AppDrawerFragment : Fragment() {
 
         root.addView(divider())
 
-        // Text input — filled background so it reads as an editable field
+        // Text input - filled background so it reads as an editable field
         val inputFill = if (isLight) Color.parseColor("#EBEBEB") else Color.parseColor("#1E1E1E")
         val inputStroke = if (isLight) Color.parseColor("#CCCCCC") else Color.parseColor("#4A4A4A")
         val input = android.widget.EditText(ctx).apply {
@@ -1867,34 +1867,34 @@ class AppDrawerFragment : Fragment() {
                 "Accessibility is used only for the \"double tap to lock screen\" feature. It calls a single system API (GLOBAL_ACTION_LOCK_SCREEN) to lock the device while keeping biometric unlock available.\n\nSlate cannot read screen content, monitor app usage, or collect any data via this permission.",
 
             "Why does Slate need Notification access?" to
-                "Notification access is optional and used only for the notification highlight feature — it changes the color of an app's name when it has a pending notification.\n\nSlate only checks which packages have active notifications. Notification content (titles, messages, senders) is never read or stored.",
+                "Notification access is optional and used only for the notification highlight feature - it changes the color of an app's name when it has a pending notification.\n\nSlate only checks which packages have active notifications. Notification content (titles, messages, senders) is never read or stored.",
 
             "Does Slate collect any data?" to
                 "No. Slate is 100% offline and collects zero data.\n\nThere is no analytics, no crash reporting, no tracking, and no network requests of any kind. All settings, usage counts, and customizations are stored locally on your device using Android's SharedPreferences and never leave it.",
 
             "Does Slate read my contacts?" to
-                "Only if you turn on \"Search contacts\" in Settings → Search. With that off (the default), Slate has no contacts permission at all. With it on, Slate reads your contact list each time you type a search query — to find matches alongside your apps. Nothing is stored, indexed, or sent anywhere. Quitting and relaunching the launcher starts with no contact data in memory.\n\nWork-profile contacts are not visible (Android isolates them from third-party launchers). Contacts without a phone number are skipped, since tapping a contact opens the dialer.\n\nIf the same person appears multiple times — they often do, because the same contact can exist under more than one source (Google, WhatsApp, Telegram, SIM, OEM contacts, etc.) — turn on \"Google contacts only\" in the same settings page to filter to your Google address book and skip the duplicates.",
+                "Only if you turn on \"Search contacts\" in Settings → Search. With that off (the default), Slate has no contacts permission at all. With it on, Slate reads your contact list each time you type a search query - to find matches alongside your apps. Nothing is stored, indexed, or sent anywhere. Quitting and relaunching the launcher starts with no contact data in memory.\n\nWork-profile contacts are not visible (Android isolates them from third-party launchers). Contacts without a phone number are skipped, since tapping a contact opens the dialer.\n\nIf the same person appears multiple times - they often do, because the same contact can exist under more than one source (Google, WhatsApp, Telegram, SIM, OEM contacts, etc.) - turn on \"Google contacts only\" in the same settings page to filter to your Google address book and skip the duplicates.",
 
             "What other permissions does Slate use?" to
-                "• EXPAND_STATUS_BAR — swipe-down notification panel gesture\n• ACCESS_WIFI_STATE / CHANGE_WIFI_STATE — Wi-Fi toggle gesture (Android 10+: opens system panel)\n• BLUETOOTH / BLUETOOTH_ADMIN — Bluetooth toggle on Android 11 and below\n• QUERY_ALL_PACKAGES — required to list all installed apps (Android 11+)\n• REQUEST_DELETE_PACKAGES — initiates the system uninstall flow when you choose to uninstall an app\n• REQUEST_IGNORE_BATTERY_OPTIMIZATIONS — used only when you tap \"Fix this\" on the battery restriction warning in Settings, to request that the system exempt Slate from battery optimization so background features keep working\n• USE_BIOMETRIC — declared by the AndroidX Biometric library; only requested when you opt into biometric unlock for hidden apps. Biometric data is processed by the OS and never reaches Slate.",
+                "• EXPAND_STATUS_BAR - swipe-down notification panel gesture\n• ACCESS_WIFI_STATE / CHANGE_WIFI_STATE - Wi-Fi toggle gesture (Android 10+: opens system panel)\n• BLUETOOTH / BLUETOOTH_ADMIN - Bluetooth toggle on Android 11 and below\n• QUERY_ALL_PACKAGES - required to list all installed apps (Android 11+)\n• REQUEST_DELETE_PACKAGES - initiates the system uninstall flow when you choose to uninstall an app\n• REQUEST_IGNORE_BATTERY_OPTIMIZATIONS - used only when you tap \"Fix this\" on the battery restriction warning in Settings, to request that the system exempt Slate from battery optimization so background features keep working\n• USE_BIOMETRIC - declared by the AndroidX Biometric library; only requested when you opt into biometric unlock for hidden apps. Biometric data is processed by the OS and never reaches Slate.",
 
             "How does the hidden apps lock work?" to
-                "Turning on \"Lock hidden apps\" in Settings → Security asks you to set a 4–8 digit PIN. After that, opening the Hidden Apps dialog from the home long-press menu requires PIN (or biometric, if you opt in).\n\nYour PIN is never stored in plain text. Slate stores a salted PBKDF2-HMAC-SHA256 hash with 120,000 iterations and a per-device random 16-byte salt. The hash is a one-way verifier — even with the file, an attacker would have to brute-force the PIN.\n\nBiometric is optional. When enabled, Slate uses Android's BiometricPrompt to show the standard fingerprint/face dialog. Biometric data stays inside the OS and Slate only sees a success/fail signal.\n\nAfter 5 wrong PIN attempts you're locked out for 30 seconds; 10 wrong for 5 minutes; 15 wrong for 15 minutes. There is no PIN recovery — clearing app data is the only reset. When restoring a backup that includes hidden apps, you'll be asked for the backup's PIN. If you don't know it, the rest of your settings still restore and your current PIN and hidden apps stay as they were.",
+                "Turning on \"Lock hidden apps\" in Settings → Security asks you to set a 4–8 digit PIN. After that, opening the Hidden Apps dialog from the home long-press menu requires PIN (or biometric, if you opt in).\n\nYour PIN is never stored in plain text. Slate stores a salted PBKDF2-HMAC-SHA256 hash with 120,000 iterations and a per-device random 16-byte salt. The hash is a one-way verifier - even with the file, an attacker would have to brute-force the PIN.\n\nBiometric is optional. When enabled, Slate uses Android's BiometricPrompt to show the standard fingerprint/face dialog. Biometric data stays inside the OS and Slate only sees a success/fail signal.\n\nAfter 5 wrong PIN attempts you're locked out for 30 seconds; 10 wrong for 5 minutes; 15 wrong for 15 minutes. There is no PIN recovery - clearing app data is the only reset. When restoring a backup that includes hidden apps, you'll be asked for the backup's PIN. If you don't know it, the rest of your settings still restore and your current PIN and hidden apps stay as they were.",
 
             "Do hidden apps appear in the Recents (Overview) screen?" to
-                "When you open a hidden app from Slate, it's launched in a way that keeps it off the Android Recents / Overview screen — so someone glancing at Recents won't see what hidden app you opened.\n\nOne caveat Android can't avoid: if the app already had a task in Recents from before (because you opened it from another launcher, or because it uses Android's \"single task\" mode like Chrome on some devices), Slate can't remove that existing entry. Swipe it away from Recents once, and from then on Slate's launches stay invisible.",
+                "When you open a hidden app from Slate, it's launched in a way that keeps it off the Android Recents / Overview screen - so someone glancing at Recents won't see what hidden app you opened.\n\nOne caveat Android can't avoid: if the app already had a task in Recents from before (because you opened it from another launcher, or because it uses Android's \"single task\" mode like Chrome on some devices), Slate can't remove that existing entry. Swipe it away from Recents once, and from then on Slate's launches stay invisible.",
 
             "How do folders work?" to
-                "Long-press any app and choose \"Move to folder\" to add it to an existing folder, or pick \"+ New folder\" to create one on the spot. Folders appear on the home screen with a marker (chevron, bullet, brackets, slash, count, or plain — pick your style in Settings → Typography → Folder style). Tap to expand inline — the home list is replaced by the folder's apps with a leading ‹ back row. Tap back (or press the system back gesture) to return.\n\nEach app lives in at most one folder. Apps inside a folder are hidden from the main list to reduce clutter — search still finds them globally, and the folder name itself also appears in search results.\n\nLong-press a folder label to rename, set a custom color, or delete. Deleting a folder returns its apps to the main list; the apps themselves are never removed. Pinning an app automatically removes it from any folder it was in. If you uninstall an app, it disappears from its folder; empty folders are pruned automatically.",
+                "Long-press any app and choose \"Move to folder\" to add it to an existing folder, or pick \"+ New folder\" to create one on the spot. Folders appear on the home screen with a marker (chevron, bullet, brackets, slash, count, or plain - pick your style in Settings → Typography → Folder style). Tap to expand inline - the home list is replaced by the folder's apps with a leading ‹ back row. Tap back (or press the system back gesture) to return.\n\nEach app lives in at most one folder. Apps inside a folder are hidden from the main list to reduce clutter - search still finds them globally, and the folder name itself also appears in search results.\n\nLong-press a folder label to rename, set a custom color, or delete. Deleting a folder returns its apps to the main list; the apps themselves are never removed. Pinning an app automatically removes it from any folder it was in. If you uninstall an app, it disappears from its folder; empty folders are pruned automatically.",
 
             "Why are widgets shown as text, not icons?" to
-                "Slate is text-only by design — apps are listed by name, and the widget strip follows the same rule. A label like \"Wi-Fi\" reads as a word rather than a symbol you recognise on autopilot, so opening or toggling something stays a small deliberate choice instead of a reflex.\n\nEach widget shows its name with the current value when there is one to show (Battery: 67%, Volume: 60%, Time: 14:32) or just the name for simple on/off toggles (Wi-Fi, Bluetooth). Active widgets render at full opacity; inactive ones are dimmed to 40% so you can see at a glance whether something is on without needing icons or colour.",
+                "Slate is text-only by design - apps are listed by name, and the widget strip follows the same rule. A label like \"Wi-Fi\" reads as a word rather than a symbol you recognise on autopilot, so opening or toggling something stays a small deliberate choice instead of a reflex.\n\nEach widget shows its name with the current value when there is one to show (Battery: 67%, Volume: 60%, Time: 14:32) or just the name for simple on/off toggles (Wi-Fi, Bluetooth). Active widgets render at full opacity; inactive ones are dimmed to 40% so you can see at a glance whether something is on without needing icons or colour.",
 
             "Why doesn't the Wi-Fi widget show my network name?" to
-                "On Android 10 and above, an app can only read the connected Wi-Fi network's name (SSID) if you grant it a sensitive runtime permission — on most devices that's the precise location permission (ACCESS_FINE_LOCATION) — and have location services turned on.\n\nSlate is offline-only and never asks for a permission it doesn't strictly need for a feature, so the widget shows just \"Wi-Fi\" with active/inactive dimming instead. Tapping it opens the system Wi-Fi panel, which lists the connected network natively without needing Slate to ask for anything.",
+                "On Android 10 and above, an app can only read the connected Wi-Fi network's name (SSID) if you grant it a sensitive runtime permission - on most devices that's the precise location permission (ACCESS_FINE_LOCATION) - and have location services turned on.\n\nSlate is offline-only and never asks for a permission it doesn't strictly need for a feature, so the widget shows just \"Wi-Fi\" with active/inactive dimming instead. Tapping it opens the system Wi-Fi panel, which lists the connected network natively without needing Slate to ask for anything.",
 
             "Why can't Slate toggle Wi-Fi or Bluetooth directly?" to
-                "Android removed direct toggle access for these from third-party apps:\n\n• Wi-Fi: since Android 10, apps cannot switch Wi-Fi on or off programmatically. Tapping the widget opens the inline system Wi-Fi panel as a bottom-sheet overlay — one tap to flip Wi-Fi on or off without leaving the launcher view.\n\n• Bluetooth: since Android 12, toggling Bluetooth requires the runtime BLUETOOTH_CONNECT permission, which also grants access to the names and addresses of every paired device and the ability to connect to them — far more than just on/off.\n\n• Mobile data, Airplane mode, NFC: toggling these requires signature-level permissions that Android only grants to system apps.\n\nSlate could ask for BLUETOOTH_CONNECT to get a one-tap Bluetooth toggle, but it would mean holding a permission that no other feature needs. Deep-linking into the system panels is the trade-off — one extra tap, no unnecessary access to your device.",
+                "Android removed direct toggle access for these from third-party apps:\n\n• Wi-Fi: since Android 10, apps cannot switch Wi-Fi on or off programmatically. Tapping the widget opens the inline system Wi-Fi panel as a bottom-sheet overlay - one tap to flip Wi-Fi on or off without leaving the launcher view.\n\n• Bluetooth: since Android 12, toggling Bluetooth requires the runtime BLUETOOTH_CONNECT permission, which also grants access to the names and addresses of every paired device and the ability to connect to them - far more than just on/off.\n\n• Mobile data, Airplane mode, NFC: toggling these requires signature-level permissions that Android only grants to system apps.\n\nSlate could ask for BLUETOOTH_CONNECT to get a one-tap Bluetooth toggle, but it would mean holding a permission that no other feature needs. Deep-linking into the system panels is the trade-off - one extra tap, no unnecessary access to your device.",
 
             "Is Slate open source?" to
                 "Yes. Slate is open source under the MIT licence.\n\nSource code: github.com/roufsyed/Slate-Minimal-Launcher"
@@ -1933,7 +1933,7 @@ class AppDrawerFragment : Fragment() {
 
         val dialog = Dialog(ctx, R.style.SlateDialogTheme)
 
-        // Back arrow row — stays pinned at the top of the dialog; doesn't scroll with the
+        // Back arrow row - stays pinned at the top of the dialog; doesn't scroll with the
         // answer body so the user can always return to the FAQ list mid-read.
         val mutedColor = if (isLight) Color.parseColor("#666666") else Color.parseColor("#888888")
         container.addView(TextView(ctx).apply {
@@ -1951,7 +1951,7 @@ class AppDrawerFragment : Fragment() {
             }
         })
 
-        // Question — also pinned. Stays visible above the answer so the user keeps the
+        // Question - also pinned. Stays visible above the answer so the user keeps the
         // context of what they tapped while reading a long answer.
         container.addView(TextView(ctx).apply {
             text = question
@@ -1964,7 +1964,7 @@ class AppDrawerFragment : Fragment() {
         })
 
         // Answer is the only scrollable region. Convention follows WidgetArrangeDialog /
-        // WidgetPickerDialog / PrivacyPolicyDialog — dialog window is sized to a fixed
+        // WidgetPickerDialog / PrivacyPolicyDialog - dialog window is sized to a fixed
         // fraction of the screen (below) and an internal ScrollView with weight=1 absorbs
         // any overflow from the body. Previously this region was a bare TextView inside a
         // WRAP_CONTENT dialog, so long answers (e.g. "How does the hidden apps lock work?")
@@ -1992,7 +1992,7 @@ class AppDrawerFragment : Fragment() {
         ).apply { weight = 1f })
 
         // MATCH_PARENT on the container so its children's weight=1 has a bounded parent to
-        // distribute against — without this the LinearLayout would only be as tall as its
+        // distribute against - without this the LinearLayout would only be as tall as its
         // natural content and weight=1 would have no effect.
         dialog.setContentView(container, ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -2037,7 +2037,7 @@ class AppDrawerFragment : Fragment() {
         var parent: SlateListDialog? = null
         parent = SlateListDialog(
             context = requireContext(),
-            title = "Hidden Apps — tap to open, hold to unhide",
+            title = "Hidden Apps - tap to open, hold to unhide",
             items = hidden.map { it.first },
             bgColor = prefs.backgroundColor,
             onItemLongPress = { index, _ ->
@@ -2058,7 +2058,7 @@ class AppDrawerFragment : Fragment() {
 
     /**
      * Launch a package from the Hidden Apps dialog. Mirrors [launchApp] but accepts a raw
-     * package — the Hidden Apps dialog tracks (displayName, pkg) pairs rather than full
+     * package - the Hidden Apps dialog tracks (displayName, pkg) pairs rather than full
      * [AppInfo] objects. The null-intent branch is defensive: the list is filtered for
      * installed apps at open time, so this only trips if an uninstall raced with the tap.
      */
@@ -2066,7 +2066,7 @@ class AppDrawerFragment : Fragment() {
         // Usage count is deliberately NOT incremented for hidden launches. Hidden apps are
         // filtered out of AppRepository.getAllApps() (line ~28), so the count has no effect on
         // the main list, search, or sort-by-usage. Its only remaining consumer is the folder
-        // font-size weighting in sizeForItem() — which would visibly grow the containing
+        // font-size weighting in sizeForItem() - which would visibly grow the containing
         // folder's font on every hidden launch and leak activity to anyone glancing at the
         // home screen.
         SlateNotificationService.activePackages.remove(pkg)
@@ -2079,7 +2079,7 @@ class AppDrawerFragment : Fragment() {
         // coworker glancing at Recents can't see what hidden app was opened. The flag applies
         // at task-creation time; if the target app uses launchMode="singleTask" and already
         // has a live task in Recents from before, that existing task is reused and stays
-        // visible — public APIs don't let a third-party launcher remove another app's task.
+        // visible - public APIs don't let a third-party launcher remove another app's task.
         // The FAQ explains the one-time-swipe mitigation to the user.
         intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
         runCatching { startActivity(intent) }
@@ -2089,7 +2089,7 @@ class AppDrawerFragment : Fragment() {
     }
 
     /**
-     * Confirmation dialog before unhiding an app — guards against a misclick on the Hidden
+     * Confirmation dialog before unhiding an app - guards against a misclick on the Hidden
      * Apps long-press. Reuses the accessibility-info dialog layout (title / body / two
      * buttons), the same template as [showDeleteFolderConfirm].
      */
