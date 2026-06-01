@@ -1,0 +1,50 @@
+Slate is a minimal text-only Android home screen built for focus.
+
+Most launchers want to keep you on your phone. Colourful icons trigger recognition without thought, notification badges create artificial urgency, and recommendation widgets are optimised for engagement, not intent. Slate removes all of that. Apps are presented as plain text, the same way a to-do list presents tasks. You open the app you meant to open, not the one that looked most appealing.
+
+
+APPEARANCE
+
+* Two homescreen layouts: Flow (apps wrap like text, sized by usage) or Minimal List (one app per line with optional alphabetical fast-scroll)
+* Fully customisable background and text colours with a live colour picker
+* Follow system theme: switches automatically with system dark mode
+* Apply background colour to the lockscreen for a uniform look
+* Per-app colour overrides to highlight what matters
+* Notification highlight: app names change colour when an app has a pending notification
+* Typography control: font family (Google Fonts plus import your own), weight, line spacing, word spacing
+* Font size scales with usage in Flow view
+
+
+INTERACTION
+
+* Swipe up to search apps
+* Configurable single-finger swipe gestures (any app, notifications, Wi-Fi, Bluetooth, location, camera, more)
+* Double-tap to lock screen (via accessibility service)
+* Long-press an app to pin, hide, rename, recolour, uninstall, or move to a folder
+* Pin apps to the top regardless of sort order
+* Sort alphabetically or by most used
+* Custom folders: each folder is a text label with a marker (chevron, slash, bullet, brackets, count, or plain). Tap to expand inline. Long-press to rename, recolour, or delete
+
+
+QUICK TOGGLES STRIP
+
+An optional row of text widgets at the top or bottom of your home screen. Choose from Clock, Date, Next alarm, Battery percent, Charging, Time to full, Battery temperature, Uptime, Wi-Fi, Bluetooth, Mobile data, Airplane mode, DND, Volume, Ringer mode, Torch, Brightness, Location, NFC, and contact tap-to-call or tap-to-text shortcuts. Off by default. Pick widgets, position, and typography from Settings.
+
+
+CONTROL
+
+* Lock orientation to portrait
+* Optional persistent search bar on the home screen
+* Optional contact search: turn it on to surface contacts inline with apps when you type. Read at search time, never stored. Google-only sub-toggle skips duplicates from WhatsApp, Telegram, SIM
+* PIN-lock the hidden apps list (4 to 8 digits, PBKDF2 hashed) with optional biometric unlock. Hidden-app launches stay out of Android Recents
+* Export and import all settings as a JSON backup. Hidden-apps list and PIN are omitted by default. Opt in via Settings, with an in-memory PIN check on import
+
+
+PRIVACY
+
+Slate does not collect, transmit, or share any data. No analytics, no crash reporting, no network activity. All preferences are stored locally. App usage counts never leave the device. Each Android permission Slate declares is requested only for the specific feature that uses it. Full details in the in-app privacy policy.
+
+
+OPEN SOURCE
+
+MIT licensed. Source at github.com/roufsyed/Slate-Minimal-Launcher
