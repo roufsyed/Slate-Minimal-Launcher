@@ -24,17 +24,26 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file(keystoreProps["storeFile"] as String)
-            storePassword = keystoreProps["storePassword"] as String
-            keyAlias = keystoreProps["keyAlias"] as String
-            keyPassword = keystoreProps["keyPassword"] as String
+        // Only declare the release signing config when keystore.properties is present.
+        // F-Droid CI (and any contributor build) runs without that file; configuring the
+        // `storeFile` from an empty properties map would NPE at configure time. Skipping the
+        // config here lets F-Droid build an unsigned release APK which it then signs with
+        // its own key, the normal F-Droid flow. Local release builds are unaffected.
+        if (keystorePropsFile.exists()) {
+            create("release") {
+                storeFile = file(keystoreProps["storeFile"] as String)
+                storePassword = keystoreProps["storePassword"] as String
+                keyAlias = keystoreProps["keyAlias"] as String
+                keyPassword = keystoreProps["keyPassword"] as String
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // findByName returns null when the signing config wasn't created (no keystore);
+            // assigning null leaves the release APK unsigned for F-Droid's signing step.
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
