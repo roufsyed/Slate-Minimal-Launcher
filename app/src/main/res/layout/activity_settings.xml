@@ -990,6 +990,46 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
+            <!-- Position is a regular Search-section row. It governs both the swipe-up
+                 transient bar and the show-on-home persistent bar, so it stays available
+                 (greyed) when the master Search toggle is off rather than disappearing. -->
+            <LinearLayout
+                android:id="@+id/rowSearchBarPosition"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="10dp"
+                android:background="?attr/selectableItemBackground">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Position"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:id="@+id/labelSearchBarPositionSub"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Top or bottom of the screen"
+                        android:textSize="13sp"
+                        android:alpha="0.6" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/searchBarPositionValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
             <LinearLayout
                 android:id="@+id/rowSearchOnHome"
                 android:layout_width="match_parent"
@@ -1104,32 +1144,6 @@
                     android:id="@+id/switchGoogleContactsOnly"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content" />
-            </LinearLayout>
-
-            <!-- Position sub-row (visible when show-on-home is on) -->
-            <LinearLayout
-                android:id="@+id/rowSearchBarPosition"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingVertical="10dp"
-                android:paddingStart="16dp"
-                android:visibility="gone"
-                android:background="?attr/selectableItemBackground">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Position"
-                    android:textSize="15sp" />
-
-                <TextView
-                    android:id="@+id/searchBarPositionValue"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="14sp" />
             </LinearLayout>
 
         </LinearLayout>

@@ -1055,6 +1055,7 @@ class SettingsActivity : AppCompatActivity() {
         val labelOnHomeSub = findViewById<TextView>(R.id.labelSearchOnHomeSub)
         val rowPosition = findViewById<View>(R.id.rowSearchBarPosition)
         val positionValue = findViewById<TextView>(R.id.searchBarPositionValue)
+        val labelSearchBarPositionSub = findViewById<TextView>(R.id.labelSearchBarPositionSub)
         val rowContactSearch = findViewById<View>(R.id.rowContactSearch)
         val switchContactSearch = findViewById<MaterialSwitch>(R.id.switchContactSearch)
         val labelContactSearchSub = findViewById<TextView>(R.id.labelContactSearchSub)
@@ -1085,6 +1086,8 @@ class SettingsActivity : AppCompatActivity() {
         val blockedOnHomeSub = "Turn on Search to enable"
         val defaultContactSub = "Show matching contacts when you type"
         val blockedContactSub = "Turn on Search to enable"
+        val defaultPositionSub = "Top or bottom of the screen"
+        val blockedPositionSub = "Turn on Search to enable"
         val defaultGoogleOnlySub =
             "Hide duplicates from WhatsApp, Telegram, SIM, and other sources"
         val blockedGoogleOnlyMasterSub = "Turn on Search to enable"
@@ -1098,9 +1101,13 @@ class SettingsActivity : AppCompatActivity() {
             rowContactSearch.alpha = if (masterOn) 1f else 0.4f
             labelContactSearchSub.text =
                 if (masterOn) defaultContactSub else blockedContactSub
-            // Position sub-row only shows when BOTH the master and Show-on-home are on.
-            rowPosition.visibility =
-                if (masterOn && prefs.showSearchBarOnHome) View.VISIBLE else View.GONE
+            // Position governs both the swipe-up (transient) search bar AND the
+            // show-on-home (persistent) bar. Greyed (not hidden) when master is off so
+            // the row stays in its natural place in the section.
+            rowPosition.alpha = if (masterOn) 1f else 0.4f
+            rowPosition.isClickable = masterOn
+            labelSearchBarPositionSub.text =
+                if (masterOn) defaultPositionSub else blockedPositionSub
             // Two-level gate for the Google-only filter: the row needs BOTH the master
             // Search toggle AND the Search-contacts sub-toggle to be on. Sub-label tells the
             // user which switch they need to flip first.
@@ -1129,7 +1136,7 @@ class SettingsActivity : AppCompatActivity() {
                 prefs.showSearchBarOnHome = false
                 switchOnHome.setOnCheckedChangeListener(null)
                 switchOnHome.isChecked = false
-                attachOnHomeListener(switchOnHome, rowPosition)
+                attachOnHomeListener(switchOnHome)
 
                 prefs.contactSearchEnabled = false
                 switchContactSearch.setOnCheckedChangeListener(null)
@@ -1140,7 +1147,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         switchOnHome.isChecked = prefs.showSearchBarOnHome
-        attachOnHomeListener(switchOnHome, rowPosition)
+        attachOnHomeListener(switchOnHome)
 
         // Initial state - reconcile against the live READ_CONTACTS grant before attaching the
         // listener. If the user revoked permission externally between sessions, the pref flips
@@ -1491,10 +1498,9 @@ class SettingsActivity : AppCompatActivity() {
      * branch is gone. With the gate in place, `switchOnHome.isEnabled = false` when the master
      * is off, so a user-initiated `checked=true` is impossible while Search is disabled.
      */
-    private fun attachOnHomeListener(switchOnHome: MaterialSwitch, rowPosition: View) {
+    private fun attachOnHomeListener(switchOnHome: MaterialSwitch) {
         switchOnHome.setOnCheckedChangeListener { _, checked ->
             prefs.showSearchBarOnHome = checked
-            rowPosition.visibility = if (checked) View.VISIBLE else View.GONE
         }
     }
 
