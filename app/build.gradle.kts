@@ -84,6 +84,14 @@ android {
             excludes += "META-INF/version-control-info.textproto"
         }
     }
+
+    // AGP 8.x writes a "Dependency metadata" extra block into the APK Signing Block listing
+    // every Gradle dependency plus its checksum. F-Droid's scanner rejects any non-standard
+    // signing block as a privacy / supply-chain concern, so disable both APK and AAB embedding.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 }
 
 kotlin {
