@@ -73,6 +73,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+
+    // AGP 8.1+ embeds the current git revision into META-INF/version-control-info.textproto.
+    // Inside F-Droid's sandbox there is no git context, so their build emits a placeholder
+    // ("generate_error_reason: NO_VALID_GIT_FOUND") while our local build emits the real SHA.
+    // Two different bytes break reproducible-builds verification. Drop the file on every build
+    // so the user-signed APK and the F-Droid-built APK are byte-identical.
+    packaging {
+        resources {
+            excludes += "META-INF/version-control-info.textproto"
+        }
+    }
 }
 
 kotlin {
