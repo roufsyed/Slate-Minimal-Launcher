@@ -16,6 +16,7 @@ import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
 import com.slate.launcher.PreferencesManager
 import com.slate.launcher.Typography
+import com.slate.launcher.shortcuts.PinnedShortcutStore
 
 /**
  * Renders the home-screen quick-toggles strip into a FlexboxLayout and manages each enabled
@@ -79,6 +80,8 @@ class QuickStripManager(
             return
         }
 
+        reconcilePinnedShortcuts()
+
         // Re-apply alignment on every bind so a pref change between Settings and home flips
         // the row immediately on resume.
         container.justifyContent = when (prefs.widgetTextAlignment) {
@@ -96,6 +99,10 @@ class QuickStripManager(
 
         container.visibility = if (activeWidgets.isEmpty()) View.GONE else View.VISIBLE
         refreshAll()
+    }
+
+    private fun reconcilePinnedShortcuts() {
+        PinnedShortcutStore.reconcileInstalled(context, prefs)
     }
 
     /** Start observing each enabled widget. Call from the host fragment's onResume. */

@@ -133,6 +133,11 @@ class BackupManager(private val prefs: PreferencesManager) {
         // User-created folders. Same human-readable strategy as contactShortcuts.
         root.put("folders", JSONArray(prefs.foldersJson))
 
+        // Pinned external-app shortcuts. Same human-readable strategy as contactShortcuts/folders.
+        // Only the durable fields ever appear here - PinnedShortcut has no device-local-only
+        // fields serialized in its own toJson(), so no special-casing is needed to keep any out.
+        root.put("pinnedShortcuts", JSONArray(prefs.pinnedShortcutsJson))
+
         // Guided tour: persist the version the user finished - restoring on a new device should
         // NOT re-trigger the tour. Don't persist `stepIndex`; mid-tour state is device-local.
         root.put("guidedTourSeenVersion", prefs.guidedTourSeenVersion)
@@ -272,6 +277,11 @@ class BackupManager(private val prefs: PreferencesManager) {
         }
         root.optJSONArray("folders")?.let { arr ->
             prefs.foldersJson = arr.toString()
+        }
+        // Absent on a backup taken before this feature shipped - the pref stays at its "[]"
+        // default, which PinnedShortcutStore.all() parses as an empty list defensively anyway.
+        root.optJSONArray("pinnedShortcuts")?.let { arr ->
+            prefs.pinnedShortcutsJson = arr.toString()
         }
         // Restoring `seenVersion` suppresses the auto-tour on the new device (the user already
         // saw it before exporting). Mid-tour `stepIndex` is intentionally reset so a partial

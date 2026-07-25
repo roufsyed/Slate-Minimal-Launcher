@@ -39,6 +39,9 @@ import com.google.android.flexbox.JustifyContent
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
+import com.slate.launcher.shortcuts.PinnedShortcutStore
+import com.slate.launcher.shortcuts.ShortcutDestination
+import com.slate.launcher.shortcuts.ShortcutSourceAppPickerDialog
 import com.slate.launcher.widgets.ContactShortcut
 import com.slate.launcher.widgets.ContactShortcutStore
 import com.slate.launcher.widgets.WidgetPickerDialog
@@ -48,6 +51,9 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var prefs: PreferencesManager
     private lateinit var switchDoubleTap: MaterialSwitch
+    /** Tracked across onResume calls so the OS resync in [syncShortcutHostPermission] fires
+     * only on a false→true transition, not on every resume while already granted. */
+    private var wasShortcutHostPermissionGranted: Boolean = false
     private lateinit var createBackupLauncher: ActivityResultLauncher<String>
     private lateinit var openBackupLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var importFontLauncher: ActivityResultLauncher<Array<String>>
@@ -258,6 +264,7 @@ class SettingsActivity : AppCompatActivity() {
         setupBackup()
         setupGeneral()
         setupQuickStrip()
+        setupAppShortcuts()
         setupSecurity()
         setupAbout()
         setupBatteryBanner()
@@ -283,6 +290,23 @@ class SettingsActivity : AppCompatActivity() {
         updateDefaultLauncherRow()
         syncPermissionToggles()
         updateBatteryBanner()
+        syncShortcutHostPermission()
+    }
+
+    /**
+     * The shortcut-host permission is tied to Slate's current default-launcher status, which can
+     * change any time the user visits system Settings - not a one-time grant. On a false→true
+     * transition (the user just set Slate as default, or switched back to it), re-assert any
+     * already-pinned shortcuts at the OS level in case they were cleared while permission was
+     * absent. A no-op if nothing needs re-pinning.
+     */
+    private fun syncShortcutHostPermission() {
+        val launcherApps = PinnedShortcutStore.launcherApps(this) ?: return
+        val granted = PinnedShortcutStore.hasShortcutHostPermissionSafe(launcherApps)
+        if (granted && !wasShortcutHostPermissionGranted) {
+            PinnedShortcutStore.resyncAllWithOs(prefs, launcherApps)
+        }
+        wasShortcutHostPermissionGranted = granted
     }
 
     private fun syncPermissionToggles() {
@@ -404,7 +428,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val dividerColor = if (isLight) Color.parseColor("#22000000") else Color.parseColor("#22FFFFFF")
         listOf(R.id.divider0, R.id.divider1, R.id.divider1b, R.id.divider2,
-               R.id.divider3, R.id.divider3b, R.id.divider4, R.id.divider5, R.id.divider6).forEach { id ->
+               R.id.divider3, R.id.divider3b, R.id.divider3c, R.id.divider4, R.id.divider5, R.id.divider6).forEach { id ->
             findViewById<View>(id)?.setBackgroundColor(dividerColor)
         }
 
@@ -2022,6 +2046,11 @@ class SettingsActivity : AppCompatActivity() {
             ImportOutcome.PRIVATE_SKIPPED -> "Settings restored. Hidden apps not imported."
             ImportOutcome.PRIVATE_RESTORED -> "Hidden apps restored"
         }
+        // Every applyNonPrivate() call site funnels here, so this is the single place to
+        // re-assert restored pinned shortcuts at the OS level. A no-op if permission is
+        // currently absent (common right after a fresh-device restore) - the onResume
+        // false→true transition handler below picks it up once the user re-grants it.
+        PinnedShortcutStore.resyncAllWithOs(prefs, PinnedShortcutStore.launcherApps(this))
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
         recreate()
     }
@@ -2686,6 +2715,41 @@ class SettingsActivity : AppCompatActivity() {
             prefs.quickStripWidgets = current
         }
         WidgetPickerDialog.refreshActive()
+    }
+
+    // ── App shortcuts ──────────────────────────────────────────────
+
+    private fun setupAppShortcuts() {
+        findViewById<View>(R.id.rowAddShortcutToStrip).setOnClickListener {
+            openShortcutPicker(ShortcutDestination.WIDGET_STRIP)
+        }
+        findViewById<View>(R.id.rowAddShortcutToAppList).setOnClickListener {
+            openShortcutPicker(ShortcutDestination.APP_LIST)
+        }
+    }
+
+    private fun openShortcutPicker(destination: ShortcutDestination) {
+        val launcherApps = PinnedShortcutStore.launcherApps(this)
+        if (launcherApps == null || !PinnedShortcutStore.hasShortcutHostPermissionSafe(launcherApps)) {
+            SlateListDialog(
+                context = this,
+                title = "Set Slate as your default launcher",
+                items = listOf(
+                    "Slate needs to be your default launcher to read another app's shortcuts.",
+                    "Open launcher settings"
+                ),
+                bgColor = prefs.backgroundColor
+            ) { index, _ ->
+                if (index == 1) requestDefaultLauncher()
+            }.show()
+            return
+        }
+        ShortcutSourceAppPickerDialog.show(
+            activity = this,
+            prefs = prefs,
+            launcherApps = launcherApps,
+            destination = destination
+        )
     }
 
     // ── Hidden apps security ──────────────────────────────────────

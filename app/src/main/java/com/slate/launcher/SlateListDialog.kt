@@ -34,6 +34,14 @@ class SlateListDialog(
      * dialog) but the param is generic.
      */
     private val onItemLongPress: ((index: Int, label: String) -> Unit)? = null,
+    /**
+     * When false, selecting a row does NOT dismiss the dialog - the caller owns dismissing it.
+     * Used when this list needs to stay alive underneath a follow-up dialog spawned from the
+     * selection (e.g. the shortcut-source-app picker), so the system back gesture/button
+     * naturally reveals this dialog again when the follow-up closes, with nothing to recreate.
+     * Defaults to true, preserving every existing call site's dismiss-on-tap behaviour.
+     */
+    private val dismissOnSelect: Boolean = true,
     private val onItemSelected: (index: Int, label: String) -> Unit
 ) : Dialog(context, R.style.SlateDialogTheme) {
 
@@ -107,7 +115,7 @@ class SlateListDialog(
                     rippleOverlay = rippleOverlay,
                     hPad = hPad,
                     vPad = vPad
-                ) { onItemSelected(index, label); dismiss() }
+                ) { onItemSelected(index, label); if (dismissOnSelect) dismiss() }
             } else {
                 buildSingleColumnRow(
                     label = label,
@@ -116,7 +124,7 @@ class SlateListDialog(
                     rippleOverlay = rippleOverlay,
                     hPad = hPad,
                     vPad = vPad
-                ) { onItemSelected(index, label); dismiss() }
+                ) { onItemSelected(index, label); if (dismissOnSelect) dismiss() }
             }
             container.addView(row)
 

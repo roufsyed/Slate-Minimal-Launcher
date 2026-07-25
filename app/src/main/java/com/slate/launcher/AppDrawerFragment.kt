@@ -47,6 +47,9 @@ import com.slate.launcher.widgets.CallShortcutWidget
 import com.slate.launcher.widgets.QuickStripManager
 import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
+import com.slate.launcher.shortcuts.PinnedShortcut
+import com.slate.launcher.shortcuts.PinnedShortcutStore
+import com.slate.launcher.shortcuts.ShortcutDestination
 import kotlin.math.abs
 
 class AppDrawerFragment : Fragment() {
@@ -314,6 +317,15 @@ class AppDrawerFragment : Fragment() {
         // the launcher was in the background, flip the pref off silently so subsequent
         // searches take the apps-only path until the user re-opts in.
         reconcileContactSearchPref()
+        // Tier 2 (expensive, per-shortcut IPC) health check for pinned shortcuts - throttled to
+        // once per 60s internally, runs on a background thread, only rebuilds the visible UI if
+        // something actually changed (label refreshed, a shortcut went stale, or one was dropped).
+        PinnedShortcutStore.performHealthCheckIfDue(requireContext(), prefs) {
+            if (isAdded) {
+                buildAppList()
+                quickStrip?.bind()
+            }
+        }
     }
 
     /**
@@ -614,9 +626,15 @@ class AppDrawerFragment : Fragment() {
         // Compute visibleCount per matched folder so the Count style renders the same number
         // search results show as the main view would.
         val visiblePackages = all.mapTo(HashSet()) { it.packageName }
+        // Pinned shortcuts don't come from AppRepository.getAllApps() (a plain AppInfo list), so
+        // they need their own match set here - adding a ShortcutItem case to the HomeItem
+        // `when` blocks does NOT make them searchable on its own.
+        val matchedShortcuts = PinnedShortcutStore.all(prefs)
+            .filter { ShortcutDestination.APP_LIST in it.destinations && it.pinnedLabel.contains(query, ignoreCase = true) }
+            .map { HomeItem.ShortcutItem(it) }
         val baseItems: List<HomeItem> = matchedFolders.map { folder ->
             HomeItem.FolderItem(folder, folder.packages.count { it in visiblePackages })
-        } + matchedApps.map { HomeItem.AppItem(it) }
+        } + matchedApps.map { HomeItem.AppItem(it) } + matchedShortcuts
         // Render apps + folders synchronously - Slate's primary purpose is apps, that path
         // can't wait on ContentProvider I/O.
         renderItems(baseItems, all)
@@ -1024,6 +1042,8 @@ class AppDrawerFragment : Fragment() {
         // Contact results carry no usage signal - render at the minimum (least-prominent)
         // size so they don't dominate the paragraph alongside frequently-used apps.
         is HomeItem.ContactItem -> prefs.minFontSize.toFloat()
+        // Shortcuts carry no usage signal of their own for v1 - same minimum-weight precedent.
+        is HomeItem.ShortcutItem -> prefs.minFontSize.toFloat()
         // "‹ back" is an affordance, not a data row - render at the minimum size so it doesn't
         // dominate the paragraph.
         HomeItem.BackOut -> prefs.minFontSize.toFloat()
@@ -1060,6 +1080,13 @@ class AppDrawerFragment : Fragment() {
             contact = item,
             size = size,
             color = defaultTextColor,
+            typeface = typeface,
+            hPad = hPad, vPad = vPad, gravity = gravity
+        )
+        is HomeItem.ShortcutItem -> createShortcutTextView(
+            shortcut = item.shortcut,
+            size = size,
+            defaultTextColor = defaultTextColor,
             typeface = typeface,
             hPad = hPad, vPad = vPad, gravity = gravity
         )
@@ -1248,6 +1275,92 @@ class AppDrawerFragment : Fragment() {
         }
     }
 
+    /**
+     * Render a pinned external-app shortcut. Text-only, structurally identical to
+     * [createAppTextView] - the only icon anywhere in this feature lives in the transient
+     * picker dialog, never on a permanent row. The trailing arrow distinguishes the row from a
+     * real app, since a shortcut's tap path ([launchShortcut]) has different, less-recoverable
+     * failure modes than an ordinary app launch.
+     */
+    private fun createShortcutTextView(
+        shortcut: PinnedShortcut,
+        size: Float,
+        defaultTextColor: Int,
+        typeface: Typeface,
+        hPad: Int,
+        vPad: Int,
+        gravity: Int
+    ): TextView = TextView(requireContext()).apply {
+        text = "${shortcut.pinnedLabel} ↗"
+        textSize = size
+        setTextColor(defaultTextColor)
+        alpha = if (PinnedShortcutStore.isLikelyStale(shortcut)) 0.5f else 1f
+        this.typeface = typeface
+        this.gravity = gravity
+        setPadding(hPad, vPad, hPad, vPad)
+        setOnClickListener { launchShortcut(shortcut) }
+        setOnLongClickListener { showShortcutMenu(shortcut, this); true }
+        setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) touchStartedOnApp = true
+            singleFingerDetector.onTouchEvent(event)
+            false
+        }
+    }
+
+    private fun launcherApps() = PinnedShortcutStore.launcherApps(requireContext())
+
+    private fun launchShortcut(shortcut: PinnedShortcut) {
+        if (isSearchOpen) closeSearch()
+        val ok = PinnedShortcutStore.startShortcut(launcherApps(), shortcut)
+        if (!ok) {
+            Toast.makeText(requireContext(), "This shortcut is no longer available", Toast.LENGTH_SHORT).show()
+            PinnedShortcutStore.refreshOne(prefs, launcherApps(), shortcut)
+            buildAppList()
+        }
+    }
+
+    private fun showShortcutMenu(shortcut: PinnedShortcut, anchor: View) {
+        val sourceLabel = appLabelFor(shortcut.sourcePackage) ?: shortcut.sourcePackage
+        val items = listOf("Remove", "Refresh", "Open $sourceLabel")
+        SlateListDialog(
+            context = requireContext(),
+            title = shortcut.pinnedLabel,
+            items = items,
+            bgColor = prefs.backgroundColor
+        ) { _, label ->
+            when (label) {
+                "Remove" -> {
+                    // This row only ever renders the APP_LIST destination - unpin just that one,
+                    // leaving an independent widget-strip pin (if any) untouched.
+                    PinnedShortcutStore.remove(
+                        prefs, launcherApps(), shortcut.sourcePackage, shortcut.shortcutId,
+                        ShortcutDestination.APP_LIST
+                    )
+                    buildAppList()
+                }
+                "Refresh" -> {
+                    PinnedShortcutStore.refreshOne(prefs, launcherApps(), shortcut)
+                    buildAppList()
+                }
+                else -> {
+                    // The remaining item is always "Open $sourceLabel".
+                    val intent = requireContext().packageManager
+                        .getLaunchIntentForPackage(shortcut.sourcePackage)
+                    if (intent != null) {
+                        runCatching { startActivity(intent) }
+                    } else {
+                        Toast.makeText(requireContext(), "App not installed", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }.show()
+    }
+
+    private fun appLabelFor(pkg: String): String? = runCatching {
+        val pm = requireContext().packageManager
+        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+    }.getOrNull()
+
     // Fast scroll only operates over an alphabetical list, so it's mutually exclusive with
     // Sort by usage. We preserve `prefs.alphabeticalFastScroll` even when Sort by usage is on
     // (so the toggle re-lights at the user's previous position when they switch sort modes),
@@ -1407,7 +1520,15 @@ class AppDrawerFragment : Fragment() {
                         data = Uri.fromParts("package", app.packageName, null)
                     }
                 )
-                "Hide" -> { prefs.hideApp(app.packageName); buildAppList() }
+                "Hide" -> {
+                    prefs.hideApp(app.packageName)
+                    val removedShortcuts = PinnedShortcutStore.removeForPackage(prefs, launcherApps(), app.packageName)
+                    if (removedShortcuts.isNotEmpty()) quickStrip?.bind()
+                    buildAppList()
+                    if (removedShortcuts.isNotEmpty()) {
+                        showShortcutsRemovedForHiddenAppDialog(app.name, removedShortcuts.size)
+                    }
+                }
                 "Uninstall" -> startActivity(
                     Intent(Intent.ACTION_DELETE).apply {
                         data = Uri.fromParts("package", app.packageName, null)
@@ -1428,6 +1549,25 @@ class AppDrawerFragment : Fragment() {
                 "Rename" -> showRenameDialog(app)
             }
         }.show()
+    }
+
+    /**
+     * Shown after hiding an app that had one or more pinned shortcuts. Hiding removes those
+     * shortcuts outright (both destinations) rather than merely suppressing them, since a
+     * shortcut into an app the user just chose not to see would be a confusing loose end.
+     */
+    private fun showShortcutsRemovedForHiddenAppDialog(appName: String, count: Int) {
+        val plural = if (count == 1) "shortcut" else "shortcuts"
+        SlateListDialog(
+            context = requireContext(),
+            title = "Shortcuts removed",
+            items = listOf(
+                "Hiding $appName also removed $count pinned $plural from it - a hidden app's " +
+                    "shortcuts wouldn't be reachable from here either.",
+                "OK"
+            ),
+            bgColor = prefs.backgroundColor
+        ) { _, _ -> }.show()
     }
 
     /** Sub-menu listing existing folders + a "+ New folder" entry. */
@@ -2013,13 +2153,8 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun showHiddenAppsDialog() {
-        val pm = requireContext().packageManager
-        val hidden = prefs.hiddenApps.mapNotNull { pkg ->
-            try {
-                val info = pm.getApplicationInfo(pkg, 0)
-                pm.getApplicationLabel(info).toString() to pkg
-            } catch (_: Exception) { null }
-        }.sortedBy { it.first.lowercase() }
+        val hidden = prefs.hiddenApps.mapNotNull { pkg -> appLabelFor(pkg)?.let { it to pkg } }
+            .sortedBy { it.first.lowercase() }
 
         if (hidden.isEmpty()) {
             SlateListDialog(

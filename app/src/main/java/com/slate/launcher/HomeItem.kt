@@ -1,6 +1,7 @@
 package com.slate.launcher
 
 import android.net.Uri
+import com.slate.launcher.shortcuts.PinnedShortcut
 
 /**
  * One renderable cell in the home-screen list. The renderer dispatches on this type - apps and
@@ -45,5 +46,12 @@ sealed class HomeItem {
         val typeLabel: String?,
         val lookupUri: Uri
     ) : HomeItem()
+    /**
+     * A pinned reference to another app's published shortcut, rendered as a permanent row in
+     * the application list (as opposed to the widget-strip destination, which renders via
+     * [com.slate.launcher.widgets.ShortcutQuickWidget] instead). See [PinnedShortcut] for the
+     * persisted identity/label/destination model.
+     */
+    data class ShortcutItem(val shortcut: PinnedShortcut) : HomeItem()
     data object BackOut : HomeItem()
 }

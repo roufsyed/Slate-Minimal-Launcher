@@ -5,6 +5,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.os.Build
+import com.slate.launcher.shortcuts.PinnedShortcutStore
+import com.slate.launcher.shortcuts.ShortcutDestination
 
 class AppRepository(private val context: Context, private val prefs: PreferencesManager) {
 
@@ -46,25 +48,14 @@ class AppRepository(private val context: Context, private val prefs: Preferences
         return sorted.sortedByDescending { it.packageName in pinned }
     }
 
-    /**
-     * Build the home-screen list with folder awareness.
-     *   - When [folderId] is null: returns pinned apps first, then a merged sort of
-     *     non-foldered apps interleaved with folder entries by the global sort rule.
-     *   - When [folderId] points to a folder: returns a [HomeItem.BackOut] header followed by
-     *     the folder's apps (filtered for hidden / uninstalled). If the folder is missing,
-     *     falls back to the main view rather than rendering nothing.
-     *
-     * Folders containing no currently-visible apps (everything inside is hidden or uninstalled)
-     * are omitted from the main view - we'd otherwise render a folder row that expands to an
-     * empty list. Reconciliation against the live install set also prunes stale package entries
-     * from each folder's persisted list.
-     */
     fun getHomeItems(folderId: String? = null): List<HomeItem> {
         val allApps = getAllApps()
         // Reconcile uses the FULL install set, not the hidden-filtered set, so hidden apps
         // retain their folder membership and reappear inside the folder when unhidden.
         val installedPackages = queryAllInstalledLauncherPackages()
         FolderStore.reconcile(prefs, installedPackages)
+
+        val pinnedShortcuts = PinnedShortcutStore.reconcileInstalled(context, prefs)
 
         if (folderId != null) {
             val folder = FolderStore.find(prefs, folderId)
@@ -93,14 +84,22 @@ class AppRepository(private val context: Context, private val prefs: Preferences
             folder.packages.any { pkg -> pkg in visiblePackages }
         }
 
-        // Interleave apps + folders under the same sort rule. visibleCount is computed against
-        // the user's visible-app set so the "count" folder-style marker matches what the user
-        // sees on expand (hidden / uninstalled members aren't counted).
+        // Pinned shortcuts targeting the application list render as permanent rows alongside
+        // apps/folders here - never inside a folder (shortcuts have no folder-membership concept)
+        // and never in the pinned-apps section (out of scope for v1; see the shortcuts plan).
+        val shortcutItems: List<HomeItem> = pinnedShortcuts
+            .filter { ShortcutDestination.APP_LIST in it.destinations }
+            .map { HomeItem.ShortcutItem(it) }
+
+        // Interleave apps + folders + shortcuts under the same sort rule. visibleCount is
+        // computed against the user's visible-app set so the "count" folder-style marker
+        // matches what the user sees on expand (hidden / uninstalled members aren't counted).
         val mixedItems: List<HomeItem> =
             nonPinnedFlatApps.map { HomeItem.AppItem(it) } +
             visibleFolders.map { folder ->
                 HomeItem.FolderItem(folder, folder.packages.count { it in visiblePackages })
-            }
+            } +
+            shortcutItems
 
         val sortedMixed = if (prefs.sortByUsage) {
             mixedItems.sortedByDescending { item ->
@@ -112,6 +111,9 @@ class AppRepository(private val context: Context, private val prefs: Preferences
                     // ContactItem only appears in the live search list, never the static home
                     // mix that this sort serves. Defensive 0 keeps the `when` exhaustive.
                     is HomeItem.ContactItem -> 0
+                    // Shortcuts carry no usage signal of their own for v1 - render at the
+                    // minimum weight, matching ContactItem's precedent.
+                    is HomeItem.ShortcutItem -> 0
                     HomeItem.BackOut -> 0
                 }
             }
@@ -121,6 +123,7 @@ class AppRepository(private val context: Context, private val prefs: Preferences
                     is HomeItem.AppItem -> item.info.name.lowercase()
                     is HomeItem.FolderItem -> item.folder.name.lowercase()
                     is HomeItem.ContactItem -> ""
+                    is HomeItem.ShortcutItem -> item.shortcut.pinnedLabel.lowercase()
                     HomeItem.BackOut -> ""
                 }
             }

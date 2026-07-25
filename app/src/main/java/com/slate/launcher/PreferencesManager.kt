@@ -62,6 +62,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_DIRECT_CALL_ENABLED = "direct_call_enabled"
         private const val KEY_DIRECT_CALL_TRIGGER = "direct_call_trigger"
         private const val KEY_CONTACT_SHORTCUTS = "contact_shortcuts"
+        private const val KEY_PINNED_SHORTCUTS = "pinned_shortcuts"
         private const val KEY_FOLDERS = "folders_v1"
         private const val KEY_GUIDED_TOUR_STEP = "guided_tour_step_index"
         private const val KEY_GUIDED_TOUR_VERSION_SEEN = "guided_tour_version_seen"
@@ -425,6 +426,11 @@ class PreferencesManager(context: Context) {
     var contactShortcutsJson: String
         get() = prefs.getString(KEY_CONTACT_SHORTCUTS, "[]") ?: "[]"
         set(value) = prefs.edit().putString(KEY_CONTACT_SHORTCUTS, value).apply()
+
+    /** Raw JSON for pinned external-app shortcuts. Parsed by PinnedShortcutStore. */
+    var pinnedShortcutsJson: String
+        get() = prefs.getString(KEY_PINNED_SHORTCUTS, "[]") ?: "[]"
+        set(value) = prefs.edit().putString(KEY_PINNED_SHORTCUTS, value).apply()
 
     /** Raw JSON for user-created folders. Parsed by FolderStore. */
     var foldersJson: String
