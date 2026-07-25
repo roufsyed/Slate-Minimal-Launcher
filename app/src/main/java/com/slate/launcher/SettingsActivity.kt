@@ -484,7 +484,8 @@ class SettingsActivity : AppCompatActivity() {
                 view.setHintTextColor(secondary)
             }
             is TextView -> {
-                val isSectionLabel = view.isAllCaps && view.typeface?.isBold == true
+                val looksAllCaps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) view.isAllCaps else true
+                val isSectionLabel = looksAllCaps && view.typeface?.isBold == true
                 val isDimmed = view.alpha < 0.99f
                 view.setTextColor(when {
                     isSectionLabel -> accent
