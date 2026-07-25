@@ -28,7 +28,8 @@ class ShortcutPickerDialog private constructor(
     private val launcherApps: LauncherApps,
     private val destination: ShortcutDestination,
     private val sourcePackage: String,
-    private val sourceAppName: String
+    private val sourceAppName: String,
+    private val onDismissed: () -> Unit = {}
 ) : Dialog(activity, R.style.SlateDialogTheme) {
 
     companion object {
@@ -40,11 +41,12 @@ class ShortcutPickerDialog private constructor(
             launcherApps: LauncherApps,
             destination: ShortcutDestination,
             sourcePackage: String,
-            sourceAppName: String
+            sourceAppName: String,
+            onDismissed: () -> Unit = {}
         ) {
             // Guard against two live pickers for the same package racing each other's toggles.
             active?.let { runCatching { it.dismiss() } }
-            val dialog = ShortcutPickerDialog(activity, prefs, launcherApps, destination, sourcePackage, sourceAppName)
+            val dialog = ShortcutPickerDialog(activity, prefs, launcherApps, destination, sourcePackage, sourceAppName, onDismissed)
             active = dialog
             dialog.show()
         }
@@ -118,7 +120,10 @@ class ShortcutPickerDialog private constructor(
         })
         root.addView(closeRow)
 
-        setOnDismissListener { if (active === this) active = null }
+        setOnDismissListener {
+            if (active === this) active = null
+            onDismissed()
+        }
 
         refreshList()
     }

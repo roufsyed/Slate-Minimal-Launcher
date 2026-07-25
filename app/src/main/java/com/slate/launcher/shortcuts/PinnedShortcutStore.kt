@@ -77,6 +77,30 @@ object PinnedShortcutStore {
     fun forPackage(prefs: PreferencesManager, sourcePackage: String): List<PinnedShortcut> =
         all(prefs).filter { it.sourcePackage == sourcePackage }
 
+    /**
+     * Per-source-package count of pinned-shortcut records for one [destination]. Always
+     * destination-scoped by design, never a "total across both destinations" reading - Dialog
+     * 2's own switch-checked test is `destination in existing.destinations`, so any count that
+     * doesn't apply the same filter can show "N enabled" on Dialog 1 for an app that opens to
+     * zero checked switches on Dialog 2. [destination] is required, not nullable/defaulted -
+     * there is deliberately no way to get the wrong (total) reading by omission.
+     *
+     * One [all] parse total per call, regardless of how many source packages end up in the
+     * result. Call this once per dialog build/rebuild, never once per candidate app in a loop -
+     * that would reintroduce the redundant-parse anti-pattern [forPackage] already has (it calls
+     * [all] internally, so calling it per-candidate for N candidates re-parses the same JSON N
+     * times).
+     *
+     * Deliberately does not consult [isLikelyStale] / [disabledShortcuts] - those are
+     * process-only, OS-shortcut-validity concerns, unrelated to whether a record exists in this
+     * destination's set.
+     */
+    fun pinnedCountsBySourcePackage(prefs: PreferencesManager, destination: ShortcutDestination): Map<String, Int> =
+        all(prefs)
+            .filter { destination in it.destinations }
+            .groupingBy { it.sourcePackage }
+            .eachCount()
+
     private fun indexOfShortcut(list: List<PinnedShortcut>, sourcePackage: String, shortcutId: String): Int =
         list.indexOfFirst { it.sourcePackage == sourcePackage && it.shortcutId == shortcutId }
 

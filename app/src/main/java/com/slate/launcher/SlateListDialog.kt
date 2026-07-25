@@ -16,7 +16,7 @@ import com.slate.launcher.MainActivity.Companion.parseColorSafe
 class SlateListDialog(
     context: Context,
     private val title: String,
-    private val items: List<String>,
+    private var items: List<String>,
     private val bgColor: String,
     /**
      * Optional per-row right-aligned preview text. When non-null AND the same length as
@@ -25,7 +25,7 @@ class SlateListDialog(
      * will on the home screen). If null or size-mismatched, falls back to the standard
      * single-column layout - preserves behaviour for all existing call sites.
      */
-    private val secondaryItems: List<String>? = null,
+    private var secondaryItems: List<String>? = null,
     /**
      * Optional per-row long-press handler. When non-null, each row reports `(index, label)` on
      * long-press AND consumes the gesture so the subsequent click doesn't also fire. The
@@ -42,7 +42,7 @@ class SlateListDialog(
      * Defaults to true, preserving every existing call site's dismiss-on-tap behaviour.
      */
     private val dismissOnSelect: Boolean = true,
-    private val onItemSelected: (index: Int, label: String) -> Unit
+    private var onItemSelected: (index: Int, label: String) -> Unit
 ) : Dialog(context, R.style.SlateDialogTheme) {
 
     init {
@@ -57,6 +57,17 @@ class SlateListDialog(
         // Dismiss when tapping outside the dialog
         setCanceledOnTouchOutside(true)
 
+        setupViews()
+    }
+
+    fun updateContent(
+        items: List<String>,
+        secondaryItems: List<String>? = null,
+        onItemSelected: (index: Int, label: String) -> Unit
+    ) {
+        this.items = items
+        this.secondaryItems = secondaryItems
+        this.onItemSelected = onItemSelected
         setupViews()
     }
 

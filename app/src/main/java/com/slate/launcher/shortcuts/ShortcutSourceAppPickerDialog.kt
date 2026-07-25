@@ -89,23 +89,59 @@ object ShortcutSourceAppPickerDialog {
             ) { _, _ -> }.apply { fillScreen() }.show()
             return
         }
-        // dismissOnSelect = false: this dialog stays open underneath Dialog 2 rather than
-        // dismissing on tap - see the class doc for why.
-        SlateListDialog(
-            context = activity,
-            title = titlePrefix,
-            items = candidates.map { it.name },
-            bgColor = prefs.backgroundColor,
-            dismissOnSelect = false
-        ) { index, _ ->
-            ShortcutPickerDialog.show(
-                activity = activity,
-                prefs = prefs,
-                launcherApps = launcherApps,
-                destination = destination,
-                sourcePackage = candidates[index].packageName,
-                sourceAppName = candidates[index].name
-            )
-        }.apply { fillScreen() }.show()
+
+        var dialog: SlateListDialog? = null
+
+        // Recomputes order + hints from current PinnedShortcutStore state and applies them to
+        // the dialog in place - constructing it on the first call, updating its rows in place
+        // (SlateListDialog.updateContent) on every later call, which happens from onDismissed
+        // below every time Dialog 2 closes. Updating in place rather than dismissing and
+        // recreating the window is deliberate: this dialog is never actually hidden (dismissOnSelect
+        // = false keeps it alive underneath Dialog 2), so tearing the window down and rebuilding
+        // it would flash the Settings screen behind it for a frame - a real, visible glitch, not
+        // just a theoretical one. Never re-runs the LauncherApps scan and never recomputes
+        // `candidates` - only re-reads PinnedShortcutStore (SharedPreferences + JSON, no IPC).
+        fun refresh() {
+            val pinnedCounts = PinnedShortcutStore.pinnedCountsBySourcePackage(prefs, destination)
+            val ordered = candidates.sortedByDescending { app -> (pinnedCounts[app.packageName] ?: 0) > 0 }
+            val hints = ordered.map { app ->
+                val count = pinnedCounts[app.packageName] ?: 0
+                if (count > 0) "$count enabled" else ""
+            }
+            // `index` below is a position in `ordered`, not `candidates` - both the displayed
+            // label and this callback read `ordered`, since it may be resorted relative to
+            // `candidates`' original order.
+            val onRowSelected: (Int, String) -> Unit = { index, _ ->
+                ShortcutPickerDialog.show(
+                    activity = activity,
+                    prefs = prefs,
+                    launcherApps = launcherApps,
+                    destination = destination,
+                    sourcePackage = ordered[index].packageName,
+                    sourceAppName = ordered[index].name,
+                    onDismissed = { refresh() }
+                )
+            }
+            val existing = dialog
+            if (existing != null) {
+                existing.updateContent(items = ordered.map { it.name }, secondaryItems = hints, onItemSelected = onRowSelected)
+            } else {
+                // dismissOnSelect = false: this dialog stays open underneath Dialog 2 rather
+                // than dismissing on tap - see the class doc for why.
+                val newDialog = SlateListDialog(
+                    context = activity,
+                    title = titlePrefix,
+                    items = ordered.map { it.name },
+                    bgColor = prefs.backgroundColor,
+                    secondaryItems = hints,
+                    dismissOnSelect = false,
+                    onItemSelected = onRowSelected
+                ).apply { fillScreen() }
+                dialog = newDialog
+                newDialog.show()
+            }
+        }
+
+        refresh()
     }
 }
