@@ -28,6 +28,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_WORD_SPACING = "word_spacing"
         private const val KEY_HIDE_STATUS_BAR = "hide_status_bar"
         private const val KEY_SORT_BY_USAGE = "sort_by_usage"
+        private const val KEY_MOST_USED_POSITION = "most_used_position"
         private const val KEY_TEXT_ALIGNMENT = "text_alignment"
         private const val KEY_LOCK_ORIENTATION = "lock_orientation"
         private const val KEY_NOTIF_COLOR_ENABLED = "notif_color_enabled"
@@ -204,6 +205,11 @@ class PreferencesManager(context: Context) {
     var sortByUsage: Boolean
         get() = prefs.getBoolean(KEY_SORT_BY_USAGE, false)
         set(value) = prefs.edit().putBoolean(KEY_SORT_BY_USAGE, value).apply()
+
+    /** "top" or "bottom" - where the most-used apps land within the usage-sorted home list. */
+    var mostUsedPosition: String
+        get() = prefs.getString(KEY_MOST_USED_POSITION, "top") ?: "top"
+        set(value) = prefs.edit().putString(KEY_MOST_USED_POSITION, value).apply()
 
     /** "left", "center", or "right" */
     var textAlignment: String

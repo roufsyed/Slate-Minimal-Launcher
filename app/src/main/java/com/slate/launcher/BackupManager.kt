@@ -64,6 +64,7 @@ class BackupManager(private val prefs: PreferencesManager) {
 
         // General
         root.put("sortByUsage", prefs.sortByUsage)
+        root.put("mostUsedPosition", prefs.mostUsedPosition)
         root.put("lockOrientation", prefs.lockOrientation)
         root.put("hideStatusBar", prefs.hideStatusBar)
         root.put("notificationColorEnabled", prefs.notificationColorEnabled)
@@ -207,6 +208,10 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.textAlignment     = root.optString("textAlignment", "center")
             .takeIf { it == "left" || it == "center" || it == "right" } ?: "center"
         prefs.sortByUsage       = root.optBoolean("sortByUsage", false)
+        // Sanitise: only "top"/"bottom" are valid. Same defence-in-depth pattern as
+        // `searchBarPosition` below.
+        prefs.mostUsedPosition  = root.optString("mostUsedPosition", "top")
+            .takeIf { it == "top" || it == "bottom" } ?: "top"
         prefs.lockOrientation   = root.optBoolean("lockOrientation", true)
         prefs.hideStatusBar     = root.optBoolean("hideStatusBar", false)
         prefs.notificationColorEnabled   = root.optBoolean("notificationColorEnabled", false)

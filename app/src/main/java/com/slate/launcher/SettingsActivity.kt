@@ -2067,9 +2067,54 @@ class SettingsActivity : AppCompatActivity() {
         // below). Local closures are used to keep the cross-row dependency explicit and
         // co-located with both setters.
         val switchSortUsage = findViewById<MaterialSwitch>(R.id.switchSortByUsage)
+        val labelSortByUsageSub = findViewById<TextView>(R.id.labelSortByUsageSub)
         switchSortUsage.isChecked = prefs.sortByUsage
-        // Listener registered AFTER the gate closure is declared below so the listener can
-        // call refreshAlphaFastScrollGate() - see below.
+        // Listener registered AFTER the gate closures are declared below so the listener can
+        // call refreshAlphaFastScrollGate() / refreshMostUsedPositionGate() - see below.
+
+        // Most-used position (Top/Bottom) - gated by Sort by usage, same visible-but-greyed
+        // style as Search bar position (not Quick strip position's fully-hidden style), so the
+        // option stays discoverable even before the user turns Sort by usage on.
+        val rowMostUsedPosition = findViewById<View>(R.id.rowMostUsedPosition)
+        val mostUsedPositionValue = findViewById<TextView>(R.id.mostUsedPositionValue)
+        val labelMostUsedPositionSub = findViewById<TextView>(R.id.labelMostUsedPositionSub)
+        mostUsedPositionValue.setTextColor(secondary)
+
+        // Cross-row gate for "Show most used at": visible but greyed + non-clickable when
+        // Sort by usage is off (matches Search bar position's style), full opacity + clickable
+        // when on. Also keeps the "Sort by most used" sub-label itself direction-aware, since
+        // every comparable sub-label in this file already changes dynamically.
+        val defaultSortUsageSub = "Most launched apps appear first"
+        fun refreshMostUsedPositionGate() {
+            val enabled = prefs.sortByUsage
+            rowMostUsedPosition.alpha = if (enabled) 1f else 0.4f
+            rowMostUsedPosition.isClickable = enabled
+            labelMostUsedPositionSub.text =
+                if (enabled) "Where the most-used apps land in the list"
+                else "Turn on Sort by most used to enable"
+            mostUsedPositionValue.text =
+                prefs.mostUsedPosition.replaceFirstChar { it.uppercaseChar() }
+            labelSortByUsageSub.text = if (enabled) {
+                if (prefs.mostUsedPosition == "bottom")
+                    "Most launched apps appear at the bottom"
+                else
+                    "Most launched apps appear at the top"
+            } else {
+                defaultSortUsageSub
+            }
+        }
+
+        rowMostUsedPosition.setOnClickListener {
+            SlateListDialog(
+                context = this,
+                title = "Show most used at",
+                items = listOf("Top", "Bottom"),
+                bgColor = prefs.backgroundColor
+            ) { _, label ->
+                prefs.mostUsedPosition = label.lowercase()
+                refreshMostUsedPositionGate()
+            }.show()
+        }
 
         // Lock orientation
         val switchLockOrientation = findViewById<MaterialSwitch>(R.id.switchLockOrientation)
@@ -2179,15 +2224,17 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         // Wire the Sort-by-usage listener here (the switch was declared earlier; we register the
-        // listener now because it must also refresh the fast-scroll gate, whose closure lives in
-        // this scope).
+        // listener now because it must also refresh the fast-scroll and most-used-position gates,
+        // whose closures live in this scope).
         switchSortUsage.setOnCheckedChangeListener { _, checked ->
             prefs.sortByUsage = checked
             refreshAlphaFastScrollGate()
+            refreshMostUsedPositionGate()
         }
 
-        // Initial state for the gate - covers a fresh open of Settings.
+        // Initial state for the gates - covers a fresh open of Settings.
         refreshAlphaFastScrollGate()
+        refreshMostUsedPositionGate()
 
         // Default launcher row
         findViewById<View>(R.id.rowDefaultLauncher).setOnClickListener {

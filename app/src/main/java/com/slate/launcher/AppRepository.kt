@@ -48,6 +48,15 @@ class AppRepository(private val context: Context, private val prefs: Preferences
         return sorted.sortedByDescending { it.packageName in pinned }
     }
 
+    /**
+     * Reverses a usage-sorted list when the user wants the most-used apps at the bottom
+     * (easier thumb reach) instead of the top. Only ever applied to the home-screen lists
+     * built by [getHomeItems] - [getAllApps] is shared by the app drawer, search, and pickers,
+     * which must keep the most-used app first regardless of this preference.
+     */
+    private fun <T> List<T>.applyMostUsedDirection(): List<T> =
+        if (prefs.mostUsedPosition == "bottom") reversed() else this
+
     fun getHomeItems(folderId: String? = null): List<HomeItem> {
         val allApps = getAllApps()
         // Reconcile uses the FULL install set, not the hidden-filtered set, so hidden apps
@@ -63,6 +72,7 @@ class AppRepository(private val context: Context, private val prefs: Preferences
             val folderApps = allApps.filter { it.packageName in folder.packages }
             val sorted = if (prefs.sortByUsage) {
                 folderApps.sortedByDescending { prefs.getUsageCount(it.packageName) }
+                    .applyMostUsedDirection()
             } else {
                 folderApps.sortedBy { it.name.lowercase() }
             }
@@ -116,7 +126,7 @@ class AppRepository(private val context: Context, private val prefs: Preferences
                     is HomeItem.ShortcutItem -> 0
                     HomeItem.BackOut -> 0
                 }
-            }
+            }.applyMostUsedDirection()
         } else {
             mixedItems.sortedBy { item ->
                 when (item) {

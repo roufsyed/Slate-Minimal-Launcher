@@ -153,6 +153,7 @@
                         android:textSize="17sp" />
 
                     <TextView
+                        android:id="@+id/labelSortByUsageSub"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Most launched apps appear first"
@@ -164,6 +165,47 @@
                     android:id="@+id/switchSortByUsage"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <!-- Most-used position (Top/Bottom). Regular row within the same section as
+                 Sort by most used, so it stays available (greyed) when that toggle is off
+                 rather than disappearing - matches Search bar position's gating style, not
+                 Quick strip position's (which fully hides). -->
+            <LinearLayout
+                android:id="@+id/rowMostUsedPosition"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="10dp"
+                android:background="?attr/selectableItemBackground">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Show most used at"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:id="@+id/labelMostUsedPositionSub"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Turn on Sort by most used to enable"
+                        android:textSize="13sp"
+                        android:alpha="0.6" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/mostUsedPositionValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp" />
             </LinearLayout>
 
             <!-- Lock orientation toggle -->
