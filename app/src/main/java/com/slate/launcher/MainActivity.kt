@@ -11,7 +11,6 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -36,11 +35,6 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
         applySystemBarColors()
-
-        // Never exit - this is a launcher
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {}
-        })
     }
 
     override fun onResume() {
