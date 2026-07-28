@@ -57,6 +57,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var createBackupLauncher: ActivityResultLauncher<String>
     private lateinit var openBackupLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var importFontLauncher: ActivityResultLauncher<Array<String>>
+    private lateinit var importWidgetFontLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var requestRoleLauncher: ActivityResultLauncher<Intent>
     private lateinit var batteryExemptLauncher: ActivityResultLauncher<Intent>
     private lateinit var pickContactLauncher: ActivityResultLauncher<Intent>
@@ -159,9 +160,17 @@ class SettingsActivity : AppCompatActivity() {
             ActivityResultContracts.OpenDocument()
         ) { uri -> if (uri != null) loadBackup(uri) }
 
+        // One launcher per destination rather than a single launcher plus a remembered-target
+        // field: SAF can have this process killed while the document picker is foregrounded,
+        // and only the ActivityResultRegistry survives that. A plain field would come back
+        // null on restore and the imported file would land on the wrong preference.
         importFontLauncher = registerForActivityResult(
             ActivityResultContracts.OpenDocument()
-        ) { uri -> if (uri != null) importFont(uri) }
+        ) { uri -> if (uri != null) importFont(uri, FontTarget.APP) }
+
+        importWidgetFontLauncher = registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri -> if (uri != null) importFont(uri, FontTarget.WIDGET) }
 
         requestRoleLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
@@ -714,14 +723,22 @@ class SettingsActivity : AppCompatActivity() {
             else                                     -> "Work ›"
         }
 
+    /** Which font preference an asynchronously-completed [importFont] should write to. */
+    private enum class FontTarget { APP, WIDGET }
+
     private var _fontValueRef: TextView? = null
+
+    // The quick-strip font row's label and live preview are refreshed by local functions
+    // declared inside setupQuickStrip, so an import that completes later has no way to reach
+    // them. Same class-field delegation idiom as pendingSearchGateRefresh above.
+    private var pendingWidgetFontRefresh: (() -> Unit)? = null
 
     private fun fontDisplayName(key: String): String = when {
         key.startsWith("/") -> File(key).nameWithoutExtension
         else -> FONTS.find { it.key == key }?.displayName ?: "Default"
     }
 
-    private fun importFont(uri: Uri) {
+    private fun importFont(uri: Uri, target: FontTarget) {
         try {
             val rawName = contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
@@ -736,9 +753,17 @@ class SettingsActivity : AppCompatActivity() {
                 destFile.outputStream().use { output -> input.copyTo(output) }
             }
 
-            prefs.fontFamily = destFile.absolutePath
             val displayName = destFile.nameWithoutExtension
-            _fontValueRef?.text = displayName
+            when (target) {
+                FontTarget.APP -> {
+                    prefs.fontFamily = destFile.absolutePath
+                    _fontValueRef?.text = displayName
+                }
+                FontTarget.WIDGET -> {
+                    prefs.widgetFontFamily = destFile.absolutePath
+                    pendingWidgetFontRefresh?.invoke()
+                }
+            }
             Toast.makeText(this, "Font imported: $displayName", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
@@ -2578,19 +2603,34 @@ class SettingsActivity : AppCompatActivity() {
         refreshWeightValueLabel()
         refreshAlignmentValueLabel()
 
-        // Font picker - "Default" is index 0; subsequent entries map 1-to-1 onto FONTS.
+        // An imported font arrives via importWidgetFontLauncher long after this function has
+        // returned, so hand importFont a way back to these two local closures.
+        pendingWidgetFontRefresh = {
+            refreshFontValueLabel()
+            refreshPreview()
+        }
+
+        // Font picker - "Default" is index 0, FONTS follow 1-to-1, and the trailing entry
+        // imports a TTF from storage (matching the app-name font row). The import branch does
+        // not refresh here: the file is chosen asynchronously, so importFont refreshes instead
+        // via pendingWidgetFontRefresh once the copy has actually landed.
         rowFont.setOnClickListener {
-            val items = listOf("Default") + FONTS.map { it.displayName }
+            val items = listOf("Default") + FONTS.map { it.displayName } +
+                listOf("Import from storage…")
             SlateListDialog(
                 context = this,
                 title = "Font",
                 items = items,
                 bgColor = prefs.backgroundColor
             ) { index, _ ->
-                prefs.widgetFontFamily =
-                    if (index == 0) "" else FONTS[index - 1].key
-                refreshFontValueLabel()
-                refreshPreview()
+                if (index > FONTS.size) {
+                    importWidgetFontLauncher.launch(arrayOf("*/*"))
+                } else {
+                    prefs.widgetFontFamily =
+                        if (index == 0) "" else FONTS[index - 1].key
+                    refreshFontValueLabel()
+                    refreshPreview()
+                }
             }.show()
         }
 
