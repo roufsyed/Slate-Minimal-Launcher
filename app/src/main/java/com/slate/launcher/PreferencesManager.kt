@@ -35,6 +35,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_NOTIF_HIGHLIGHT_COLOR = "notif_highlight_color"
         private const val KEY_SYNC_TO_LOCKSCREEN = "sync_to_lockscreen"
         private const val KEY_PINNED_APPS = "pinned_apps"
+        private const val KEY_PINNED_FOLDERS = "pinned_folders"
         private const val KEY_FOLLOW_SYSTEM_THEME = "follow_system_theme"
         private const val KEY_AWAITING_ACCESSIBILITY = "awaiting_accessibility_permission"
         private const val KEY_AWAITING_NOTIFICATION = "awaiting_notification_permission"
@@ -239,6 +240,22 @@ class PreferencesManager(context: Context) {
     fun pinApp(packageName: String) { pinnedApps = pinnedApps + packageName }
     fun unpinApp(packageName: String) { pinnedApps = pinnedApps - packageName }
     fun isPinned(packageName: String): Boolean = packageName in pinnedApps
+
+    /**
+     * Folder ids ([Folder.id], a UUID) pinned to the top of the home list. Keyed by id rather
+     * than name so a rename never breaks the pin. Ids are stable across a backup round trip -
+     * FolderStore serialises and restores them verbatim - so this survives export/import.
+     *
+     * Entries are pruned by [FolderStore.delete] and [FolderStore.reconcile]; anything that
+     * still slips through (a hand-edited backup, say) is simply never matched and stays inert.
+     */
+    var pinnedFolders: Set<String>
+        get() = prefs.getStringSet(KEY_PINNED_FOLDERS, emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_PINNED_FOLDERS, value).apply()
+
+    fun pinFolder(folderId: String) { pinnedFolders = pinnedFolders + folderId }
+    fun unpinFolder(folderId: String) { pinnedFolders = pinnedFolders - folderId }
+    fun isFolderPinned(folderId: String): Boolean = folderId in pinnedFolders
 
     var followSystemTheme: Boolean
         get() = prefs.getBoolean(KEY_FOLLOW_SYSTEM_THEME, false)

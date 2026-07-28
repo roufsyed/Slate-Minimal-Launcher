@@ -1593,15 +1593,21 @@ class AppDrawerFragment : Fragment() {
         }.show()
     }
 
-    /** Long-press on a folder label - Rename / Delete / Custom color. */
+    /** Long-press on a folder label - Pin / Rename / Delete / Custom color. */
     private fun showFolderMenu(folder: Folder, anchor: View) {
+        // Pin sits first and its label toggles, matching showAppMenu. Unlike pinning an app,
+        // this touches nothing but the pin set: a folder is a container, so the "pinned apps
+        // can't live in folders" invariant has nothing to resolve here.
+        val pinLabel = if (prefs.isFolderPinned(folder.id)) "Unpin" else "Pin to top"
         SlateListDialog(
             context = requireContext(),
             title = folder.name,
-            items = listOf("Rename", "Custom color", "Delete folder"),
+            items = listOf(pinLabel, "Rename", "Custom color", "Delete folder"),
             bgColor = prefs.backgroundColor
         ) { _, label ->
             when (label) {
+                "Pin to top" -> { prefs.pinFolder(folder.id); buildAppList() }
+                "Unpin" -> { prefs.unpinFolder(folder.id); buildAppList() }
                 "Rename" -> showRenameFolderDialog(folder)
                 "Custom color" -> showFolderColorPicker(folder)
                 "Delete folder" -> showDeleteFolderConfirm(folder)

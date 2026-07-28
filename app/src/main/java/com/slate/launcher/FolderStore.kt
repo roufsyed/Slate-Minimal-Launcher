@@ -13,6 +13,7 @@ import java.util.UUID
  *   - A package appears in at most one folder.
  *   - Folders are pruned when empty (or when their last visible app leaves).
  *   - Pinning a package removes it from any folder it was in.
+ *   - [PreferencesManager.pinnedFolders] never references a folder that no longer exists.
  *
  * Hiding an app does NOT alter folder membership - the app is simply filtered at render time so
  * unhiding restores the previous home layout cleanly.
@@ -128,6 +129,17 @@ object FolderStore {
         val arr = JSONArray()
         folders.forEach { arr.put(it.toJson()) }
         prefs.foldersJson = arr.toString()
+
+        // Drop pins for folders that no longer exist. Centralised here rather than at each
+        // deletion site because folders die in three separate places - delete(), reconcile()'s
+        // uninstall prune, and removeAppFromFolder()'s now-empty prune - and every one of them
+        // funnels through save(), so this cannot be forgotten when a fourth is added. The guard
+        // keeps the common case (nothing pinned, or nothing removed) free of a redundant write.
+        val liveIds = folders.mapTo(HashSet()) { it.id }
+        val pinned = prefs.pinnedFolders
+        if (pinned.any { it !in liveIds }) {
+            prefs.pinnedFolders = pinned.filterTo(HashSet()) { it in liveIds }
+        }
     }
 
     private fun Folder.toJson(): JSONObject = JSONObject().apply {

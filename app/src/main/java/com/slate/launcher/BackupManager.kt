@@ -83,6 +83,12 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.pinnedApps.forEach { pinnedArr.put(it) }
         root.put("pinnedApps", pinnedArr)
 
+        // Pinned folders, by folder id. Ids are serialised verbatim by FolderStore and are
+        // never regenerated on import, so these stay matched to the "folders" array below.
+        val pinnedFoldersArr = JSONArray()
+        prefs.pinnedFolders.forEach { pinnedFoldersArr.put(it) }
+        root.put("pinnedFolders", pinnedFoldersArr)
+
         // Auto-theme
         root.put("followSystemTheme", prefs.followSystemTheme)
 
@@ -228,6 +234,12 @@ class BackupManager(private val prefs: PreferencesManager) {
         // Pinned apps
         root.optJSONArray("pinnedApps")?.let { arr ->
             prefs.pinnedApps = (0 until arr.length()).map { arr.getString(it) }.toSet()
+        }
+        // Not cross-checked against the restored folder set: an id with no matching folder is
+        // simply never rendered, exactly as pinnedApps tolerates an uninstalled package. An
+        // older backup with no "pinnedFolders" key leaves the device's existing pins alone.
+        root.optJSONArray("pinnedFolders")?.let { arr ->
+            prefs.pinnedFolders = (0 until arr.length()).map { arr.getString(it) }.toSet()
         }
 
         // Auto-theme

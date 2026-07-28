@@ -80,7 +80,7 @@ class AppRepository(private val context: Context, private val prefs: Preferences
         }
 
         val pinned = prefs.pinnedApps
-        val pinnedItems = allApps.filter { it.packageName in pinned }.map { HomeItem.AppItem(it) }
+        val pinnedFolderIds = prefs.pinnedFolders
 
         val packagesInFolders = FolderStore.packagesInAnyFolder(prefs)
         val nonPinnedFlatApps = allApps.filter {
@@ -88,31 +88,57 @@ class AppRepository(private val context: Context, private val prefs: Preferences
         }
         // A folder shows on the main list if it has at least one *visible* (not-hidden) app.
         // A folder containing only hidden apps stays in the data model but is omitted from
-        // render - so unhiding a member restores the folder cleanly.
+        // render - so unhiding a member restores the folder cleanly. Pinning doesn't change
+        // that: a pinned folder with no visible members disappears too and comes back on
+        // unhide, its id sitting untouched in the pin set meanwhile.
         val visiblePackages = allApps.mapTo(HashSet()) { it.packageName }
         val visibleFolders = FolderStore.all(prefs).filter { folder ->
             folder.packages.any { pkg -> pkg in visiblePackages }
         }
+        val (pinnedFolderList, unpinnedFolderList) =
+            visibleFolders.partition { it.id in pinnedFolderIds }
+
+        // visibleCount is computed against the user's visible-app set so the "count"
+        // folder-style marker matches what the user sees on expand (hidden / uninstalled
+        // members aren't counted).
+        fun folderItem(folder: Folder): HomeItem.FolderItem =
+            HomeItem.FolderItem(folder, folder.packages.count { it in visiblePackages })
 
         // Pinned shortcuts targeting the application list render as permanent rows alongside
         // apps/folders here - never inside a folder (shortcuts have no folder-membership concept)
-        // and never in the pinned-apps section (out of scope for v1; see the shortcuts plan).
+        // and never in the pinned section (out of scope for v1; see the shortcuts plan).
         val shortcutItems: List<HomeItem> = pinnedShortcuts
             .filter { ShortcutDestination.APP_LIST in it.destinations }
             .map { HomeItem.ShortcutItem(it) }
 
-        // Interleave apps + folders + shortcuts under the same sort rule. visibleCount is
-        // computed against the user's visible-app set so the "count" folder-style marker
-        // matches what the user sees on expand (hidden / uninstalled members aren't counted).
+        // Pinned apps and pinned folders share one block at the top, ordered by the same rule
+        // as everything else so a pinned folder sits among pinned apps the way an unpinned one
+        // sits among unpinned apps.
+        val pinnedItems: List<HomeItem> =
+            allApps.filter { it.packageName in pinned }.map { HomeItem.AppItem(it) } +
+            pinnedFolderList.map(::folderItem)
+
+        // Interleave apps + folders + shortcuts under the same sort rule.
         val mixedItems: List<HomeItem> =
             nonPinnedFlatApps.map { HomeItem.AppItem(it) } +
-            visibleFolders.map { folder ->
-                HomeItem.FolderItem(folder, folder.packages.count { it in visiblePackages })
-            } +
+            unpinnedFolderList.map(::folderItem) +
             shortcutItems
 
-        val sortedMixed = if (prefs.sortByUsage) {
-            mixedItems.sortedByDescending { item ->
+        return sortSection(pinnedItems, applyDirection = false) +
+            sortSection(mixedItems, applyDirection = true)
+    }
+
+    /**
+     * Orders one section of the home list. Both the pinned block and the main mixed list go
+     * through here, so apps, folders and shortcuts stay under a single ordering rule.
+     *
+     * [applyDirection] is false for the pinned block on purpose: [PreferencesManager.mostUsedPosition]
+     * moves the most-used entries within the main list, but the pinned block is an explicit
+     * user-chosen anchor at the top and has never been reversed by that preference.
+     */
+    private fun sortSection(items: List<HomeItem>, applyDirection: Boolean): List<HomeItem> =
+        if (prefs.sortByUsage) {
+            val sorted = items.sortedByDescending { item ->
                 when (item) {
                     is HomeItem.AppItem -> prefs.getUsageCount(item.info.packageName)
                     // Folder weight is the sum of contained apps' usage counts.
@@ -126,9 +152,10 @@ class AppRepository(private val context: Context, private val prefs: Preferences
                     is HomeItem.ShortcutItem -> 0
                     HomeItem.BackOut -> 0
                 }
-            }.applyMostUsedDirection()
+            }
+            if (applyDirection) sorted.applyMostUsedDirection() else sorted
         } else {
-            mixedItems.sortedBy { item ->
+            items.sortedBy { item ->
                 when (item) {
                     is HomeItem.AppItem -> item.info.name.lowercase()
                     is HomeItem.FolderItem -> item.folder.name.lowercase()
@@ -138,9 +165,6 @@ class AppRepository(private val context: Context, private val prefs: Preferences
                 }
             }
         }
-
-        return pinnedItems + sortedMixed
-    }
 
     /**
      * Set of every launcher-visible package on the device, ignoring the user's hidden-apps
