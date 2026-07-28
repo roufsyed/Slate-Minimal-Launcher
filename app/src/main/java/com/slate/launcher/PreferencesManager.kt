@@ -33,6 +33,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_LOCK_ORIENTATION = "lock_orientation"
         private const val KEY_NOTIF_COLOR_ENABLED = "notif_color_enabled"
         private const val KEY_NOTIF_HIGHLIGHT_COLOR = "notif_highlight_color"
+        private const val KEY_IGNORE_SILENT_NOTIFS = "ignore_silent_notifications"
         private const val KEY_SYNC_TO_LOCKSCREEN = "sync_to_lockscreen"
         private const val KEY_PINNED_APPS = "pinned_apps"
         private const val KEY_PINNED_FOLDERS = "pinned_folders"
@@ -228,6 +229,15 @@ class PreferencesManager(context: Context) {
     var notificationHighlightColor: String
         get() = prefs.getString(KEY_NOTIF_HIGHLIGHT_COLOR, "#FFFFFF") ?: "#FFFFFF"
         set(value) = prefs.edit().putString(KEY_NOTIF_HIGHLIGHT_COLOR, value).apply()
+
+    /**
+     * When true, only *alerting* notifications tint an app name - anything on a channel the
+     * user set to Silent is ignored. Defaults to false so existing installs keep highlighting
+     * on every notification, which is what they do today.
+     */
+    var ignoreSilentNotifications: Boolean
+        get() = prefs.getBoolean(KEY_IGNORE_SILENT_NOTIFS, false)
+        set(value) = prefs.edit().putBoolean(KEY_IGNORE_SILENT_NOTIFS, value).apply()
 
     var syncToLockscreen: Boolean
         get() = prefs.getBoolean(KEY_SYNC_TO_LOCKSCREEN, false)

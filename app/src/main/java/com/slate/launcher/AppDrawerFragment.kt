@@ -977,6 +977,10 @@ class AppDrawerFragment : Fragment() {
         val defaultTextColor = parseColorSafe(prefs.appTextColor, Color.GRAY)
         val notifEnabled = prefs.notificationColorEnabled
         val notifColor = parseColorSafe(prefs.notificationHighlightColor)
+        // Which set to highlight from depends on a pref, so resolve it once per pass rather
+        // than re-reading it for every row.
+        val notifPackages =
+            SlateNotificationService.highlightedPackages(prefs.ignoreSilentNotifications)
         val typeface = buildTypeface()
         val hPad = (prefs.wordSpacing * density).toInt()
         val vPad = (prefs.lineSpacing * density).toInt()
@@ -988,6 +992,7 @@ class AppDrawerFragment : Fragment() {
                 defaultTextColor = defaultTextColor,
                 notifEnabled = notifEnabled,
                 notifColor = notifColor,
+                notifPackages = notifPackages,
                 typeface = typeface,
                 hPad = hPad, vPad = vPad,
                 gravity = Gravity.CENTER
@@ -1014,6 +1019,10 @@ class AppDrawerFragment : Fragment() {
         val defaultTextColor = parseColorSafe(prefs.appTextColor, Color.GRAY)
         val notifEnabled = prefs.notificationColorEnabled
         val notifColor = parseColorSafe(prefs.notificationHighlightColor)
+        // Which set to highlight from depends on a pref, so resolve it once per pass rather
+        // than re-reading it for every row.
+        val notifPackages =
+            SlateNotificationService.highlightedPackages(prefs.ignoreSilentNotifications)
         val typeface = buildTypeface()
         val fontSize = prefs.maxFontSize.toFloat()
         val hPad = (prefs.wordSpacing * density).toInt()
@@ -1026,6 +1035,7 @@ class AppDrawerFragment : Fragment() {
                 defaultTextColor = defaultTextColor,
                 notifEnabled = notifEnabled,
                 notifColor = notifColor,
+                notifPackages = notifPackages,
                 typeface = typeface,
                 hPad = hPad, vPad = vPad,
                 gravity = Gravity.CENTER_VERTICAL
@@ -1056,6 +1066,7 @@ class AppDrawerFragment : Fragment() {
         defaultTextColor: Int,
         notifEnabled: Boolean,
         notifColor: Int,
+        notifPackages: Set<String>,
         typeface: Typeface,
         hPad: Int,
         vPad: Int,
@@ -1064,7 +1075,9 @@ class AppDrawerFragment : Fragment() {
         is HomeItem.AppItem -> createAppTextView(
             app = item.info,
             size = size,
-            color = colorForApp(item.info, defaultTextColor, notifEnabled, notifColor),
+            color = colorForApp(
+                item.info, defaultTextColor, notifEnabled, notifColor, notifPackages
+            ),
             typeface = typeface,
             hPad = hPad, vPad = vPad, gravity = gravity
         )
@@ -1243,9 +1256,10 @@ class AppDrawerFragment : Fragment() {
         app: AppInfo,
         defaultTextColor: Int,
         notifEnabled: Boolean,
-        notifColor: Int
+        notifColor: Int,
+        notifPackages: Set<String>
     ): Int {
-        val hasNotif = notifEnabled && app.packageName in SlateNotificationService.activePackages
+        val hasNotif = notifEnabled && app.packageName in notifPackages
         if (hasNotif) return notifColor
         val appColor = prefs.getAppTextColor(app.packageName)
         return if (appColor != null) parseColorSafe(appColor) else defaultTextColor
@@ -1463,7 +1477,7 @@ class AppDrawerFragment : Fragment() {
     private fun launchApp(app: AppInfo) {
         prefs.incrementUsage(app.packageName)
         // Optimistically clear notification highlight so it reverts immediately on return
-        SlateNotificationService.activePackages.remove(app.packageName)
+        SlateNotificationService.clearHighlight(app.packageName)
         if (isSearchOpen) closeSearch()
         val intent = requireContext().packageManager
             .getLaunchIntentForPackage(app.packageName)
@@ -2210,7 +2224,7 @@ class AppDrawerFragment : Fragment() {
         // font-size weighting in sizeForItem() - which would visibly grow the containing
         // folder's font on every hidden launch and leak activity to anyone glancing at the
         // home screen.
-        SlateNotificationService.activePackages.remove(pkg)
+        SlateNotificationService.clearHighlight(pkg)
         val intent = requireContext().packageManager.getLaunchIntentForPackage(pkg)
         if (intent == null) {
             Toast.makeText(requireContext(), "App not installed", Toast.LENGTH_SHORT).show()

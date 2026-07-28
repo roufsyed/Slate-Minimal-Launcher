@@ -69,6 +69,7 @@ class BackupManager(private val prefs: PreferencesManager) {
         root.put("hideStatusBar", prefs.hideStatusBar)
         root.put("notificationColorEnabled", prefs.notificationColorEnabled)
         root.put("notificationHighlightColor", prefs.notificationHighlightColor)
+        root.put("ignoreSilentNotifications", prefs.ignoreSilentNotifications)
 
         // Lockscreen
         root.put("syncToLockscreen", prefs.syncToLockscreen)
@@ -222,6 +223,7 @@ class BackupManager(private val prefs: PreferencesManager) {
         prefs.hideStatusBar     = root.optBoolean("hideStatusBar", false)
         prefs.notificationColorEnabled   = root.optBoolean("notificationColorEnabled", false)
         prefs.notificationHighlightColor = root.optString("notificationHighlightColor", "#FFFFFF")
+        prefs.ignoreSilentNotifications = root.optBoolean("ignoreSilentNotifications", false)
         prefs.syncToLockscreen  = root.optBoolean("syncToLockscreen", false)
         prefs.searchEnabled     = root.optBoolean("searchEnabled", true)
         prefs.showSearchBarOnHome = root.optBoolean("showSearchBarOnHome", false)

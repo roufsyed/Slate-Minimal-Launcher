@@ -368,6 +368,18 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Both notification sub-rows - the highlight colour and the ignore-silenced toggle - refine
+     * a feature that may be off, so they appear and disappear with it. Centralised because five
+     * separate paths flip this (the toggle itself, a permission grant, a revoke, and two
+     * deferred re-checks) and every one of them has to move both rows.
+     */
+    private fun setNotifSubRowsVisible(visible: Boolean) {
+        val v = if (visible) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.rowNotifHighlight)?.visibility = v
+        findViewById<View>(R.id.rowIgnoreSilentNotifs)?.visibility = v
+    }
+
     private fun syncNotificationToggle() {
         val notifEnabled = isNotificationListenerEnabled()
         val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifColor) ?: return
@@ -377,7 +389,7 @@ class SettingsActivity : AppCompatActivity() {
             switchNotif.setOnCheckedChangeListener(null)
             switchNotif.isChecked = true
             setupNotifListener(switchNotif)
-            findViewById<View>(R.id.rowNotifHighlight).visibility = View.VISIBLE
+            setNotifSubRowsVisible(true)
             prefs.awaitingNotificationPermission = false
         } else if (prefs.awaitingNotificationPermission && !notifEnabled) {
             prefs.awaitingNotificationPermission = false
@@ -387,7 +399,7 @@ class SettingsActivity : AppCompatActivity() {
                     switchNotif.setOnCheckedChangeListener(null)
                     switchNotif.isChecked = true
                     setupNotifListener(switchNotif)
-                    findViewById<View>(R.id.rowNotifHighlight).visibility = View.VISIBLE
+                    setNotifSubRowsVisible(true)
                 }
             }, 500)
         } else if (prefs.notificationColorEnabled && !notifEnabled) {
@@ -397,7 +409,7 @@ class SettingsActivity : AppCompatActivity() {
                     switchNotif.setOnCheckedChangeListener(null)
                     switchNotif.isChecked = false
                     setupNotifListener(switchNotif)
-                    findViewById<View>(R.id.rowNotifHighlight).visibility = View.GONE
+                    setNotifSubRowsVisible(false)
                 }
             }, 500)
         }
@@ -449,6 +461,7 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchSortByUsage),
             findViewById(R.id.switchLockOrientation),
             findViewById(R.id.switchNotifColor),
+            findViewById(R.id.switchIgnoreSilentNotifs),
             findViewById(R.id.switchSyncToLockscreen),
             findViewById(R.id.switchFollowSystemTheme),
             findViewById(R.id.switchAlphaFastScroll),
@@ -2172,7 +2185,16 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         updateNotifSwatch(prefs.notificationHighlightColor)
-        rowNotifHighlight.visibility = if (prefs.notificationColorEnabled) View.VISIBLE else View.GONE
+        setNotifSubRowsVisible(prefs.notificationColorEnabled)
+
+        // Ignore-silenced sub-row. Purely a display filter - the listener tracks silent and
+        // alerting notifications either way, so flipping this only needs the list redrawn,
+        // which happens on the next AppDrawerFragment.onResume.
+        val switchIgnoreSilent = findViewById<MaterialSwitch>(R.id.switchIgnoreSilentNotifs)
+        switchIgnoreSilent.isChecked = prefs.ignoreSilentNotifications
+        switchIgnoreSilent.setOnCheckedChangeListener { _, checked ->
+            prefs.ignoreSilentNotifications = checked
+        }
 
         switchNotif.isChecked = prefs.notificationColorEnabled
         setupNotifListener(switchNotif)
@@ -2273,14 +2295,13 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupNotifListener(switchNotif: MaterialSwitch) {
-        val rowNotifHighlight = findViewById<View>(R.id.rowNotifHighlight)
         switchNotif.setOnCheckedChangeListener { _, checked ->
             if (checked && !isNotificationListenerEnabled()) {
                 switchNotif.isChecked = false
                 showNotificationDialog()
             } else {
                 prefs.notificationColorEnabled = checked
-                rowNotifHighlight.visibility = if (checked) View.VISIBLE else View.GONE
+                setNotifSubRowsVisible(checked)
             }
         }
     }
