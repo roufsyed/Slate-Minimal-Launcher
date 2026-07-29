@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Consent dialog whose confirm button stays disabled until the user ticks an explicit
+  acknowledgement. Structurally identical to dialog_accessibility_info.xml plus the checkbox
+  row; kept as a separate file because that layout is shared by 13 call sites, none of which
+  want a checkbox. All colours are applied programmatically by the caller, matching the other
+  Slate dialogs, so nothing here hardcodes a theme.
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/dialogRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_slate_dialog"
+    android:padding="24dp">
+
+    <!--
+      Everything above the buttons scrolls. This layout carries more than the shared
+      dialog_accessibility_info.xml (title, two paragraphs, AND a checkbox row), so at a large
+      system font scale on a short screen the button row would otherwise be pushed off-screen -
+      and unlike the shared layout, its confirm button is the only way to complete the action.
+    -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/dialogTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.12"
+                android:textAllCaps="true"
+                android:paddingBottom="16dp" />
+
+            <TextView
+                android:id="@+id/dialogBody"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:lineSpacingMultiplier="1.4" />
+
+            <TextView
+                android:id="@+id/dialogPrivacy"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:lineSpacingMultiplier="1.35"
+                android:paddingTop="16dp" />
+
+            <!--
+              The acknowledgement text is the checkbox's own android:text, not a sibling label.
+              That keeps it a single accessibility node with the correct checkable role and
+              checked state, and lets Material's 48dp minimum touch target apply to the whole
+              thing - so no minHeight/minWidth override here.
+            -->
+            <com.google.android.material.checkbox.MaterialCheckBox
+                android:id="@+id/checkUnderstand"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textSize="14sp"
+                android:lineSpacingMultiplier="1.3" />
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end"
+        android:paddingTop="24dp">
+
+        <TextView
+            android:id="@+id/btnCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cancel"
+            android:textSize="15sp"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="10dp"
+            android:layout_marginEnd="12dp" />
+
+        <TextView
+            android:id="@+id/btnContinue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="15sp"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="10dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

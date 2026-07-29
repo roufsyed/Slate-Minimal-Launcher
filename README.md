@@ -55,7 +55,7 @@ Slate removes all of that. It presents your apps as plain text - the same way a 
 **Control**
 - Lock screen rotation to portrait
 - Optional persistent search bar on the home screen
-- Lock the hidden apps list behind a PIN (4–8 digits, PBKDF2-hashed) with optional biometric unlock. Hidden-app launches are also excluded from the Android Recents (Overview) screen so the launched app doesn't leak through there
+- Lock the hidden apps list behind a PIN (4–8 digits, PBKDF2-hashed) with optional biometric unlock. Hidden-app launches are also excluded by default from the Android Recents (Overview) screen so the launched app doesn't leak through there, with an opt-out for people who need those apps to survive switching away
 - Export and import all settings as a JSON backup. Hidden-apps list, PIN hash, and biometric setting are omitted by default - opt in via Settings → Backup → "Include hidden apps in backups". On import, the backup's PIN is verified in-memory before any hidden-apps data is written; three wrong PIN attempts refuse the entire import
 - Import settings during onboarding for returning users
 

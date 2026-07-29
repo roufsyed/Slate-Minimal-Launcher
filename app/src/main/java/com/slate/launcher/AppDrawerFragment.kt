@@ -2236,7 +2236,15 @@ class AppDrawerFragment : Fragment() {
         // has a live task in Recents from before, that existing task is reused and stays
         // visible - public APIs don't let a third-party launcher remove another app's task.
         // The FAQ explains the one-time-swipe mitigation to the user.
-        intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+        //
+        // The flag costs more than visibility: from Android 9 the system trims an excluded task
+        // once it falls behind home, and trimming FINISHES its activities, so switching away
+        // destroys the app and anything typed into it. keepHiddenAppsInRecents lets a user who
+        // needs that state preserved opt out. Default false, and gated behind an explicit
+        // consent dialog in Settings, so the privacy behaviour is unchanged unless chosen.
+        if (!prefs.keepHiddenAppsInRecents) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+        }
         runCatching { startActivity(intent) }
             .onFailure {
                 Toast.makeText(requireContext(), "App not installed", Toast.LENGTH_SHORT).show()

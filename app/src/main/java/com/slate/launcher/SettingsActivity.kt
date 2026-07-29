@@ -36,6 +36,7 @@ import com.google.android.flexbox.FlexDirection
 import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.FlexboxLayout
 import com.google.android.flexbox.JustifyContent
+import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.slate.launcher.MainActivity.Companion.isColorLight
 import com.slate.launcher.MainActivity.Companion.parseColorSafe
@@ -287,6 +288,8 @@ class SettingsActivity : AppCompatActivity() {
         com.slate.launcher.widgets.WidgetPickerDialog.dismissActive()
         com.slate.launcher.widgets.WidgetArrangeDialog.dismissActive()
         GuidedTourManager.dismissActive()
+        keepHiddenInRecentsDialog?.dismiss()
+        keepHiddenInRecentsDialog = null
         super.onDestroy()
     }
 
@@ -467,6 +470,7 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchAlphaFastScroll),
             findViewById(R.id.switchHiddenAppsSecurity),
             findViewById(R.id.switchBiometric),
+            findViewById(R.id.switchKeepHiddenInRecents),
             findViewById(R.id.switchQuickStrip),
             findViewById(R.id.switchDirectCall),
             findViewById(R.id.switchQuickStripDivider),
@@ -3006,6 +3010,180 @@ class SettingsActivity : AppCompatActivity() {
                 }
             )
         }
+
+        setupKeepHiddenInRecents()
+    }
+
+    /**
+     * "Keep hidden apps in Recents" - the one Settings control that deliberately weakens a
+     * privacy behaviour, so turning it ON is gated behind an explicit acknowledgement.
+     *
+     * The invariant is that the switch renders ON only while the pref is true. It is held by
+     * driving the switch back to OFF as the very first statement of the ON branch, before any
+     * dialog is shown. Every abandonment path - Cancel, back, tapping outside, or the activity
+     * being destroyed mid-dialog - is then a no-op rather than something that has to undo a
+     * visual state, and no cancel callback has to fire for the UI to stay correct. That last
+     * point matters: an activity torn down while a dialog is open does not reliably deliver
+     * a dismiss callback, but setupSecurity() re-reads the pref as false on recreate anyway.
+     */
+    private fun setupKeepHiddenInRecents() {
+        val switchRecents = findViewById<MaterialSwitch>(R.id.switchKeepHiddenInRecents)
+
+        // Mutually referential, so setSilently is declared before it is defined: the listener
+        // installed by setSilently calls onToggled, and onToggled calls setSilently to revert.
+        lateinit var setSilently: (Boolean) -> Unit
+
+        val onToggled: (Boolean) -> Unit = { checked ->
+            if (!checked) {
+                // Off restores the safer behaviour, so it is immediate and ungated.
+                prefs.keepHiddenAppsInRecents = false
+            } else {
+                // Revert first and unconditionally: the pref is only written after the user
+                // confirms, and this is the single statement holding "the switch never renders
+                // ON while the pref is false". Not null-guarded on purpose - failing open here
+                // would leave the switch ON with the pref off.
+                setSilently(false)
+
+                // After the revert, so a stray second tap in the frame before the dialog window
+                // becomes touchable is still visually undone before being dropped.
+                if (!keepHiddenInRecentsGateInFlight) {
+                    keepHiddenInRecentsGateInFlight = true
+                    showKeepHiddenInRecentsConsent(
+                        onConfirm = {
+                            prefs.keepHiddenAppsInRecents = true
+                            setSilently(true)
+                            keepHiddenInRecentsGateInFlight = false
+                        },
+                        onCancel = { keepHiddenInRecentsGateInFlight = false }
+                    )
+                }
+            }
+        }
+
+        // Flip the switch without re-entering the listener. Assigning isChecked invokes the
+        // listener synchronously, so it is detached around the write and reinstalled after.
+        setSilently = { checked ->
+            switchRecents.setOnCheckedChangeListener(null)
+            switchRecents.isChecked = checked
+            switchRecents.setOnCheckedChangeListener { _, isChecked -> onToggled(isChecked) }
+        }
+
+        setSilently(prefs.keepHiddenAppsInRecents)
+    }
+
+    /** Guards against a second tap stacking a second consent dialog while one is already open. */
+    private var keepHiddenInRecentsGateInFlight = false
+
+    /** Held only so [onDestroy] can dismiss it; a rotation would otherwise leak the window. */
+    private var keepHiddenInRecentsDialog: Dialog? = null
+
+    /**
+     * Consent dialog whose confirm button is inert until the acknowledgement is ticked. The
+     * button is a TextView, so "disabled" is both isEnabled (which blocks the click) and an
+     * alpha change (which is the only visible signal, since the colour is a plain int with no
+     * disabled state).
+     */
+    private fun showKeepHiddenInRecentsConsent(onConfirm: () -> Unit, onCancel: () -> Unit) {
+        val dialog = Dialog(this, R.style.SlateDialogTheme)
+        dialog.setContentView(R.layout.dialog_consent_checkbox)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val screenWidth = resources.displayMetrics.widthPixels
+        dialog.window?.setLayout(
+            (screenWidth * 0.85).toInt(),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.CENTER)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val bg = parseColorSafe(prefs.backgroundColor)
+        val isLight = isColorLight(bg)
+        val primary = if (isLight) Color.BLACK else Color.WHITE
+        val secondary = if (isLight) Color.parseColor("#555555") else Color.parseColor("#999999")
+        val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
+        val density = resources.displayMetrics.density
+
+        // Looked up by its own id rather than via dialogTitle.parent: the title sits inside a
+        // ScrollView here, so walking up from it would paint the scroll content, not the dialog.
+        // Unreachable after setContentView, but bailing without reporting a cancel would strand
+        // keepHiddenInRecentsGateInFlight at true and silently block every later attempt.
+        val root = dialog.findViewById<View>(R.id.dialogRoot)
+            ?: run { onCancel(); return }
+        root.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(bg)
+            cornerRadius = density * 12
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogTitle)?.apply {
+            text = "SHOW IN RECENTS?"
+            setTextColor(accent)
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
+            text = "Hidden apps you open from Slate are normally kept out of the Recents " +
+                    "screen. Turn this on and every hidden app shows there like any other, " +
+                    "usually with a preview of what was on screen."
+            setTextColor(primary)
+        }
+
+        dialog.findViewById<TextView>(R.id.dialogPrivacy)?.apply {
+            text = "Why you might want this: an app kept out of Recents gets closed as soon " +
+                    "as you go home and open something else, so it restarts and loses " +
+                    "whatever you typed. Turning this back off later won't clear apps already " +
+                    "in Recents - swipe those away once."
+            setTextColor(secondary)
+        }
+
+        val check = dialog.findViewById<MaterialCheckBox>(R.id.checkUnderstand)
+        val confirm = dialog.findViewById<TextView>(R.id.btnContinue)
+
+        // The label is the checkbox's own text rather than a sibling TextView, so TalkBack sees
+        // one node with the right role and checked state, and the whole thing is one 48dp
+        // target. A separate label plus a row click listener reads as a generic clickable with
+        // no checkable state.
+        check?.apply {
+            text = "I understand what this does"
+            setTextColor(primary)
+            buttonTintList = ColorStateList.valueOf(accent)
+            // The tick is a separate drawable from the box, tinted by buttonIconTint, which
+            // defaults to colorOnPrimary off the SYSTEM day/night theme while the box is tinted
+            // from Slate's own background. Those disagree whenever the user's Slate theme and
+            // the system theme differ, which can render the tick near-invisible. Painting it
+            // with the dialog background guarantees contrast against the filled box.
+            buttonIconTintList = ColorStateList.valueOf(bg)
+        }
+
+        confirm?.apply {
+            text = "Turn on"
+            setTextColor(accent)
+            isEnabled = false
+            alpha = 0.4f  // same greyed-out value the gated Settings rows use
+        }
+        check?.setOnCheckedChangeListener { _, isChecked ->
+            confirm?.isEnabled = isChecked
+            confirm?.alpha = if (isChecked) 1f else 0.4f
+        }
+
+        // Exactly one of onConfirm / onCancel must run, whatever route closes the dialog.
+        // setOnDismissListener covers Cancel, back, and an outside tap in one place; `consumed`
+        // stops the confirm path also reporting a cancel when it dismisses.
+        var consumed = false
+        dialog.findViewById<TextView>(R.id.btnCancel)?.apply {
+            setTextColor(secondary)
+            setOnClickListener { dialog.dismiss() }
+        }
+        confirm?.setOnClickListener {
+            consumed = true
+            dialog.dismiss()
+            onConfirm()
+        }
+        dialog.setOnDismissListener {
+            keepHiddenInRecentsDialog = null
+            if (!consumed) onCancel()
+        }
+
+        keepHiddenInRecentsDialog = dialog
+        dialog.show()
     }
 
     // ── Battery restriction banner ────────────────────────────────

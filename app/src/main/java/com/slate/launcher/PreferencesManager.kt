@@ -8,8 +8,22 @@ class PreferencesManager(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    /**
+     * A second store for preferences that must never leave this device by ANY route.
+     *
+     * [PREFS_NAME] is named explicitly in res/xml/backup_rules.xml and
+     * res/xml/data_extraction_rules.xml. Those files use `<include>`, which switches Android
+     * from "back up everything" to "back up only what is listed", so a store that is simply
+     * not listed is excluded from Google cloud backup automatically. Putting a preference here
+     * rather than in [prefs] is therefore what actually makes "never backed up" true - omitting
+     * it from BackupManager's JSON only covers Slate's own export.
+     */
+    private val devicePrefs: SharedPreferences =
+        context.getSharedPreferences(DEVICE_PREFS_NAME, Context.MODE_PRIVATE)
+
     companion object {
         private const val PREFS_NAME = "slate_prefs"
+        private const val DEVICE_PREFS_NAME = "slate_device_prefs"
         private const val KEY_HIDDEN_APPS = "hidden_apps"
         private const val KEY_MIN_FONT_SIZE = "min_font_size"
         private const val KEY_MAX_FONT_SIZE = "max_font_size"
@@ -44,6 +58,8 @@ class PreferencesManager(context: Context) {
         private const val KEY_HOMESCREEN_VIEW = "homescreen_view"
         private const val KEY_ALPHA_FAST_SCROLL = "alpha_fast_scroll"
         private const val KEY_HIDDEN_APPS_SECURITY = "hidden_apps_security_enabled"
+        /** Stored in slate_device_prefs, not slate_prefs. See [keepHiddenAppsInRecents]. */
+        private const val KEY_KEEP_HIDDEN_IN_RECENTS = "keep_hidden_apps_in_recents"
         private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_PIN_SALT = "pin_salt"
@@ -293,6 +309,25 @@ class PreferencesManager(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_ALPHA_FAST_SCROLL, value).apply()
 
     // ── Hidden apps security ───────────────────────────────────────
+
+    /**
+     * When true, hidden-app launches skip FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS and so appear in
+     * the Recents screen like any other app.
+     *
+     * The flag is not merely cosmetic: from Android 9 the system trims an excluded task once it
+     * falls behind the home task, and trimming finishes the task's activities outright, so the
+     * hidden app is destroyed and loses whatever the user had typed. This preference is the only
+     * available escape hatch - no public API lets a launcher keep a task out of Recents without
+     * that side effect.
+     *
+     * Lives in [devicePrefs], NOT [prefs], so no backup route can carry it to another device.
+     * It is additionally forced back to false by BackupManager.applyNonPrivate, which covers
+     * restoring a JSON backup onto the same device. Default false: existing installs are
+     * unaffected and the weaker behaviour is never on unless deliberately chosen.
+     */
+    var keepHiddenAppsInRecents: Boolean
+        get() = devicePrefs.getBoolean(KEY_KEEP_HIDDEN_IN_RECENTS, false)
+        set(value) = devicePrefs.edit().putBoolean(KEY_KEEP_HIDDEN_IN_RECENTS, value).apply()
 
     var hiddenAppsSecurityEnabled: Boolean
         get() = prefs.getBoolean(KEY_HIDDEN_APPS_SECURITY, false)

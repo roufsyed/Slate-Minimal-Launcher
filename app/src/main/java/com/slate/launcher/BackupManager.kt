@@ -199,6 +199,14 @@ class BackupManager(private val prefs: PreferencesManager) {
     fun applyNonPrivate(contents: BackupContents) {
         val root = contents.nonPrivate
 
+        // Restoring a backup always turns "keep hidden apps in Recents" back off. The pref is
+        // never exported (it lives in slate_device_prefs, which no backup route carries), so
+        // this is not a restore of a stored value - it is a deliberate reset, so a weakened
+        // privacy setting can never survive an import the user may not have thought about.
+        // Deliberately the FIRST statement: several optString calls below can throw on a
+        // hand-edited file, and this must still have run if the import dies partway.
+        prefs.keepHiddenAppsInRecents = false
+
         prefs.minFontSize  = root.optInt("minFontSize",  PreferencesManager.DEFAULT_MIN_FONT_SIZE)
         prefs.maxFontSize  = root.optInt("maxFontSize",  PreferencesManager.DEFAULT_MAX_FONT_SIZE)
         prefs.lineSpacing  = root.optInt("lineSpacing",  PreferencesManager.DEFAULT_LINE_SPACING)
