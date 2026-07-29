@@ -35,6 +35,42 @@ class BackupManager(private val prefs: PreferencesManager) {
         val privateBundle: PrivateBundle?
     )
 
+    /**
+     * G9. Work-profile keys must never reach a backup file, in either direction.
+     *
+     * A serial is meaningful only on the device that issued it, so a restored "pkg@11" either
+     * matches nothing or - worse - attaches to an unrelated profile that happens to have been
+     * given the same serial. Stripping on IMPORT as well as export is what stops a hand-edited
+     * file injecting one.
+     */
+    private fun isWorkKey(key: String): Boolean = AppKey.serialOf(key) != null
+
+    /**
+     * Folders, with work keys and the profile marker removed. A folder left with no members is
+     * dropped entirely: an exported empty folder would be permanently immune to reconcile's
+     * `before > 0` guard and would sit in the picker as an invisible ghost forever.
+     */
+    private fun strippedFolders(json: String): JSONArray {
+        val out = JSONArray()
+        runCatching {
+            val arr = JSONArray(json)
+            for (i in 0 until arr.length()) {
+                val folder = arr.getJSONObject(i)
+                val pkgs = folder.optJSONArray("packages") ?: JSONArray()
+                val kept = JSONArray()
+                for (j in 0 until pkgs.length()) {
+                    val key = pkgs.getString(j)
+                    if (!isWorkKey(key)) kept.put(key)
+                }
+                if (kept.length() == 0) continue
+                folder.put("packages", kept)
+                folder.remove("profileSerial")
+                out.put(folder)
+            }
+        }
+        return out
+    }
+
     fun toJson(): String {
         val root = JSONObject()
         root.put("version", 1)
@@ -56,7 +92,9 @@ class BackupManager(private val prefs: PreferencesManager) {
         // Gestures
         root.put("doubleTapToLock", prefs.doubleTapToLock)
         val gesturesObj = JSONObject()
-        prefs.getAllGestureActions().forEach { (k, v) -> gesturesObj.put(k, v) }
+        prefs.getAllGestureActions()
+            .filterNot { (_, v) -> v.startsWith("app:") && isWorkKey(v.removePrefix("app:")) }
+            .forEach { (k, v) -> gesturesObj.put(k, v) }
         root.put("gestureActions", gesturesObj)
 
         // Typography (extended)
@@ -81,7 +119,7 @@ class BackupManager(private val prefs: PreferencesManager) {
 
         // Pinned apps
         val pinnedArr = JSONArray()
-        prefs.pinnedApps.forEach { pinnedArr.put(it) }
+        prefs.pinnedApps.filterNot { isWorkKey(it) }.forEach { pinnedArr.put(it) }
         root.put("pinnedApps", pinnedArr)
 
         // Pinned folders, by folder id. Ids are serialised verbatim by FolderStore and are
@@ -95,12 +133,14 @@ class BackupManager(private val prefs: PreferencesManager) {
 
         // Per-app colors
         val colorsObj = JSONObject()
-        prefs.getAllAppColors().forEach { (k, v) -> colorsObj.put(k, v) }
+        prefs.getAllAppColors().filterNot { isWorkKey(it.key) }
+            .forEach { (k, v) -> colorsObj.put(k, v) }
         root.put("appColors", colorsObj)
 
         // Per-app custom names
         val namesObj = JSONObject()
-        prefs.getAllAppCustomNames().forEach { (k, v) -> namesObj.put(k, v) }
+        prefs.getAllAppCustomNames().filterNot { isWorkKey(it.key) }
+            .forEach { (k, v) -> namesObj.put(k, v) }
         root.put("appCustomNames", namesObj)
 
         // Private bundle - hidden apps + PIN + biometric. Opt-in via Settings → Backup. When
@@ -110,7 +150,7 @@ class BackupManager(private val prefs: PreferencesManager) {
         // backup - it's a per-device privacy preference.
         if (prefs.includePrivateInBackup) {
             val hiddenArr = JSONArray()
-            prefs.hiddenApps.forEach { hiddenArr.put(it) }
+            prefs.hiddenApps.filterNot { isWorkKey(it) }.forEach { hiddenArr.put(it) }
             root.put("hiddenApps", hiddenArr)
             root.put("hiddenAppsSecurityEnabled", prefs.hiddenAppsSecurityEnabled)
             root.put("biometricEnabled", prefs.biometricEnabled)
@@ -139,7 +179,7 @@ class BackupManager(private val prefs: PreferencesManager) {
         root.put("contactShortcuts", JSONArray(prefs.contactShortcutsJson))
 
         // User-created folders. Same human-readable strategy as contactShortcuts.
-        root.put("folders", JSONArray(prefs.foldersJson))
+        root.put("folders", strippedFolders(prefs.foldersJson))
 
         // Pinned external-app shortcuts. Same human-readable strategy as contactShortcuts/folders.
         // Only the durable fields ever appear here - PinnedShortcut has no device-local-only
@@ -207,6 +247,20 @@ class BackupManager(private val prefs: PreferencesManager) {
         // hand-edited file, and this must still have run if the import dies partway.
         prefs.keepHiddenAppsInRecents = false
 
+        // Deliberately NOT reset here, and the contrast with the line above is the point:
+        //  - showWorkApps is an ordinary display preference; resetting it would silently
+        //    re-show work apps for someone who had turned them off.
+        //  - workGroupedSerials is never exported and must not be cleared, because clearing it
+        //    re-arms automatic grouping and would drag back apps the user had moved out.
+        //
+        // A backup carries no work keys at all (see isWorkKey), so an import would otherwise
+        // wipe the local Work folder entirely. Capture it here and restore it after the
+        // wholesale folders write below.
+        val localWorkFolders = FolderStore.all(prefs).filter { it.profileSerial != null }
+        val localWorkPins = prefs.pinnedFolders.filter { id ->
+            localWorkFolders.any { it.id == id }
+        }
+
         prefs.minFontSize  = root.optInt("minFontSize",  PreferencesManager.DEFAULT_MIN_FONT_SIZE)
         prefs.maxFontSize  = root.optInt("maxFontSize",  PreferencesManager.DEFAULT_MAX_FONT_SIZE)
         prefs.lineSpacing  = root.optInt("lineSpacing",  PreferencesManager.DEFAULT_LINE_SPACING)
@@ -243,13 +297,16 @@ class BackupManager(private val prefs: PreferencesManager) {
 
         // Pinned apps
         root.optJSONArray("pinnedApps")?.let { arr ->
-            prefs.pinnedApps = (0 until arr.length()).map { arr.getString(it) }.toSet()
+            prefs.pinnedApps = (0 until arr.length())
+                .map { arr.getString(it) }.filterNot { isWorkKey(it) }.toSet()
         }
         // Not cross-checked against the restored folder set: an id with no matching folder is
         // simply never rendered, exactly as pinnedApps tolerates an uninstalled package. An
         // older backup with no "pinnedFolders" key leaves the device's existing pins alone.
         root.optJSONArray("pinnedFolders")?.let { arr ->
-            prefs.pinnedFolders = (0 until arr.length()).map { arr.getString(it) }.toSet()
+            // localWorkPins survive for the same reason the folders themselves do.
+            prefs.pinnedFolders =
+                (0 until arr.length()).map { arr.getString(it) }.toSet() + localWorkPins
         }
 
         // Auto-theme
@@ -257,17 +314,25 @@ class BackupManager(private val prefs: PreferencesManager) {
 
         // Gesture actions
         root.optJSONObject("gestureActions")?.let { obj ->
-            obj.keys().forEach { key -> prefs.setGestureActionRaw(key, obj.getString(key)) }
+            obj.keys().forEach { key ->
+                val value = obj.getString(key)
+                if (value.startsWith("app:") && isWorkKey(value.removePrefix("app:"))) return@forEach
+                prefs.setGestureActionRaw(key, value)
+            }
         }
 
         // Per-app colors
         root.optJSONObject("appColors")?.let { obj ->
-            obj.keys().forEach { pkg -> prefs.setAppTextColor(pkg, obj.getString(pkg)) }
+            obj.keys().forEach { key ->
+                if (!isWorkKey(key)) prefs.setAppTextColor(key, obj.getString(key))
+            }
         }
 
         // Per-app custom names
         root.optJSONObject("appCustomNames")?.let { obj ->
-            obj.keys().forEach { pkg -> prefs.setAppCustomName(pkg, obj.getString(pkg)) }
+            obj.keys().forEach { key ->
+                if (!isWorkKey(key)) prefs.setAppCustomName(key, obj.getString(key))
+            }
         }
 
         // Quick toggles strip
@@ -303,7 +368,22 @@ class BackupManager(private val prefs: PreferencesManager) {
             prefs.contactShortcutsJson = arr.toString()
         }
         root.optJSONArray("folders")?.let { arr ->
-            prefs.foldersJson = arr.toString()
+            // Re-append the local work folders the import would otherwise destroy. Appending
+            // rather than merging by id is correct: an imported folder and a local work folder
+            // are different objects with different ids, and the user can dissolve either.
+            val merged = JSONArray(arr.toString())
+            localWorkFolders.forEach { folder ->
+                merged.put(
+                    JSONObject().apply {
+                        put("id", folder.id)
+                        put("name", folder.name)
+                        put("packages", JSONArray().also { a -> folder.packages.forEach(a::put) })
+                        folder.color?.let { put("color", it) }
+                        folder.profileSerial?.let { put("profileSerial", it) }
+                    }
+                )
+            }
+            prefs.foldersJson = merged.toString()
         }
         // Absent on a backup taken before this feature shipped - the pref stays at its "[]"
         // default, which PinnedShortcutStore.all() parses as an empty list defensively anyway.

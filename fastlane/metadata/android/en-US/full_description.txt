@@ -37,6 +37,7 @@ CONTROL
 * Optional persistent search bar on the home screen
 * Optional contact search: turn it on to surface contacts inline with apps when you type. Read at search time, never stored. Google-only sub-toggle skips duplicates from WhatsApp, Telegram, SIM
 * PIN-lock the hidden apps list (4 to 8 digits, PBKDF2 hashed) with optional biometric unlock. Hidden-app launches stay out of Android Recents, with an opt-out
+* Work-profile apps are listed too, marked with the profile name and grouped into a folder on first sight
 * Export and import all settings as a JSON backup. Hidden-apps list and PIN are omitted by default. Opt in via Settings, with an in-memory PIN check on import
 
 

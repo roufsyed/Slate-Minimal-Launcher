@@ -467,6 +467,7 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchLockOrientation),
             findViewById(R.id.switchNotifColor),
             findViewById(R.id.switchIgnoreSilentNotifs),
+            findViewById(R.id.switchShowWorkApps),
             findViewById(R.id.switchSyncToLockscreen),
             findViewById(R.id.switchFollowSystemTheme),
             findViewById(R.id.switchAlphaFastScroll),
@@ -1606,7 +1607,7 @@ class SettingsActivity : AppCompatActivity() {
             bgColor = prefs.backgroundColor
         ) { index, _ ->
             val app = apps[index]
-            val action = GestureAction.OpenApp(app.packageName)
+            val action = GestureAction.OpenApp(app.key)
             prefs.setGestureAction(fingers, dir, action)
             actionView.text = app.name
         }.show()
@@ -1615,9 +1616,9 @@ class SettingsActivity : AppCompatActivity() {
     private fun resolveGestureLabel(action: GestureAction): String =
         when (action) {
             is GestureAction.OpenApp -> try {
-                val info = packageManager.getApplicationInfo(action.packageName, 0)
+                val info = packageManager.getApplicationInfo(action.key, 0)
                 packageManager.getApplicationLabel(info).toString()
-            } catch (_: Exception) { action.packageName }
+            } catch (_: Exception) { action.key }
             else -> action.staticLabel
         }
 
@@ -2277,6 +2278,8 @@ class SettingsActivity : AppCompatActivity() {
             rowAlphaFastScroll.alpha = if (blocked) 0.4f else 1f
             labelAlphaFastScrollSub.text = if (blocked) blockedSubLabel else defaultSubLabel
         }
+
+        setupWorkProfileRows()
 
         findViewById<View>(R.id.rowHomescreenView).setOnClickListener {
             SlateListDialog(
@@ -3050,6 +3053,51 @@ class SettingsActivity : AppCompatActivity() {
      * point matters: an activity torn down while a dialog is open does not reliably deliver
      * a dismiss callback, but setupSecurity() re-reads the pref as false on recreate anyway.
      */
+    /**
+     * Both rows stay GONE unless a work profile exists, so nothing new appears for the vast
+     * majority of users. "Group work apps" is deliberately NOT hidden once grouping has run:
+     * under one-shot semantics it has already run almost always, and its everyday use is filing
+     * work apps installed since - not recovering from a deletion.
+     */
+    private fun setupWorkProfileRows() {
+        val rowShow = findViewById<View>(R.id.rowShowWorkApps)
+        val rowGroup = findViewById<View>(R.id.rowGroupWorkApps)
+        val switchShow = findViewById<MaterialSwitch>(R.id.switchShowWorkApps)
+
+        if (!WorkProfiles.hasAny(this)) {
+            rowShow.visibility = View.GONE
+            rowGroup.visibility = View.GONE
+            return
+        }
+
+        rowShow.visibility = View.VISIBLE
+        switchShow.isChecked = prefs.showWorkApps
+        rowGroup.visibility = if (prefs.showWorkApps) View.VISIBLE else View.GONE
+
+        switchShow.setOnCheckedChangeListener { _, checked ->
+            prefs.showWorkApps = checked
+            rowGroup.visibility = if (checked) View.VISIBLE else View.GONE
+        }
+
+        rowGroup.setOnClickListener {
+            val repository = AppRepository(this, prefs)
+            val work = repository.workAppsForGrouping()
+            if (work.isEmpty()) {
+                Toast.makeText(this, "No work apps to group", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val before = FolderStore.keysInAnyFolder(prefs)
+            WorkGrouping.groupOnDemand(this, prefs, work)
+            val moved = FolderStore.keysInAnyFolder(prefs).size - before.size
+            Toast.makeText(
+                this,
+                if (moved > 0) "Grouped $moved work app${if (moved == 1) "" else "s"}"
+                else "Work apps are already in folders",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     private fun setupKeepHiddenInRecents() {
         val switchRecents = findViewById<MaterialSwitch>(R.id.switchKeepHiddenInRecents)
 

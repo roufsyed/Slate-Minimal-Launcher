@@ -59,6 +59,8 @@ class PreferencesManager(context: Context) {
         private const val KEY_HOMESCREEN_VIEW = "homescreen_view"
         private const val KEY_ALPHA_FAST_SCROLL = "alpha_fast_scroll"
         private const val KEY_HIDDEN_APPS_SECURITY = "hidden_apps_security_enabled"
+        private const val KEY_SHOW_WORK_APPS = "show_work_apps"
+        private const val KEY_WORK_GROUPED_SERIALS = "work_grouped_serials"
         /** Stored in slate_device_prefs, not slate_prefs. See [keepHiddenAppsInRecents]. */
         private const val KEY_KEEP_HIDDEN_IN_RECENTS = "keep_hidden_apps_in_recents"
         private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
@@ -264,9 +266,9 @@ class PreferencesManager(context: Context) {
         get() = prefs.getStringSet(KEY_PINNED_APPS, emptySet()) ?: emptySet()
         set(value) = prefs.edit().putStringSet(KEY_PINNED_APPS, value).apply()
 
-    fun pinApp(packageName: String) { pinnedApps = pinnedApps + packageName }
-    fun unpinApp(packageName: String) { pinnedApps = pinnedApps - packageName }
-    fun isPinned(packageName: String): Boolean = packageName in pinnedApps
+    fun pinApp(key: String) { pinnedApps = pinnedApps + key }
+    fun unpinApp(key: String) { pinnedApps = pinnedApps - key }
+    fun isPinned(key: String): Boolean = key in pinnedApps
 
     /**
      * Folder ids ([Folder.id], a UUID) pinned to the top of the home list. Keyed by id rather
@@ -329,6 +331,20 @@ class PreferencesManager(context: Context) {
     var keepHiddenAppsInRecents: Boolean
         get() = devicePrefs.getBoolean(KEY_KEEP_HIDDEN_IN_RECENTS, false)
         set(value) = devicePrefs.edit().putBoolean(KEY_KEEP_HIDDEN_IN_RECENTS, value).apply()
+
+    /**
+     * Whether Slate looks at work profiles at all. Off means work apps appear nowhere - not on
+     * home, not in search, not in gestures - and is fully lossless: folder membership, custom
+     * names, colours and pins for work apps all persist untouched and return when it is on
+     * again. Default true, because "my work apps are missing" is a worse failure than "my list
+     * got longer", and the Settings row is only visible to users who have a work profile.
+     *
+     * Governs ENUMERATION only. It deliberately says nothing about whether work apps get
+     * grouped into a folder - that is a separate axis.
+     */
+    var showWorkApps: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_WORK_APPS, true)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_WORK_APPS, value).apply()
 
     var hiddenAppsSecurityEnabled: Boolean
         get() = prefs.getBoolean(KEY_HIDDEN_APPS_SECURITY, false)
@@ -506,6 +522,38 @@ class PreferencesManager(context: Context) {
         get() = prefs.getString(KEY_FOLDERS, "[]") ?: "[]"
         set(value) = prefs.edit().putString(KEY_FOLDERS, value).apply()
 
+    /**
+     * Single-editor commit for folder state. [FolderStore.save] is the only caller. Batching
+     * exists because folders_v1 and pinned_folders were previously two independent apply()
+     * calls, so a process kill between them could leave a pin referencing a dead folder.
+     *
+     * Written VALUES are unchanged from the two-write form; only batching changes.
+     */
+    fun commitFolderState(
+        foldersJson: String,
+        pinnedFolders: Set<String>? = null,
+        workGroupedSerials: Set<String>? = null
+    ) {
+        val editor = prefs.edit()
+        editor.putString(KEY_FOLDERS, foldersJson)
+        pinnedFolders?.let { editor.putStringSet(KEY_PINNED_FOLDERS, it) }
+        workGroupedSerials?.let { editor.putStringSet(KEY_WORK_GROUPED_SERIALS, it) }
+        editor.apply()
+    }
+
+    /**
+     * Serials whose apps have already been grouped into a folder once. APPEND-ONLY: nothing
+     * removes from this set, which is what makes deleting the Work folder permanent rather
+     * than something that silently re-arms on the next resume.
+     *
+     * Written only through [commitFolderState], so the folder and the mark land together and a
+     * process kill between them is impossible. [BackupManager.toJson] must never learn about
+     * this key - a restored mark would be meaningless on a device with different serials.
+     */
+    var workGroupedSerials: Set<String>
+        get() = prefs.getStringSet(KEY_WORK_GROUPED_SERIALS, emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_WORK_GROUPED_SERIALS, value).apply()
+
     // ── Guided tour ──────────────────────────────────────────────
     // `guidedTourStepIndex` is -1 once the user has completed or skipped the tour, 0+ while
     // mid-tour. Persisted so a process-death mid-tour resumes at the same step.
@@ -526,14 +574,14 @@ class PreferencesManager(context: Context) {
 
     // ── Per-app custom names ──────────────────────────────────────
 
-    fun getAppCustomName(packageName: String): String? =
-        prefs.getString("app_name_$packageName", null)
+    fun getAppCustomName(key: String): String? =
+        prefs.getString("app_name_$key", null)
 
-    fun setAppCustomName(packageName: String, name: String) =
-        prefs.edit().putString("app_name_$packageName", name).apply()
+    fun setAppCustomName(key: String, name: String) =
+        prefs.edit().putString("app_name_$key", name).apply()
 
-    fun clearAppCustomName(packageName: String) =
-        prefs.edit().remove("app_name_$packageName").apply()
+    fun clearAppCustomName(key: String) =
+        prefs.edit().remove("app_name_$key").apply()
 
     fun getAllAppCustomNames(): Map<String, String> =
         prefs.all.entries
@@ -542,14 +590,14 @@ class PreferencesManager(context: Context) {
 
     // ── Per-app text color ─────────────────────────────────────────
 
-    fun getAppTextColor(packageName: String): String? =
-        prefs.getString("app_color_$packageName", null)
+    fun getAppTextColor(key: String): String? =
+        prefs.getString("app_color_$key", null)
 
-    fun setAppTextColor(packageName: String, hex: String) =
-        prefs.edit().putString("app_color_$packageName", hex).apply()
+    fun setAppTextColor(key: String, hex: String) =
+        prefs.edit().putString("app_color_$key", hex).apply()
 
-    fun clearAppTextColor(packageName: String) =
-        prefs.edit().remove("app_color_$packageName").apply()
+    fun clearAppTextColor(key: String) =
+        prefs.edit().remove("app_color_$key").apply()
 
     fun getAllAppColors(): Map<String, String> =
         prefs.all.entries
@@ -585,21 +633,21 @@ class PreferencesManager(context: Context) {
 
     // ── Usage tracking ────────────────────────────────────────────
 
-    fun incrementUsage(packageName: String) {
-        val key = "usage_$packageName"
-        prefs.edit().putInt(key, prefs.getInt(key, 0) + 1).apply()
+    fun incrementUsage(appKey: String) {
+        val prefKey = "usage_$appKey"
+        prefs.edit().putInt(prefKey, prefs.getInt(prefKey, 0) + 1).apply()
     }
 
-    fun getUsageCount(packageName: String): Int =
-        prefs.getInt("usage_$packageName", 0)
+    fun getUsageCount(key: String): Int =
+        prefs.getInt("usage_$key", 0)
 
     // ── App visibility ────────────────────────────────────────────
 
-    fun hideApp(packageName: String) {
-        hiddenApps = hiddenApps + packageName
+    fun hideApp(key: String) {
+        hiddenApps = hiddenApps + key
     }
 
-    fun unhideApp(packageName: String) {
-        hiddenApps = hiddenApps - packageName
+    fun unhideApp(key: String) {
+        hiddenApps = hiddenApps - key
     }
 }

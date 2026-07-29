@@ -2,7 +2,10 @@ package com.slate.launcher
 
 import android.app.Dialog
 import android.bluetooth.BluetoothAdapter
+import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
+import android.content.IntentFilter
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -284,6 +287,14 @@ class AppDrawerFragment : Fragment() {
         SlateNotificationService.onChange = {
             activity?.runOnUiThread { buildAppList() }
         }
+        registerProfileReceiver()
+        WorkGrouping.maybeGroupWorkAppsOnce(
+            requireContext(), prefs, repository.workAppsForGrouping()
+        )
+        // A broadcast missed while Slate was not resumed costs nothing: all the state logic
+        // lives in the rebuild path and onResume rebuilds anyway. This only keeps a resumed
+        // launcher live while the user pauses work apps from the shade.
+        repository.invalidateWorkCache()
         val bg = parseColorSafe(prefs.backgroundColor)
         scrollView.setBackgroundColor(bg)
         requireView().setBackgroundColor(bg)
@@ -358,6 +369,8 @@ class AppDrawerFragment : Fragment() {
     override fun onPause() {
         super.onPause()
         SlateNotificationService.onChange = null
+        profileReceiver?.let { runCatching { requireContext().unregisterReceiver(it) } }
+        profileReceiver = null
         fastScrollBubble.animate().cancel()
         quickStrip?.stop()
     }
@@ -620,12 +633,19 @@ class AppDrawerFragment : Fragment() {
         }
         // Active filter: search GLOBAL apps. Also surface matching folder names so the user can
         // jump into a folder by name.
-        val matchedApps = all.filter { it.name.contains(query, ignoreCase = true) }
+        // Matching stays on the plain name, so "gma" still finds both Gmails. Typing three or
+        // more characters of a profile's marker additionally lists that profile's apps; shorter
+        // prefixes would make a single letter surface every work app.
+        val matchedApps = all.filter {
+            it.name.contains(query, ignoreCase = true) ||
+                (query.length >= 3 &&
+                    it.profile?.label?.startsWith(query, ignoreCase = true) == true)
+        }
         val matchedFolders = FolderStore.all(prefs)
             .filter { it.name.contains(query, ignoreCase = true) }
         // Compute visibleCount per matched folder so the Count style renders the same number
         // search results show as the main view would.
-        val visiblePackages = all.mapTo(HashSet()) { it.packageName }
+        val visibleKeys = all.mapTo(HashSet()) { it.key }
         // Pinned shortcuts don't come from AppRepository.getAllApps() (a plain AppInfo list), so
         // they need their own match set here - adding a ShortcutItem case to the HomeItem
         // `when` blocks does NOT make them searchable on its own.
@@ -633,7 +653,7 @@ class AppDrawerFragment : Fragment() {
             .filter { ShortcutDestination.APP_LIST in it.destinations && it.pinnedLabel.contains(query, ignoreCase = true) }
             .map { HomeItem.ShortcutItem(it) }
         val baseItems: List<HomeItem> = matchedFolders.map { folder ->
-            HomeItem.FolderItem(folder, folder.packages.count { it in visiblePackages })
+            HomeItem.FolderItem(folder, folder.packages.count { it in visibleKeys })
         } + matchedApps.map { HomeItem.AppItem(it) } + matchedShortcuts
         // Render apps + folders synchronously - Slate's primary purpose is apps, that path
         // can't wait on ContentProvider I/O.
@@ -928,9 +948,27 @@ class AppDrawerFragment : Fragment() {
                 try { startActivity(intent); true } catch (_: Exception) { false }
             }
             is GestureAction.OpenApp           -> {
-                val intent = requireContext().packageManager
-                    .getLaunchIntentForPackage(action.packageName)
-                if (intent != null) { startActivity(intent); true } else false
+                val serial = AppKey.serialOf(action.key)
+                val pkg = AppKey.packageOf(action.key)
+                if (serial == null) {
+                    val intent = requireContext().packageManager.getLaunchIntentForPackage(pkg)
+                    if (intent != null) { startActivity(intent); true } else false
+                } else if (!prefs.showWorkApps) {
+                    // Work apps are switched off, so "off" has to mean off at every surface -
+                    // including a gesture the user bound while they were on.
+                    false
+                } else {
+                    val handle = WorkProfiles.handleForSerial(requireContext(), serial)
+                    val launcher = launcherApps()
+                    val component = if (handle == null || launcher == null) null else
+                        runCatching {
+                            launcher.getActivityList(pkg, handle).firstOrNull()?.componentName
+                        }.getOrNull()
+                    if (component == null || handle == null) false else
+                        runCatching {
+                            launcher?.startMainActivity(component, handle, null, null)
+                        }.isSuccess
+                }
             }
         }
     }
@@ -956,7 +994,7 @@ class AppDrawerFragment : Fragment() {
             renderListMode(items)
         } else {
             val maxUsage = allAppsForUsage
-                .maxOfOrNull { prefs.getUsageCount(it.packageName) }
+                .maxOfOrNull { prefs.getUsageCount(it.key) }
                 ?.takeIf { it > 0 } ?: 1
             renderFlowMode(items, maxUsage)
         }
@@ -979,8 +1017,8 @@ class AppDrawerFragment : Fragment() {
         val notifColor = parseColorSafe(prefs.notificationHighlightColor)
         // Which set to highlight from depends on a pref, so resolve it once per pass rather
         // than re-reading it for every row.
-        val notifPackages =
-            SlateNotificationService.highlightedPackages(prefs.ignoreSilentNotifications)
+        val notifKeys =
+            SlateNotificationService.highlightedKeys(prefs.ignoreSilentNotifications)
         val typeface = buildTypeface()
         val hPad = (prefs.wordSpacing * density).toInt()
         val vPad = (prefs.lineSpacing * density).toInt()
@@ -992,7 +1030,7 @@ class AppDrawerFragment : Fragment() {
                 defaultTextColor = defaultTextColor,
                 notifEnabled = notifEnabled,
                 notifColor = notifColor,
-                notifPackages = notifPackages,
+                notifKeys = notifKeys,
                 typeface = typeface,
                 hPad = hPad, vPad = vPad,
                 gravity = Gravity.CENTER
@@ -1021,8 +1059,8 @@ class AppDrawerFragment : Fragment() {
         val notifColor = parseColorSafe(prefs.notificationHighlightColor)
         // Which set to highlight from depends on a pref, so resolve it once per pass rather
         // than re-reading it for every row.
-        val notifPackages =
-            SlateNotificationService.highlightedPackages(prefs.ignoreSilentNotifications)
+        val notifKeys =
+            SlateNotificationService.highlightedKeys(prefs.ignoreSilentNotifications)
         val typeface = buildTypeface()
         val fontSize = prefs.maxFontSize.toFloat()
         val hPad = (prefs.wordSpacing * density).toInt()
@@ -1035,7 +1073,7 @@ class AppDrawerFragment : Fragment() {
                 defaultTextColor = defaultTextColor,
                 notifEnabled = notifEnabled,
                 notifColor = notifColor,
-                notifPackages = notifPackages,
+                notifKeys = notifKeys,
                 typeface = typeface,
                 hPad = hPad, vPad = vPad,
                 gravity = Gravity.CENTER_VERTICAL
@@ -1046,7 +1084,7 @@ class AppDrawerFragment : Fragment() {
 
     /** Resolve the font size for an item in Flow mode (folders weighted by aggregate usage). */
     private fun sizeForItem(item: HomeItem, maxUsage: Int): Float = when (item) {
-        is HomeItem.AppItem -> computeFontSize(prefs.getUsageCount(item.info.packageName), maxUsage)
+        is HomeItem.AppItem -> computeFontSize(prefs.getUsageCount(item.info.key), maxUsage)
         is HomeItem.FolderItem ->
             computeFontSize(item.folder.packages.sumOf { prefs.getUsageCount(it) }, maxUsage)
         // Contact results carry no usage signal - render at the minimum (least-prominent)
@@ -1066,7 +1104,7 @@ class AppDrawerFragment : Fragment() {
         defaultTextColor: Int,
         notifEnabled: Boolean,
         notifColor: Int,
-        notifPackages: Set<String>,
+        notifKeys: Set<String>,
         typeface: Typeface,
         hPad: Int,
         vPad: Int,
@@ -1076,7 +1114,7 @@ class AppDrawerFragment : Fragment() {
             app = item.info,
             size = size,
             color = colorForApp(
-                item.info, defaultTextColor, notifEnabled, notifColor, notifPackages
+                item.info, defaultTextColor, notifEnabled, notifColor, notifKeys
             ),
             typeface = typeface,
             hPad = hPad, vPad = vPad, gravity = gravity
@@ -1257,11 +1295,12 @@ class AppDrawerFragment : Fragment() {
         defaultTextColor: Int,
         notifEnabled: Boolean,
         notifColor: Int,
-        notifPackages: Set<String>
+        notifKeys: Set<String>
     ): Int {
-        val hasNotif = notifEnabled && app.packageName in notifPackages
+        // notifKeys is package-keyed until Stage 1 re-keys SlateNotificationService.
+        val hasNotif = notifEnabled && app.key in notifKeys
         if (hasNotif) return notifColor
-        val appColor = prefs.getAppTextColor(app.packageName)
+        val appColor = prefs.getAppTextColor(app.key)
         return if (appColor != null) parseColorSafe(appColor) else defaultTextColor
     }
 
@@ -1274,9 +1313,14 @@ class AppDrawerFragment : Fragment() {
         vPad: Int,
         gravity: Int
     ): TextView = TextView(requireContext()).apply {
-        text = app.name
+        // displayLabel composes the profile marker at render time; AppInfo.name never carries
+        // it, so sorting, search and fast scroll all still see the plain app name.
+        text = app.displayLabel()
         textSize = size
         setTextColor(color)
+        // A paused profile's apps still enumerate, so they must read as present-but-inactive
+        // rather than vanishing. Same 0.5 alpha the stale-shortcut rows use.
+        alpha = if (app.profile?.quiet == true) 0.5f else 1f
         this.typeface = typeface
         this.gravity = gravity
         setPadding(hPad, vPad, hPad, vPad)
@@ -1319,6 +1363,41 @@ class AppDrawerFragment : Fragment() {
             singleFingerDetector.onTouchEvent(event)
             false
         }
+    }
+
+    private var profileReceiver: BroadcastReceiver? = null
+
+    /**
+     * Work-profile lifecycle. These MUST be registered at runtime: every one of these actions is
+     * documented as "only sent to registered receivers, not to manifest receivers", so a
+     * <receiver> in the manifest would silently never fire - the kind of bug that reaches users
+     * on a project with no automated tests.
+     *
+     * The generic ACTION_PROFILE_* set (API 34/35) is deliberately NOT also registered: a
+     * managed profile fires both families, and a listener watching both double-handles.
+     */
+    private fun registerProfileReceiver() {
+        if (profileReceiver != null) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                repository.invalidateWorkCache()
+                WorkGrouping.maybeGroupWorkAppsOnce(
+                    requireContext(), prefs, repository.workAppsForGrouping()
+                )
+                buildAppList()
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_MANAGED_PROFILE_ADDED)
+            addAction(Intent.ACTION_MANAGED_PROFILE_REMOVED)
+            addAction(Intent.ACTION_MANAGED_PROFILE_AVAILABLE)
+            addAction(Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE)
+            addAction(Intent.ACTION_MANAGED_PROFILE_UNLOCKED)
+        }
+        ContextCompat.registerReceiver(
+            requireContext(), receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        profileReceiver = receiver
     }
 
     private fun launcherApps() = PinnedShortcutStore.launcherApps(requireContext())
@@ -1370,9 +1449,22 @@ class AppDrawerFragment : Fragment() {
         }.show()
     }
 
-    private fun appLabelFor(pkg: String): String? = runCatching {
-        val pm = requireContext().packageManager
-        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+    /**
+     * Platform label for a key. Cross-profile lookups need LauncherApps, because
+     * PackageManager resolves only within the calling user. Unresolvable still returns null so
+     * the Hidden Apps dialog's mapNotNull drops the row exactly as it does today.
+     */
+    private fun appLabelFor(key: String): String? = runCatching {
+        val pkg = AppKey.packageOf(key)
+        val serial = AppKey.serialOf(key)
+        if (serial == null) {
+            val pm = requireContext().packageManager
+            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+        } else {
+            val handle = WorkProfiles.handleForSerial(requireContext(), serial) ?: return@runCatching null
+            launcherApps()?.getApplicationInfo(pkg, 0, handle)
+                ?.let { requireContext().packageManager.getApplicationLabel(it).toString() }
+        }
     }.getOrNull()
 
     // Fast scroll only operates over an alphabetical list, so it's mutually exclusive with
@@ -1475,10 +1567,31 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun launchApp(app: AppInfo) {
-        prefs.incrementUsage(app.packageName)
+        prefs.incrementUsage(app.key)
         // Optimistically clear notification highlight so it reverts immediately on return
-        SlateNotificationService.clearHighlight(app.packageName)
+        SlateNotificationService.clearHighlight(app.key)
         if (isSearchOpen) closeSearch()
+
+        // A work app cannot be launched by Intent: getLaunchIntentForPackage resolves in the
+        // calling user, so it would find the personal copy or nothing at all. Quiet mode needs
+        // no handling here - the system intercepts startMainActivity for a paused profile and
+        // puts up its own "turn on work apps" prompt, then replays the launch.
+        val profile = app.profile
+        if (profile != null) {
+            val launcher = launcherApps()
+            runCatching {
+                requireNotNull(launcher).startMainActivity(
+                    ComponentName(app.packageName, app.activityName),
+                    profile.handle,
+                    null,
+                    null
+                )
+            }.onFailure {
+                Toast.makeText(requireContext(), "App not installed", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+
         val intent = requireContext().packageManager
             .getLaunchIntentForPackage(app.packageName)
         if (intent == null) {
@@ -1495,16 +1608,19 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun showAppMenu(app: AppInfo, anchor: View) {
-        val isPinned = prefs.isPinned(app.packageName)
+        val isPinned = prefs.isPinned(app.key)
         val pinLabel = if (isPinned) "Unpin" else "Pin to top"
-        val containingFolder = FolderStore.folderContaining(prefs, app.packageName)
+        val containingFolder = FolderStore.folderContaining(prefs, app.key)
         // Build the menu dynamically so folder entries appear only where relevant. Dispatching
         // on the chosen label avoids fragile index-based branching as items shift.
         val items = buildList {
             add(pinLabel)
             add("App Info")
             add("Hide")
-            add("Uninstall")
+            // ACTION_DELETE carries no user, so for a work app it would silently target the
+            // personal copy - the one destructive cross-profile intent with no way to aim it.
+            // App Info still exposes the system's own uninstall where policy allows it.
+            if (app.profile == null) add("Uninstall")
             if (containingFolder != null) {
                 add("Move to another folder")
                 add("Remove from folder")
@@ -1516,7 +1632,7 @@ class AppDrawerFragment : Fragment() {
         }
         SlateListDialog(
             context = requireContext(),
-            title = app.name,
+            title = app.displayLabel(),
             items = items,
             bgColor = prefs.backgroundColor
         ) { _, label ->
@@ -1524,18 +1640,34 @@ class AppDrawerFragment : Fragment() {
                 "Pin to top" -> {
                     // Remove from folder FIRST so the "pinned ⊥ in-folder" invariant holds at
                     // every persistence intermediate, never just at the end of the sequence.
-                    FolderStore.removeAppFromFolder(prefs, app.packageName)
-                    prefs.pinApp(app.packageName)
+                    FolderStore.removeAppFromFolder(prefs, app.key)
+                    prefs.pinApp(app.key)
                     buildAppList()
                 }
-                "Unpin" -> { prefs.unpinApp(app.packageName); buildAppList() }
-                "App Info" -> startActivity(
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", app.packageName, null)
+                "Unpin" -> { prefs.unpinApp(app.key); buildAppList() }
+                "App Info" -> {
+                    val profile = app.profile
+                    if (profile == null) {
+                        startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", app.packageName, null)
+                            }
+                        )
+                    } else {
+                        // The settings intent resolves in the calling user, so a work app needs
+                        // the LauncherApps equivalent to reach the right profile's page.
+                        runCatching {
+                            launcherApps()?.startAppDetailsActivity(
+                                ComponentName(app.packageName, app.activityName),
+                                profile.handle,
+                                null,
+                                null
+                            )
+                        }
                     }
-                )
+                }
                 "Hide" -> {
-                    prefs.hideApp(app.packageName)
+                    prefs.hideApp(app.key)
                     val removedShortcuts = PinnedShortcutStore.removeForPackage(prefs, launcherApps(), app.packageName)
                     if (removedShortcuts.isNotEmpty()) quickStrip?.bind()
                     buildAppList()
@@ -1550,7 +1682,17 @@ class AppDrawerFragment : Fragment() {
                 )
                 "Move to folder", "Move to another folder" -> showMoveToFolderDialog(app)
                 "Remove from folder" -> {
-                    FolderStore.removeAppFromFolder(prefs, app.packageName)
+                    val pruned = FolderStore.removeAppFromFolder(prefs, app.key)
+                    // Removing the last app deletes the folder, and if it was a work folder
+                    // that also ends automatic grouping for good. Silent permanence is the one
+                    // thing worth a toast here.
+                    if (pruned?.profileSerial != null) {
+                        Toast.makeText(
+                            requireContext(),
+                            "\"${pruned.name}\" removed. Slate won't group these apps again.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                     // If we were inside the now-empty folder, exitFolder navigates back; otherwise
                     // a plain rebuild is enough.
                     if (currentFolderId != null && FolderStore.find(prefs, currentFolderId!!) == null) {
@@ -1595,12 +1737,12 @@ class AppDrawerFragment : Fragment() {
             bgColor = prefs.backgroundColor
         ) { index, _ ->
             if (index < existing.size) {
-                FolderStore.addAppToFolder(prefs, existing[index].id, app.packageName)
+                FolderStore.addAppToFolder(prefs, existing[index].id, app.key)
                 buildAppList()
             } else {
                 showCreateFolderDialog { newName ->
                     val folder = FolderStore.createEmpty(prefs, newName)
-                    FolderStore.addAppToFolder(prefs, folder.id, app.packageName)
+                    FolderStore.addAppToFolder(prefs, folder.id, app.key)
                     buildAppList()
                 }
             }
@@ -1806,7 +1948,13 @@ class AppDrawerFragment : Fragment() {
             setTextColor(accent)
         }
         dialog.findViewById<TextView>(R.id.dialogBody)?.apply {
-            text = "Delete \"${folder.name}\"? Its apps will return to the main list."
+            text = if (folder.profileSerial != null) {
+                "Delete \"${folder.name}\"? Its apps will return to the main list, and Slate " +
+                    "won't group this profile's apps again unless you use " +
+                    "Settings > Group work apps."
+            } else {
+                "Delete \"${folder.name}\"? Its apps will return to the main list."
+            }
             setTextColor(primary)
         }
         dialog.findViewById<TextView>(R.id.dialogPrivacy)?.visibility = View.GONE
@@ -1897,7 +2045,7 @@ class AppDrawerFragment : Fragment() {
 
         val dialog = Dialog(ctx, R.style.SlateDialogTheme)
 
-        val hasCustomName = prefs.getAppCustomName(app.packageName) != null
+        val hasCustomName = prefs.getAppCustomName(app.key) != null
         val saveBg   = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
         val resetBg  = if (isLight) Color.parseColor("#DEDEDE") else Color.parseColor("#2A2A2A")
 
@@ -1936,7 +2084,7 @@ class AppDrawerFragment : Fragment() {
         if (hasCustomName) {
             buttonRow.addView(
                 pillButton("Reset to Default", resetBg, secondary) {
-                    prefs.clearAppCustomName(app.packageName)
+                    prefs.clearAppCustomName(app.key)
                     buildAppList()
                 }.also {
                     it.layoutParams = LinearLayout.LayoutParams(0,
@@ -1951,7 +2099,7 @@ class AppDrawerFragment : Fragment() {
             pillButton("Save", saveBg, Color.WHITE) {
                 val newName = input.text.toString().trim()
                 if (newName.isNotEmpty()) {
-                    prefs.setAppCustomName(app.packageName, newName)
+                    prefs.setAppCustomName(app.key, newName)
                     buildAppList()
                 }
             }.also {
@@ -1981,19 +2129,19 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun showAppColorPicker(app: AppInfo) {
-        val current = prefs.getAppTextColor(app.packageName) ?: prefs.appTextColor
+        val current = prefs.getAppTextColor(app.key) ?: prefs.appTextColor
         ColorPickerDialog(
             context = requireContext(),
             title = app.name,
             initialColor = current,
             bgColor = prefs.backgroundColor,
-            showReset = prefs.getAppTextColor(app.packageName) != null,
+            showReset = prefs.getAppTextColor(app.key) != null,
             onReset = {
-                prefs.clearAppTextColor(app.packageName)
+                prefs.clearAppTextColor(app.key)
                 buildAppList()
             }
         ) { hex ->
-            prefs.setAppTextColor(app.packageName, hex)
+            prefs.setAppTextColor(app.key, hex)
             buildAppList()
         }.show()
     }
@@ -2022,7 +2170,8 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun showFaqDialog() {
-        val faqs = listOf(
+        val faqs = buildList {
+            addAll(listOf(
             "Why does Slate need Accessibility permission?" to
                 "Accessibility is used only for the \"double tap to lock screen\" feature. It calls a single system API (GLOBAL_ACTION_LOCK_SCREEN) to lock the device while keeping biometric unlock available.\n\nSlate cannot read screen content, monitor app usage, or collect any data via this permission.",
 
@@ -2058,7 +2207,31 @@ class AppDrawerFragment : Fragment() {
 
             "Is Slate open source?" to
                 "Yes. Slate is open source under the MIT licence.\n\nSource code: github.com/roufsyed/Slate-Minimal-Launcher"
-        )
+            ))
+            // Only shown on devices that actually have a work profile.
+            if (WorkProfiles.hasAny(requireContext())) {
+                add(
+                    "How do work apps work?" to
+                        "Apps in your work profile appear alongside your personal apps, each " +
+                        "marked with the profile's name, for example \"Gmail (Work)\".\n\n" +
+                        "The first time Slate sees a work profile it gathers those apps into a " +
+                        "folder for you, once. It waits about a minute first, because a newly " +
+                        "set-up work profile installs its apps gradually and Slate would " +
+                        "otherwise group only the first one or two.\n\n" +
+                        "After that the folder is an ordinary folder. Rename it, recolour it, " +
+                        "pin it, move apps out, or put personal apps in - all of it sticks, and " +
+                        "Slate never rearranges it again. A work app you install later appears " +
+                        "in the main list like any other new app; use Settings → General → " +
+                        "Group work apps to file it away.\n\n" +
+                        "Deleting the folder is permanent - the apps return to the main list and " +
+                        "Slate won't group them again unless you ask. Hidden work apps are never " +
+                        "grouped. Work apps you've paused in Android appear dimmed; tapping one " +
+                        "lets Android offer to turn them back on.\n\n" +
+                        "Uninstall isn't offered for a work app, because Android only lets your " +
+                        "organisation remove those. App Info still opens the system page."
+                )
+            }
+        }
         SlateListDialog(
             context = requireContext(),
             title = "FAQ",
@@ -2173,7 +2346,11 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun showHiddenAppsDialog() {
-        val hidden = prefs.hiddenApps.mapNotNull { pkg -> appLabelFor(pkg)?.let { it to pkg } }
+        // hiddenApps is key-space. The label lookup is OS-facing so it takes the bare package;
+        // the pair's second element stays a key, because unhideApp() below needs a key.
+        val hidden = prefs.hiddenApps.mapNotNull { key ->
+            appLabelFor(key)?.let { it to key }
+        }
             .sortedBy { it.first.lowercase() }
 
         if (hidden.isEmpty()) {
@@ -2198,7 +2375,7 @@ class AppDrawerFragment : Fragment() {
             onItemLongPress = { index, _ ->
                 showUnhideConfirm(
                     name = hidden[index].first,
-                    pkg = hidden[index].second
+                    key = hidden[index].second
                 ) {
                     parent?.dismiss()
                     buildAppList()
@@ -2217,15 +2394,16 @@ class AppDrawerFragment : Fragment() {
      * [AppInfo] objects. The null-intent branch is defensive: the list is filtered for
      * installed apps at open time, so this only trips if an uninstall raced with the tap.
      */
-    private fun launchHiddenApp(pkg: String) {
+    private fun launchHiddenApp(key: String) {
         // Usage count is deliberately NOT incremented for hidden launches. Hidden apps are
-        // filtered out of AppRepository.getAllApps() (line ~28), so the count has no effect on
-        // the main list, search, or sort-by-usage. Its only remaining consumer is the folder
+        // filtered out of AppRepository.getAllApps() (in the shared enumerator), so the count
+        // has no effect on the main list, search, or sort-by-usage. Its only remaining consumer is the folder
         // font-size weighting in sizeForItem() - which would visibly grow the containing
         // folder's font on every hidden launch and leak activity to anyone glancing at the
         // home screen.
-        SlateNotificationService.clearHighlight(pkg)
-        val intent = requireContext().packageManager.getLaunchIntentForPackage(pkg)
+        SlateNotificationService.clearHighlight(key)
+        val intent = requireContext().packageManager
+            .getLaunchIntentForPackage(AppKey.packageOf(key))
         if (intent == null) {
             Toast.makeText(requireContext(), "App not installed", Toast.LENGTH_SHORT).show()
             return
@@ -2256,7 +2434,7 @@ class AppDrawerFragment : Fragment() {
      * Apps long-press. Reuses the accessibility-info dialog layout (title / body / two
      * buttons), the same template as [showDeleteFolderConfirm].
      */
-    private fun showUnhideConfirm(name: String, pkg: String, onConfirmed: () -> Unit) {
+    private fun showUnhideConfirm(name: String, key: String, onConfirmed: () -> Unit) {
         val dialog = Dialog(requireContext(), R.style.SlateDialogTheme)
         dialog.setContentView(R.layout.dialog_accessibility_info)
         dialog.window?.setBackgroundDrawable(
@@ -2302,7 +2480,7 @@ class AppDrawerFragment : Fragment() {
             setTextColor(accent)
             setOnClickListener {
                 dialog.dismiss()
-                prefs.unhideApp(pkg)
+                prefs.unhideApp(key)
                 onConfirmed()
             }
         }

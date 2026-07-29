@@ -6,10 +6,17 @@ package com.slate.launcher
  * sort rule (alpha or by-usage) at render time - internal order is just the persistence default.
  *
  * Per-folder colour is optional and falls back to the global app text colour when null.
+ *
+ * [profileSerial] marks this folder as the destination for a work profile's apps. It is a
+ * TARGET marker, never a membership filter: personal apps can live here too, and that is what
+ * lets the folder survive the profile being removed with the user's own apps intact. A default
+ * is correct here - unlike AppInfo - because there are two construction sites and fromJson
+ * builds positionally.
  */
 data class Folder(
     val id: String,
     var name: String,
     val packages: MutableList<String>,
-    var color: String? = null
+    var color: String? = null,
+    val profileSerial: Long? = null
 )

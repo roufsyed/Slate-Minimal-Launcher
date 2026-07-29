@@ -12,7 +12,12 @@ sealed class GestureAction {
     object ToggleBluetooth : GestureAction()
     object ToggleLocation : GestureAction()
     object OpenCamera : GestureAction()
-    data class OpenApp(val packageName: String) : GestureAction()
+    /**
+     * [key] is preference-space (an AppKey), not a bare package name. Readers that hand it to
+     * the OS must unwrap it with AppKey.packageOf once work profiles land in Stage 2; in Stage 0
+     * the two are identical, so the serialised form is byte-compatible with existing bindings.
+     */
+    data class OpenApp(val key: String) : GestureAction()
 
     fun serialize(): String = when (this) {
         is None              -> "NONE"
@@ -24,7 +29,7 @@ sealed class GestureAction {
         is ToggleBluetooth   -> "TOGGLE_BLUETOOTH"
         is ToggleLocation    -> "TOGGLE_LOCATION"
         is OpenCamera        -> "OPEN_CAMERA"
-        is OpenApp           -> "app:$packageName"
+        is OpenApp           -> "app:$key"
     }
 
     companion object {
@@ -67,5 +72,5 @@ val GestureAction.staticLabel: String
         is GestureAction.ToggleBluetooth   -> "Toggle Bluetooth"
         is GestureAction.ToggleLocation    -> "Toggle location"
         is GestureAction.OpenCamera        -> "Open camera"
-        is GestureAction.OpenApp           -> packageName   // resolved to app name in UI
+        is GestureAction.OpenApp           -> key          // resolved to app name in UI
     }

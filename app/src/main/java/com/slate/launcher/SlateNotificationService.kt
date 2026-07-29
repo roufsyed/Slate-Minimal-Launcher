@@ -10,18 +10,23 @@ class SlateNotificationService : NotificationListenerService() {
 
     companion object {
         /**
-         * Packages that currently have at least one active notification.
+         * AppKeys that currently have at least one active notification.
+         *
+         * Keyed by profile, not by bare package name: a work app and its personal counterpart
+         * share a package name, so keying by package made a work notification tint the personal
+         * app's row. Until work apps are enumerated a work notification now matches no row at
+         * all, which is wrong in a strictly less confusing direction.
          *
          * Held as an immutable snapshot swapped wholesale rather than a mutable set: readers
          * (the render pass) and writers (these callbacks) then never see a half-updated set,
          * with no locking on either side.
          */
         @Volatile
-        var activePackages: Set<String> = emptySet()
+        var activeKeys: Set<String> = emptySet()
             private set
 
         /**
-         * Subset of [activePackages] whose notification is *alerting* - channel importance at
+         * Subset of [activeKeys] whose notification is *alerting* - channel importance at
          * least IMPORTANCE_DEFAULT.
          *
          * Silencing a channel in Android's notification settings drops it to IMPORTANCE_LOW,
@@ -31,7 +36,7 @@ class SlateNotificationService : NotificationListenerService() {
          * "what Android would treat as alerting".
          */
         @Volatile
-        var alertingPackages: Set<String> = emptySet()
+        var alertingKeys: Set<String> = emptySet()
             private set
 
         /** Called on the service thread whenever either set changes. */
@@ -42,13 +47,13 @@ class SlateNotificationService : NotificationListenerService() {
          * Filtering happens here at read time rather than at write time so flipping the setting
          * only needs a re-render - the service holds both sets and never has to be told.
          */
-        fun highlightedPackages(ignoreSilent: Boolean): Set<String> =
-            if (ignoreSilent) alertingPackages else activePackages
+        fun highlightedKeys(ignoreSilent: Boolean): Set<String> =
+            if (ignoreSilent) alertingKeys else activeKeys
 
-        /** Drops a package from both sets, so a launched app's highlight clears immediately. */
-        fun clearHighlight(packageName: String) {
-            activePackages = activePackages - packageName
-            alertingPackages = alertingPackages - packageName
+        /** Drops an app from both sets, so a launched app's highlight clears immediately. */
+        fun clearHighlight(key: String) {
+            activeKeys = activeKeys - key
+            alertingKeys = alertingKeys - key
         }
     }
 
@@ -79,8 +84,9 @@ class SlateNotificationService : NotificationListenerService() {
     override fun onListenerConnected() = rebuild()
 
     override fun onListenerDisconnected() {
-        activePackages = emptySet()
-        alertingPackages = emptySet()
+        activeKeys = emptySet()
+        alertingKeys = emptySet()
+        WorkProfiles.clearCache()
         onChange?.invoke()
     }
 
@@ -94,7 +100,7 @@ class SlateNotificationService : NotificationListenerService() {
      *
      * Incremental would avoid the two binder calls, but it cannot stay correct: an app can
      * re-post the same key on a quieter channel, and the user can silence a channel while
-     * Slate sits open, either of which strands a stale entry in [alertingPackages] that
+     * Slate sits open, either of which strands a stale entry in [alertingKeys] that
      * nothing would ever clear. Nothing tests this, so the version that cannot drift wins.
      */
     private fun recompute() {
@@ -105,18 +111,20 @@ class SlateNotificationService : NotificationListenerService() {
         val nextActive = HashSet<String>()
         val nextAlerting = HashSet<String>()
         notifs.forEach { sbn ->
-            nextActive.add(sbn.packageName)
+            // NB: sbn.key below is the notification's own id, unrelated to appKey.
+            val appKey = AppKey.of(sbn.packageName, WorkProfiles.serialFor(this, sbn.user))
+            nextActive.add(appKey)
             // A key missing from the ranking map means we cannot tell how loud it is. Fail
             // toward alerting, so the setting never hides something the user didn't quiet.
             val alerting = ranking == null ||
                 !ranking.getRanking(sbn.key, scratch) ||
                 scratch.importance >= NotificationManager.IMPORTANCE_DEFAULT
-            if (alerting) nextAlerting.add(sbn.packageName)
+            if (alerting) nextAlerting.add(appKey)
         }
 
-        if (activePackages == nextActive && alertingPackages == nextAlerting) return
-        activePackages = nextActive
-        alertingPackages = nextAlerting
+        if (activeKeys == nextActive && alertingKeys == nextAlerting) return
+        activeKeys = nextActive
+        alertingKeys = nextAlerting
         onChange?.invoke()
     }
 }
