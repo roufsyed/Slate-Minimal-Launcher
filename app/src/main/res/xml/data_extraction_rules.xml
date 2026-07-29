@@ -1,28 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Applies on Android 12+ (targetSdk is 36, so this file wins and backup_rules.xml is ignored
+  there). Contract: no settings leave this device automatically, by any route. The only way out
+  is the explicit in-app JSON export in Settings.
+
+  Both sections exclude the sharedpref domain at its root. Two things make that shape correct:
+
+    * path="." names the domain root, which prunes the entire subtree rather than one file.
+      The exclusion check runs during the directory scan and skips a directory BEFORE its
+      children are queued. That covers slate_prefs.xml, slate_device_prefs.xml, any future
+      preferences file, and the ".bak" siblings SharedPreferences writes through - exclude
+      paths are matched by exact string equality, so a per-file rule would have missed those.
+
+    * Exclude-only, never include. A single <include> would flip the section into allowlist
+      mode across every domain, which would silently stop transferring filesDir/fonts (the
+      custom TTF import) and anything else unlisted.
+
+  <cloud-backup> is belt-and-braces: allowBackup="false" already stops cloud backup before
+  these rules are read. It is kept so the intent survives if allowBackup is ever flipped back.
+
+  <device-transfer> is NOT redundant. allowBackup="false" does not stop device-to-device
+  migration for a non-system app targeting API 31+, and a MISSING device-transfer section means
+  D2D copies everything. This section is the only thing closing that path.
+-->
 <data-extraction-rules>
     <cloud-backup>
-        <include domain="sharedpref" path="slate_prefs.xml" />
+        <exclude domain="sharedpref" path="." />
     </cloud-backup>
 
-    <!--
-      slate_device_prefs holds settings that must never leave this device (see
-      PreferencesManager.devicePrefs). The cloud-backup section above already excludes it by
-      omission, because a single <include> puts that section into allowlist mode. Device-to-
-      device transfer needs its own rules: with no <device-transfer> section at all, D2D
-      defaults to copying EVERYTHING, and backup_rules.xml is explicitly ignored for D2D once
-      targetSdk is 31 or higher.
-
-      Deliberately <exclude>-only. Adding even one <include> here would switch this section to
-      allowlist mode across every domain, which would silently stop transferring filesDir/fonts
-      (the custom TTF import) along with anything else unlisted. Exclude-only preserves the
-      default of "everything except these".
-
-      The .bak line is not redundant: SharedPreferences writes through a sibling
-      "<name>.xml.bak" file, and exclude paths are matched by exact string equality rather than
-      by prefix, so it would otherwise transfer whenever a write had been interrupted.
-    -->
     <device-transfer>
-        <exclude domain="sharedpref" path="slate_device_prefs.xml" />
-        <exclude domain="sharedpref" path="slate_device_prefs.xml.bak" />
+        <exclude domain="sharedpref" path="." />
     </device-transfer>
 </data-extraction-rules>

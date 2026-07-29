@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Legacy rules, used only on Android 11 (API 30) and below. minSdk is 26 so those devices are
+  still in scope; on Android 12+ this file is ignored in favour of data_extraction_rules.xml.
+
+  Already dead in practice: allowBackup="false" makes the app ineligible before any XML is
+  parsed, and pre-12 devices have no device-to-device path that bypasses allowBackup. It is
+  kept, and kept exclude-only, so the file cannot quietly re-enable backup if allowBackup is
+  ever flipped back. Same reasoning as data_extraction_rules.xml, which explains the shape.
+-->
 <full-backup-content>
-    <include domain="sharedpref" path="slate_prefs.xml" />
+    <exclude domain="sharedpref" path="." />
 </full-backup-content>

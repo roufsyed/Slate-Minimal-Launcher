@@ -11,12 +11,13 @@ class PreferencesManager(context: Context) {
     /**
      * A second store for preferences that must never leave this device by ANY route.
      *
-     * [PREFS_NAME] is named explicitly in res/xml/backup_rules.xml and
-     * res/xml/data_extraction_rules.xml. Those files use `<include>`, which switches Android
-     * from "back up everything" to "back up only what is listed", so a store that is simply
-     * not listed is excluded from Google cloud backup automatically. Putting a preference here
-     * rather than in [prefs] is therefore what actually makes "never backed up" true - omitting
-     * it from BackupManager's JSON only covers Slate's own export.
+     * System backup no longer distinguishes the two stores: `android:allowBackup="false"` plus
+     * the exclude-only rules files mean NEITHER [prefs] nor [devicePrefs] is handed to Google
+     * cloud backup or to device-to-device transfer. They are equally invisible to the platform.
+     *
+     * What still separates them is Slate's own export. [BackupManager] serialises [prefs] into
+     * the user-facing JSON and never reads [devicePrefs], so putting a preference here keeps it
+     * out of a file the user could carry to another device or share by mistake.
      */
     private val devicePrefs: SharedPreferences =
         context.getSharedPreferences(DEVICE_PREFS_NAME, Context.MODE_PRIVATE)
