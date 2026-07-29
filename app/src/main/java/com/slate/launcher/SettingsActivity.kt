@@ -290,6 +290,8 @@ class SettingsActivity : AppCompatActivity() {
         GuidedTourManager.dismissActive()
         keepHiddenInRecentsDialog?.dismiss()
         keepHiddenInRecentsDialog = null
+        includePrivateDialog?.dismiss()
+        includePrivateDialog = null
         super.onDestroy()
     }
 
@@ -1649,13 +1651,22 @@ class SettingsActivity : AppCompatActivity() {
         }
         attachIncludeListener = {
             switchInclude.setOnCheckedChangeListener { _, checked ->
-                if (checked) {
-                    showIncludePrivateConsentDialog(
-                        onConfirm = { prefs.includePrivateInBackup = true },
-                        onCancel = { setIncludeSilently(false) }
-                    )
-                } else {
+                if (!checked) {
                     prefs.includePrivateInBackup = false
+                } else {
+                    setIncludeSilently(false)
+
+                    if (!includePrivateGateInFlight) {
+                        includePrivateGateInFlight = true
+                        showIncludePrivateConsentDialog(
+                            onConfirm = {
+                                prefs.includePrivateInBackup = true
+                                setIncludeSilently(true)
+                                includePrivateGateInFlight = false
+                            },
+                            onCancel = { includePrivateGateInFlight = false }
+                        )
+                    }
                 }
             }
         }
@@ -1755,7 +1766,10 @@ class SettingsActivity : AppCompatActivity() {
         val accent = if (isLight) Color.parseColor("#333399") else Color.parseColor("#8888FF")
         val density = resources.displayMetrics.density
 
-        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup ?: return
+        // Unreachable after setContentView, but bailing without reporting a cancel would strand
+        // includePrivateGateInFlight at true and silently block every later attempt.
+        val root = dialog.findViewById<View>(R.id.dialogTitle)?.parent as? android.view.ViewGroup
+            ?: run { onCancel(); return }
         root.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(bg)
@@ -1797,11 +1811,21 @@ class SettingsActivity : AppCompatActivity() {
                 onConfirm()
             }
         }
-        // If the dialog is dismissed via back press or outside-tap, treat it as Cancel so the
-        // switch reverts. Without this hook the switch stays visually ON despite no consent.
-        dialog.setOnDismissListener { if (!consumed) onCancel() }
+        // Back press or outside-tap counts as Cancel. The switch has already been reverted by
+        // the caller, so this only has to release the in-flight guard.
+        dialog.setOnDismissListener {
+            includePrivateDialog = null
+            if (!consumed) onCancel()
+        }
+        includePrivateDialog = dialog
         dialog.show()
     }
+
+    /** Guards against a second tap stacking a second consent dialog while one is already open. */
+    private var includePrivateGateInFlight = false
+
+    /** Held only so [onDestroy] can dismiss it; a rotation would otherwise leak the window. */
+    private var includePrivateDialog: Dialog? = null
 
     /**
      * Case B confirmation: user has their own PIN on the device, and the backup is asking to
