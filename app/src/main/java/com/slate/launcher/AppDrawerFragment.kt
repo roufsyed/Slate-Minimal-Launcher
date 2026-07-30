@@ -987,6 +987,37 @@ class AppDrawerFragment : Fragment() {
         else fastScroll.visibility = View.GONE
     }
 
+    /**
+     * The work marker style for THIS render pass.
+     *
+     * Normally [PreferencesManager.workMarkerStyle] verbatim. Collapses to
+     * [PreferencesManager.WORK_MARKER_NONE] when the user has asked for it and every app in view
+     * belongs to one and the same work profile - inside such a folder the marker repeats on
+     * every row while distinguishing nothing, the one case where dropping it costs no
+     * information.
+     *
+     * Keyed on "all one profile", deliberately NOT on "is this the auto-created Work folder".
+     * That folder can be renamed, deleted, or hand-filled with personal apps, and the user can
+     * build an all-work folder of their own, so the structural question is both unanswerable and
+     * the wrong one. What matters is whether the marker still tells the user anything here.
+     *
+     * So a folder mixing personal and work Gmail keeps its markers, and so does one holding two
+     * different work profiles - those are exactly the cases where the marker carries the
+     * distinction it exists for.
+     */
+    private fun markerStyleFor(items: List<HomeItem>): String {
+        val style = prefs.workMarkerStyle
+        if (currentFolderId == null) return style
+        if (style == PreferencesManager.WORK_MARKER_NONE) return style
+        if (!prefs.suppressWorkMarkerInFolder) return style
+        val serials = items.filterIsInstance<HomeItem.AppItem>().map { it.info.profile?.serial }
+        // One elvis for two cases that both keep the style: an empty folder, where no row can
+        // show a marker anyway, and a personal first row, which means the folder is either mixed
+        // or entirely personal and already markerless.
+        val first = serials.firstOrNull() ?: return style
+        return if (serials.all { it == first }) PreferencesManager.WORK_MARKER_NONE else style
+    }
+
     /** Dispatch to the appropriate renderer based on the current view-mode pref. */
     private fun renderItems(items: List<HomeItem>, allAppsForUsage: List<AppInfo>) {
         flowLayout.removeAllViews()
@@ -1019,6 +1050,7 @@ class AppDrawerFragment : Fragment() {
         // than re-reading it for every row.
         val notifKeys =
             SlateNotificationService.highlightedKeys(prefs.ignoreSilentNotifications)
+        val markerStyle = markerStyleFor(items)
         val typeface = buildTypeface()
         val hPad = (prefs.wordSpacing * density).toInt()
         val vPad = (prefs.lineSpacing * density).toInt()
@@ -1031,6 +1063,7 @@ class AppDrawerFragment : Fragment() {
                 notifEnabled = notifEnabled,
                 notifColor = notifColor,
                 notifKeys = notifKeys,
+                markerStyle = markerStyle,
                 typeface = typeface,
                 hPad = hPad, vPad = vPad,
                 gravity = Gravity.CENTER
@@ -1061,6 +1094,7 @@ class AppDrawerFragment : Fragment() {
         // than re-reading it for every row.
         val notifKeys =
             SlateNotificationService.highlightedKeys(prefs.ignoreSilentNotifications)
+        val markerStyle = markerStyleFor(items)
         val typeface = buildTypeface()
         val fontSize = prefs.maxFontSize.toFloat()
         val hPad = (prefs.wordSpacing * density).toInt()
@@ -1074,6 +1108,7 @@ class AppDrawerFragment : Fragment() {
                 notifEnabled = notifEnabled,
                 notifColor = notifColor,
                 notifKeys = notifKeys,
+                markerStyle = markerStyle,
                 typeface = typeface,
                 hPad = hPad, vPad = vPad,
                 gravity = Gravity.CENTER_VERTICAL
@@ -1105,6 +1140,7 @@ class AppDrawerFragment : Fragment() {
         notifEnabled: Boolean,
         notifColor: Int,
         notifKeys: Set<String>,
+        markerStyle: String,
         typeface: Typeface,
         hPad: Int,
         vPad: Int,
@@ -1116,6 +1152,7 @@ class AppDrawerFragment : Fragment() {
             color = colorForApp(
                 item.info, defaultTextColor, notifEnabled, notifColor, notifKeys
             ),
+            markerStyle = markerStyle,
             typeface = typeface,
             hPad = hPad, vPad = vPad, gravity = gravity
         )
@@ -1308,6 +1345,7 @@ class AppDrawerFragment : Fragment() {
         app: AppInfo,
         size: Float,
         color: Int,
+        markerStyle: String,
         typeface: Typeface,
         hPad: Int,
         vPad: Int,
@@ -1315,7 +1353,13 @@ class AppDrawerFragment : Fragment() {
     ): TextView = TextView(requireContext()).apply {
         // displayLabel composes the profile marker at render time; AppInfo.name never carries
         // it, so sorting, search and fast scroll all still see the plain app name.
-        text = app.displayLabel()
+        //
+        // [markerStyle] arrives resolved for the whole pass rather than being read per row.
+        // It has to: markerStyleFor inspects every app in view to decide, so a per-row read
+        // would be O(n^2) over the folder. That splits it from folderLabel, which still reads
+        // prefs.folderStyle per row - the two look like sibling features but only one of them
+        // depends on its neighbours.
+        text = app.displayLabel(markerStyle)
         textSize = size
         setTextColor(color)
         // A paused profile's apps still enumerate, so they must read as present-but-inactive
@@ -1632,7 +1676,12 @@ class AppDrawerFragment : Fragment() {
         }
         SlateListDialog(
             context = requireContext(),
-            title = app.displayLabel(),
+            // prefs.workMarkerStyle, NOT the render pass's resolved style: the marker stays on
+            // this title even inside a folder where the rows have dropped it. Deliberate. The
+            // list suppresses a marker that repeats uselessly on every row; a dialog shows one
+            // app, so here it is the only thing confirming WHICH Gmail is about to be renamed or
+            // hidden - and it is what explains the missing Uninstall entry just below.
+            title = app.displayLabel(prefs.workMarkerStyle),
             items = items,
             bgColor = prefs.backgroundColor
         ) { _, label ->
@@ -2170,8 +2219,7 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun showFaqDialog() {
-        val faqs = buildList {
-            addAll(listOf(
+        val faqs = listOf(
             "Why does Slate need Accessibility permission?" to
                 "Accessibility is used only for the \"double tap to lock screen\" feature. It calls a single system API (GLOBAL_ACTION_LOCK_SCREEN) to lock the device while keeping biometric unlock available.\n\nSlate cannot read screen content, monitor app usage, or collect any data via this permission.",
 
@@ -2206,32 +2254,30 @@ class AppDrawerFragment : Fragment() {
                 "Android removed direct toggle access for these from third-party apps:\n\n• Wi-Fi: since Android 10, apps cannot switch Wi-Fi on or off programmatically. Tapping the widget opens the inline system Wi-Fi panel as a bottom-sheet overlay - one tap to flip Wi-Fi on or off without leaving the launcher view.\n\n• Bluetooth: since Android 12, toggling Bluetooth requires the runtime BLUETOOTH_CONNECT permission, which also grants access to the names and addresses of every paired device and the ability to connect to them - far more than just on/off.\n\n• Mobile data, Airplane mode, NFC: toggling these requires signature-level permissions that Android only grants to system apps.\n\nSlate could ask for BLUETOOTH_CONNECT to get a one-tap Bluetooth toggle, but it would mean holding a permission that no other feature needs. Deep-linking into the system panels is the trade-off - one extra tap, no unnecessary access to your device.",
 
             "Is Slate open source?" to
-                "Yes. Slate is open source under the MIT licence.\n\nSource code: github.com/roufsyed/Slate-Minimal-Launcher"
-            ))
-            // Only shown on devices that actually have a work profile.
-            if (WorkProfiles.hasAny(requireContext())) {
-                add(
-                    "How do work apps work?" to
-                        "Apps in your work profile appear alongside your personal apps, each " +
-                        "marked with the profile's name, for example \"Gmail (Work)\".\n\n" +
-                        "The first time Slate sees a work profile it gathers those apps into a " +
-                        "folder for you, once. It waits about a minute first, because a newly " +
-                        "set-up work profile installs its apps gradually and Slate would " +
-                        "otherwise group only the first one or two.\n\n" +
-                        "After that the folder is an ordinary folder. Rename it, recolour it, " +
-                        "pin it, move apps out, or put personal apps in - all of it sticks, and " +
-                        "Slate never rearranges it again. A work app you install later appears " +
-                        "in the main list like any other new app; use Settings → General → " +
-                        "Group work apps to file it away.\n\n" +
-                        "Deleting the folder is permanent - the apps return to the main list and " +
-                        "Slate won't group them again unless you ask. Hidden work apps are never " +
-                        "grouped. Work apps you've paused in Android appear dimmed; tapping one " +
-                        "lets Android offer to turn them back on.\n\n" +
-                        "Uninstall isn't offered for a work app, because Android only lets your " +
-                        "organisation remove those. App Info still opens the system page."
-                )
-            }
-        }
+                "Yes. Slate is open source under the MIT licence.\n\nSource code: github.com/roufsyed/Slate-Minimal-Launcher",
+
+            // Unconditional, deliberately. This was once shown only on devices with a work
+            // profile, but the Settings rows are always visible, so hiding their explanation
+            // from the very people most likely to wonder what they do had it backwards.
+            "How do work apps work?" to
+                "Apps in your work profile appear alongside your personal apps, each " +
+                "marked with the profile's name, for example \"Gmail (Work)\".\n\n" +
+                "The first time Slate sees a work profile it gathers those apps into a " +
+                "folder for you, once. It waits about a minute first, because a newly " +
+                "set-up work profile installs its apps gradually and Slate would " +
+                "otherwise group only the first one or two.\n\n" +
+                "After that the folder is an ordinary folder. Rename it, recolour it, " +
+                "pin it, move apps out, or put personal apps in - all of it sticks, and " +
+                "Slate never rearranges it again. A work app you install later appears " +
+                "in the main list like any other new app; use Settings → General → " +
+                "Group work apps to file it away.\n\n" +
+                "Deleting the folder is permanent - the apps return to the main list and " +
+                "Slate won't group them again unless you ask. Hidden work apps are never " +
+                "grouped. Work apps you've paused in Android appear dimmed; tapping one " +
+                "lets Android offer to turn them back on.\n\n" +
+                "Uninstall isn't offered for a work app, because Android only lets your " +
+                "organisation remove those. App Info still opens the system page."
+        )
         SlateListDialog(
             context = requireContext(),
             title = "FAQ",

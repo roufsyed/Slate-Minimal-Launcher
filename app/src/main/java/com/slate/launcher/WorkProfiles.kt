@@ -103,9 +103,6 @@ object WorkProfiles {
         }
     }
 
-    /** Whether this device has any work profile at all. Gates the Settings rows. */
-    fun hasAny(context: Context): Boolean = profiles(context).isNotEmpty()
-
     /**
      * Resolves a stored serial back to a live handle, or null if the system no longer knows it.
      *

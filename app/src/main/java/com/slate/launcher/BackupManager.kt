@@ -192,6 +192,8 @@ class BackupManager(private val prefs: PreferencesManager) {
 
         // Folder display style (chevron/slash/bullet/brackets/count/plain).
         root.put("folderStyle", prefs.folderStyle)
+        root.put("workMarkerStyle", prefs.workMarkerStyle)
+        root.put("suppressWorkMarkerInFolder", prefs.suppressWorkMarkerInFolder)
 
         return root.toString(2)
     }
@@ -413,6 +415,29 @@ class BackupManager(private val prefs: PreferencesManager) {
             val style = root.optString("folderStyle")
             if (style in knownFolderStyles) prefs.folderStyle = style
         }
+
+        // Same whitelist idiom, and for the same reason: an absent key leaves the device's own
+        // choice alone, and an unknown value is ignored rather than written, so a hand-edited
+        // or newer-version file cannot persist a style this build does not render. One of the
+        // four hand-maintained enumerations of these eight values.
+        val knownWorkMarkers = setOf(
+            PreferencesManager.WORK_MARKER_WORD,
+            PreferencesManager.WORK_MARKER_BRACKETS,
+            PreferencesManager.WORK_MARKER_DAGGER,
+            PreferencesManager.WORK_MARKER_STAR,
+            PreferencesManager.WORK_MARKER_DOT,
+            PreferencesManager.WORK_MARKER_SQUARE,
+            PreferencesManager.WORK_MARKER_DIAMOND,
+            PreferencesManager.WORK_MARKER_NONE
+        )
+        if (root.has("workMarkerStyle")) {
+            val marker = root.optString("workMarkerStyle")
+            if (marker in knownWorkMarkers) prefs.workMarkerStyle = marker
+        }
+        // No whitelist needed - a boolean cannot carry an unrenderable value. Default matches
+        // PreferencesManager so a pre-existing backup file imports as ON, same as a fresh install.
+        prefs.suppressWorkMarkerInFolder =
+            root.optBoolean("suppressWorkMarkerInFolder", true)
     }
 
     /**

@@ -148,6 +148,22 @@ class SettingsActivity : AppCompatActivity() {
             PreferencesManager.FOLDER_STYLE_COUNT    to "Count",
             PreferencesManager.FOLDER_STYLE_PLAIN    to "Plain",
         )
+
+        /**
+         * Order is the picker order, so the default sits first exactly as Chevron does in
+         * FOLDER_STYLE_LABELS. One of the four hand-maintained enumerations of these eight
+         * values; see the constants in PreferencesManager for the other three.
+         */
+        val WORK_MARKER_LABELS: List<Pair<String, String>> = listOf(
+            PreferencesManager.WORK_MARKER_BRACKETS to "Brackets",
+            PreferencesManager.WORK_MARKER_WORD     to "Word",
+            PreferencesManager.WORK_MARKER_DAGGER   to "Dagger",
+            PreferencesManager.WORK_MARKER_STAR     to "Star",
+            PreferencesManager.WORK_MARKER_DOT      to "Dot",
+            PreferencesManager.WORK_MARKER_SQUARE   to "Square",
+            PreferencesManager.WORK_MARKER_DIAMOND  to "Diamond",
+            PreferencesManager.WORK_MARKER_NONE     to "None",
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -454,7 +470,8 @@ class SettingsActivity : AppCompatActivity() {
 
         val dividerColor = if (isLight) Color.parseColor("#22000000") else Color.parseColor("#22FFFFFF")
         listOf(R.id.divider0, R.id.divider1, R.id.divider1b, R.id.divider2,
-               R.id.divider3, R.id.divider3b, R.id.divider3c, R.id.divider4, R.id.divider5, R.id.divider6).forEach { id ->
+               R.id.divider3, R.id.divider3b, R.id.divider3c, R.id.divider3d,
+               R.id.divider4, R.id.divider5, R.id.divider6).forEach { id ->
             findViewById<View>(id)?.setBackgroundColor(dividerColor)
         }
 
@@ -468,6 +485,7 @@ class SettingsActivity : AppCompatActivity() {
             findViewById(R.id.switchNotifColor),
             findViewById(R.id.switchIgnoreSilentNotifs),
             findViewById(R.id.switchShowWorkApps),
+            findViewById(R.id.switchSuppressWorkMarker),
             findViewById(R.id.switchSyncToLockscreen),
             findViewById(R.id.switchFollowSystemTheme),
             findViewById(R.id.switchAlphaFastScroll),
@@ -720,6 +738,15 @@ class SettingsActivity : AppCompatActivity() {
             }.show()
         }
     }
+
+    /**
+     * Resolve the persisted marker pref to its row label. Falls back to the FIRST entry, which
+     * is Brackets, so an unknown stored value shows the same label the renderer will actually
+     * produce - WorkMarker's `else` arm is brackets too.
+     */
+    private fun workMarkerDisplayLabel(value: String): String =
+        WORK_MARKER_LABELS.firstOrNull { it.first == value }?.second
+            ?: WORK_MARKER_LABELS.first().second
 
     /** Resolve the persisted pref value to the user-visible row label. */
     private fun folderStyleDisplayLabel(value: String): String =
@@ -3042,41 +3069,58 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * "Keep hidden apps in Recents" - the one Settings control that deliberately weakens a
-     * privacy behaviour, so turning it ON is gated behind an explicit acknowledgement.
+     * The four rows of the Work profile section, which is its own section below App shortcuts.
      *
-     * The invariant is that the switch renders ON only while the pref is true. It is held by
-     * driving the switch back to OFF as the very first statement of the ON branch, before any
-     * dialog is shown. Every abandonment path - Cancel, back, tapping outside, or the activity
-     * being destroyed mid-dialog - is then a no-op rather than something that has to undo a
-     * visual state, and no cancel callback has to fire for the UI to stay correct. That last
-     * point matters: an activity torn down while a dialog is open does not reliably deliver
-     * a dismiss callback, but setupSecurity() re-reads the pref as false on recreate anyway.
-     */
-    /**
-     * Both rows stay GONE unless a work profile exists, so nothing new appears for the vast
-     * majority of users. "Group work apps" is deliberately NOT hidden once grouping has run:
-     * under one-shot semantics it has already run almost always, and its everyday use is filing
-     * work apps installed since - not recovering from a deletion.
+     * The section is ALWAYS visible, deliberately, including on devices with no work profile. It
+     * was briefly gated on whether one existed; that gate was removed on purpose, because a
+     * setting the user cannot find is worse than one that turns out not to apply to them, and
+     * deciding which case they are in costs a binder call on every Settings open.
+     *
+     * The gating that remains is FUNCTIONAL rather than visual: tapping "Group work apps" with
+     * no work profile, or with the switch off, finds an empty enumeration and says so. Nothing
+     * silently does nothing.
      */
     private fun setupWorkProfileRows() {
-        val rowShow = findViewById<View>(R.id.rowShowWorkApps)
         val rowGroup = findViewById<View>(R.id.rowGroupWorkApps)
         val switchShow = findViewById<MaterialSwitch>(R.id.switchShowWorkApps)
 
-        if (!WorkProfiles.hasAny(this)) {
-            rowShow.visibility = View.GONE
-            rowGroup.visibility = View.GONE
-            return
-        }
-
-        rowShow.visibility = View.VISIBLE
         switchShow.isChecked = prefs.showWorkApps
-        rowGroup.visibility = if (prefs.showWorkApps) View.VISIBLE else View.GONE
 
         switchShow.setOnCheckedChangeListener { _, checked ->
             prefs.showWorkApps = checked
-            rowGroup.visibility = if (checked) View.VISIBLE else View.GONE
+        }
+
+        val markerValue = findViewById<TextView>(R.id.workMarkerValue)
+        // Same derivation the other value-column rows use (see setupTypography); there is no
+        // shared accessor for it, each setup function computes it locally.
+        val secondary =
+            if (isColorLight(parseColorSafe(prefs.backgroundColor))) Color.parseColor("#555555")
+            else Color.parseColor("#AAAAAA")
+        markerValue.setTextColor(secondary)
+        markerValue.text = workMarkerDisplayLabel(prefs.workMarkerStyle)
+
+        findViewById<View>(R.id.rowWorkMarker).setOnClickListener {
+            SlateListDialog(
+                context = this,
+                title = "Work app marker",
+                items = WORK_MARKER_LABELS.map { it.second },
+                bgColor = prefs.backgroundColor,
+                // The preview calls the REAL composer, not a copy of its branch table, which is
+                // why WorkMarker.decorate takes plain strings. folderStylePreview duplicates
+                // folderLabel's branches and the two can silently drift; this cannot.
+                secondaryItems = WORK_MARKER_LABELS.map { (key, _) ->
+                    WorkMarker.decorate("Gmail", "Work", key)
+                }
+            ) { index, label ->
+                prefs.workMarkerStyle = WORK_MARKER_LABELS[index].first
+                markerValue.text = label
+            }.show()
+        }
+
+        val switchSuppress = findViewById<MaterialSwitch>(R.id.switchSuppressWorkMarker)
+        switchSuppress.isChecked = prefs.suppressWorkMarkerInFolder
+        switchSuppress.setOnCheckedChangeListener { _, checked ->
+            prefs.suppressWorkMarkerInFolder = checked
         }
 
         rowGroup.setOnClickListener {
@@ -3098,6 +3142,18 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * "Keep hidden apps in Recents" - the one Settings control that deliberately weakens a
+     * privacy behaviour, so turning it ON is gated behind an explicit acknowledgement.
+     *
+     * The invariant is that the switch renders ON only while the pref is true. It is held by
+     * driving the switch back to OFF as the very first statement of the ON branch, before any
+     * dialog is shown. Every abandonment path - Cancel, back, tapping outside, or the activity
+     * being destroyed mid-dialog - is then a no-op rather than something that has to undo a
+     * visual state, and no cancel callback has to fire for the UI to stay correct. That last
+     * point matters: an activity torn down while a dialog is open does not reliably deliver
+     * a dismiss callback, but setupSecurity() re-reads the pref as false on recreate anyway.
+     */
     private fun setupKeepHiddenInRecents() {
         val switchRecents = findViewById<MaterialSwitch>(R.id.switchKeepHiddenInRecents)
 

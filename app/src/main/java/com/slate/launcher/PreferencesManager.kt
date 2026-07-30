@@ -89,6 +89,8 @@ class PreferencesManager(context: Context) {
         private const val KEY_GUIDED_TOUR_STEP = "guided_tour_step_index"
         private const val KEY_GUIDED_TOUR_VERSION_SEEN = "guided_tour_version_seen"
         private const val KEY_FOLDER_STYLE = "folder_style"
+        private const val KEY_WORK_MARKER_STYLE = "work_marker_style"
+        private const val KEY_SUPPRESS_WORK_MARKER_IN_FOLDER = "suppress_work_marker_in_folder"
 
         // How folder labels appear on the home screen. Default `chevron` preserves the
         // out-of-the-box behaviour; any unknown stored value also falls back to chevron at
@@ -99,6 +101,23 @@ class PreferencesManager(context: Context) {
         const val FOLDER_STYLE_BRACKETS = "brackets"   // "[Work]"
         const val FOLDER_STYLE_COUNT = "count"         // "Work (5)"
         const val FOLDER_STYLE_PLAIN = "plain"         // "Work"
+
+        // How a work-profile app is marked on the home screen. Default `brackets`; any unknown
+        // stored value also falls back to brackets at render time, so renaming or removing a
+        // style is safe. The marker is a SUFFIX in every style - see WorkMarker.
+        //
+        // These eight values are enumerated in FOUR hand-maintained places with nothing
+        // enforcing agreement and no tests: here, SettingsActivity.WORK_MARKER_LABELS,
+        // WorkMarker.decorate's `when`, and BackupManager's knownWorkMarkers whitelist.
+        // A ninth style means touching all four.
+        const val WORK_MARKER_WORD = "word"          // "Gmail (Work)"
+        const val WORK_MARKER_BRACKETS = "brackets"  // "Gmail [Work]"  <- default
+        const val WORK_MARKER_DAGGER = "dagger"      // "Gmail \u2020"
+        const val WORK_MARKER_STAR = "star"          // "Gmail *"
+        const val WORK_MARKER_DOT = "dot"            // "Gmail \u00B7"
+        const val WORK_MARKER_SQUARE = "square"      // "Gmail \u25A3"
+        const val WORK_MARKER_DIAMOND = "diamond"    // "Gmail \u25C6"
+        const val WORK_MARKER_NONE = "none"          // "Gmail"
         // Comma-separated ordered list of widget ids - small payload, simple format.
         const val DEFAULT_QUICK_STRIP_WIDGETS = "clock,battery"
 
@@ -571,6 +590,24 @@ class PreferencesManager(context: Context) {
     var folderStyle: String
         get() = prefs.getString(KEY_FOLDER_STYLE, FOLDER_STYLE_CHEVRON) ?: FOLDER_STYLE_CHEVRON
         set(value) = prefs.edit().putString(KEY_FOLDER_STYLE, value).apply()
+
+    /**
+     * Drop the marker while inside a folder whose apps all belong to one work profile, where it
+     * repeats on every row and distinguishes nothing. Default ON: it is the only place the
+     * marker is provably redundant, so hiding it there cannot cost the user information.
+     *
+     * Independent of [workMarkerStyle] rather than an eighth style, because it answers a
+     * different question - the style is WHAT the marker looks like, this is WHERE it appears -
+     * and folding them together would have forced a style x place matrix of 14 picker rows.
+     */
+    var suppressWorkMarkerInFolder: Boolean
+        get() = prefs.getBoolean(KEY_SUPPRESS_WORK_MARKER_IN_FOLDER, true)
+        set(value) = prefs.edit().putBoolean(KEY_SUPPRESS_WORK_MARKER_IN_FOLDER, value).apply()
+
+    /** One of the `WORK_MARKER_*` constants. Default is brackets. */
+    var workMarkerStyle: String
+        get() = prefs.getString(KEY_WORK_MARKER_STYLE, WORK_MARKER_BRACKETS) ?: WORK_MARKER_BRACKETS
+        set(value) = prefs.edit().putString(KEY_WORK_MARKER_STYLE, value).apply()
 
     // ── Per-app custom names ──────────────────────────────────────
 
