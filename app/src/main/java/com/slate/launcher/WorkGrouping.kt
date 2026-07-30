@@ -36,6 +36,8 @@ object WorkGrouping {
      */
     private const val SETTLE_MS = 60_000L
 
+    private const val ESTABLISHED_MS = 10 * 60_000L
+
     private data class Settle(val firstSeenElapsed: Long, val lastCount: Int)
 
     private val pending = mutableMapOf<Long, Settle>()
@@ -44,16 +46,21 @@ object WorkGrouping {
      * Called from onResume and from each profile lifecycle broadcast. [workApps] is the already
      * enumerated work half - this never queries the package manager or the profile list itself.
      */
-    fun maybeGroupWorkAppsOnce(context: Context, prefs: PreferencesManager, workApps: List<AppInfo>) {
-        if (!prefs.showWorkApps) return
+    fun maybeGroupWorkAppsOnce(
+        context: Context,
+        prefs: PreferencesManager,
+        workApps: List<AppInfo>
+    ): Long? {
+        if (!prefs.showWorkApps) return null
         val profiles = WorkProfiles.profiles(context)
-        if (profiles.isEmpty()) return
+        if (profiles.isEmpty()) return null
 
-        val grouped = prefs.workGroupedSerials
-        profiles.forEach { profile ->
-            if (profile.serial.toString() in grouped) return@forEach
-            groupSerialOnce(prefs, profile, workApps, grouped)
+        val waits = profiles.mapNotNull { profile ->
+            val grouped = prefs.workGroupedSerials
+            if (profile.serial.toString() in grouped) null
+            else groupSerialOnce(context, prefs, profile, workApps, grouped)
         }
+        return waits.minOrNull()
     }
 
     /**
@@ -71,28 +78,40 @@ object WorkGrouping {
     }
 
     private fun groupSerialOnce(
+        context: Context,
         prefs: PreferencesManager,
         profile: WorkProfile,
         workApps: List<AppInfo>,
         grouped: Set<String>
-    ) {
+    ): Long? {
         val mine = workApps.count { it.profile?.serial == profile.serial }
         // G3'. A profile enumerating nothing is still provisioning, locked, or unreadable.
         // Marking it here would permanently ungroup a profile that was merely slow. This check
         // MUST stay ahead of every write.
-        if (mine == 0) return
+        if (mine == 0) return null
+
+        // Nothing left to settle on a profile that finished provisioning long ago, so skip
+        // straight to the write. This is the ordinary case and it is now instant.
+        val age = WorkProfiles.ageMillis(context, profile.handle)
+        if (age != null && age >= ESTABLISHED_MS) {
+            fill(prefs, profile, workApps, grouped + profile.serial.toString())
+            pending.remove(profile.serial)
+            return null
+        }
 
         val now = SystemClock.elapsedRealtime()
         val settle = pending[profile.serial]
         if (settle == null || settle.lastCount != mine) {
             // Still moving. Restart the clock and wait.
             pending[profile.serial] = Settle(now, mine)
-            return
+            return SETTLE_MS
         }
-        if (now - settle.firstSeenElapsed < SETTLE_MS) return
+        val waited = now - settle.firstSeenElapsed
+        if (waited < SETTLE_MS) return SETTLE_MS - waited
 
         fill(prefs, profile, workApps, grouped + profile.serial.toString())
         pending.remove(profile.serial)
+        return null
     }
 
     /**

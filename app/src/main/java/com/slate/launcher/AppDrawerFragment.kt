@@ -92,6 +92,8 @@ class AppDrawerFragment : Fragment() {
      */
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingContactQuery: Runnable? = null
+    /** Pending work-grouping re-check. See [scheduleWorkGroupingRecheck]. */
+    private var workGroupingRecheck: Runnable? = null
     /** Null = main view; non-null = home is showing the contents of that folder. */
     private var currentFolderId: String? = null
 
@@ -288,8 +290,10 @@ class AppDrawerFragment : Fragment() {
             activity?.runOnUiThread { buildAppList() }
         }
         registerProfileReceiver()
-        WorkGrouping.maybeGroupWorkAppsOnce(
-            requireContext(), prefs, repository.workAppsForGrouping()
+        scheduleWorkGroupingRecheck(
+            WorkGrouping.maybeGroupWorkAppsOnce(
+                requireContext(), prefs, repository.workAppsForGrouping()
+            )
         )
         // A broadcast missed while Slate was not resumed costs nothing: all the state logic
         // lives in the rebuild path and onResume rebuilds anyway. This only keeps a resumed
@@ -389,6 +393,7 @@ class AppDrawerFragment : Fragment() {
         // requireContext() / requireView() against a destroyed view tree.
         mainHandler.removeCallbacksAndMessages(null)
         pendingContactQuery = null
+        workGroupingRecheck = null
         super.onDestroyView()
     }
 
@@ -1420,13 +1425,45 @@ class AppDrawerFragment : Fragment() {
      * The generic ACTION_PROFILE_* set (API 34/35) is deliberately NOT also registered: a
      * managed profile fires both families, and a listener watching both double-handles.
      */
+    /**
+     * Re-asks [WorkGrouping.maybeGroupWorkAppsOnce] after the delay it requested, so a profile
+     * still being provisioned groups on its own rather than waiting for the user to leave the
+     * launcher and come back. [delayMs] null means nothing is pending and any armed re-check is
+     * dropped.
+     *
+     * Deliberately NOT cancelled in onPause. Firing while paused is the entire point: the window
+     * elapses in the user's pocket and the folder is already there next time they look. Cleared in
+     * onDestroyView along with every other mainHandler callback, and the runnable re-checks
+     * isAdded because the view can be torn down between the post and the fire.
+     */
+    private fun scheduleWorkGroupingRecheck(delayMs: Long?) {
+        workGroupingRecheck?.let { mainHandler.removeCallbacks(it) }
+        workGroupingRecheck = null
+        if (delayMs == null) return
+        val task = Runnable {
+            if (!isAdded || view == null) return@Runnable
+            scheduleWorkGroupingRecheck(
+                WorkGrouping.maybeGroupWorkAppsOnce(
+                    requireContext(), prefs, repository.workAppsForGrouping()
+                )
+            )
+            // Unconditional rebuild. A profile that asked us to wait is one whose app set is still
+            // arriving, so the list is stale whether or not this particular pass grouped anything.
+            buildAppList()
+        }
+        workGroupingRecheck = task
+        mainHandler.postDelayed(task, delayMs)
+    }
+
     private fun registerProfileReceiver() {
         if (profileReceiver != null) return
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 repository.invalidateWorkCache()
-                WorkGrouping.maybeGroupWorkAppsOnce(
-                    requireContext(), prefs, repository.workAppsForGrouping()
+                scheduleWorkGroupingRecheck(
+                    WorkGrouping.maybeGroupWorkAppsOnce(
+                        requireContext(), prefs, repository.workAppsForGrouping()
+                    )
                 )
                 buildAppList()
             }
@@ -2261,16 +2298,18 @@ class AppDrawerFragment : Fragment() {
             // from the very people most likely to wonder what they do had it backwards.
             "How do work apps work?" to
                 "Apps in your work profile appear alongside your personal apps, each " +
-                "marked with the profile's name, for example \"Gmail (Work)\".\n\n" +
+                "carrying a marker, for example \"Gmail [Work]\". Settings → Work " +
+                "profile → Work app marker turns that into a symbol, or removes it.\n\n" +
                 "The first time Slate sees a work profile it gathers those apps into a " +
-                "folder for you, once. It waits about a minute first, because a newly " +
-                "set-up work profile installs its apps gradually and Slate would " +
-                "otherwise group only the first one or two.\n\n" +
+                "folder for you, once. For a profile you have had a while the folder " +
+                "appears straight away. For one that was only just set up, Slate waits " +
+                "about a minute, because a new work profile installs its apps gradually " +
+                "and Slate would otherwise group only the first one or two.\n\n" +
                 "After that the folder is an ordinary folder. Rename it, recolour it, " +
                 "pin it, move apps out, or put personal apps in - all of it sticks, and " +
                 "Slate never rearranges it again. A work app you install later appears " +
-                "in the main list like any other new app; use Settings → General → " +
-                "Group work apps to file it away.\n\n" +
+                "in the main list like any other new app; use Settings → Work profile " +
+                "→ Group work apps to file it away.\n\n" +
                 "Deleting the folder is permanent - the apps return to the main list and " +
                 "Slate won't group them again unless you ask. Hidden work apps are never " +
                 "grouped. Work apps you've paused in Android appear dimmed; tapping one " +

@@ -56,6 +56,31 @@ object WorkProfiles {
         return resolved
     }
 
+    /**
+     * Milliseconds since [handle]'s profile was created, or null if the system will not say.
+     *
+     * `getUserCreationTime` is API 23 and permitted for a managed profile of the calling user,
+     * which is the only kind of handle reaching this - profiles() has already filtered to those.
+     * Still wrapped, because a SecurityException here must not take a launcher down.
+     *
+     * The comparison is against wall-clock time, unavoidably: the API returns an epoch stamp and
+     * elapsedRealtime cannot be compared to one. So a device whose clock is badly wrong reads the
+     * age wrong. A clock set BEHIND yields a negative age, which returns null and defers to the
+     * settling window, the safe direction. A clock set far AHEAD makes a brand-new profile look
+     * established; the cost is one premature grouping, undone with the Settings action.
+     *
+     * Returns null rather than 0 for an unknown creation time so callers cannot mistake
+     * "cannot say" for "created at the epoch, therefore ancient".
+     */
+    fun ageMillis(context: Context, handle: UserHandle): Long? {
+        val userManager = context.getSystemService(Context.USER_SERVICE) as? UserManager
+            ?: return null
+        val created = runCatching { userManager.getUserCreationTime(handle) }.getOrNull()
+            ?.takeIf { it > 0L }
+            ?: return null
+        return (System.currentTimeMillis() - created).takeIf { it >= 0L }
+    }
+
     /** Drops the handle-to-serial cache. Bounded by profile count, but cleared on disconnect. */
     fun clearCache() {
         serialCache.clear()
