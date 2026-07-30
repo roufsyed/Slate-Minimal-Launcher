@@ -38,6 +38,18 @@ With the toggle on, Slate queries the system Contacts provider at the moment you
 
 Tapping a contact result opens the system dialer prepopulated with that contact's number; Slate does not place the call itself. Revoking the permission in system Settings causes the toggle to flip off automatically the next time you open Slate or its Settings.
 
+## Work profile apps
+
+If your device has a work profile, Slate lists its apps alongside your personal ones, each carrying a marker so you can tell the two apart. Settings → Work profile chooses what that marker looks like, from the profile's name down to a single symbol, or removes it. This requires no additional permission: Slate uses Android's standard `LauncherApps` service, which is available to the app currently set as your home screen and returns only what a launcher needs - the app's name and the component to start when you tap it.
+
+Slate cannot see anything inside a work app. It has no access to work email, files, accounts, or any content belonging to the work profile, and no ability to read across the profile boundary. Everything it knows is the app list.
+
+The first time Slate sees a work profile it gathers those apps into a folder once, stored in the same local folder library as any folder you create yourself. Nothing about that is transmitted, and you can rename, recolour, delete, or empty it freely - after that first grouping Slate never rearranges it again. Work apps can be switched off entirely under Settings → Work profile → "Show work apps", which is lossless: folder membership, custom names, colours, and pins are preserved and return unchanged if you switch them back on.
+
+Serial numbers that identify a profile are device-local, so anything Slate remembers about a work app is deliberately excluded from the backup file it exports. A backup carried to another device contains only your personal apps.
+
+Your organisation's device policy controller may restrict what Slate can see or do with work apps, including preventing their notifications from reaching it. Uninstall is not offered for a work app, because Android reserves that for your organisation.
+
 ## Hidden apps security
 
 When the "Lock hidden apps" toggle in Settings → Security is enabled, Slate stores a one-way verifier of your PIN - a salted PBKDF2-HMAC-SHA256 hash with 120,000 iterations and a per-device 16-byte random salt - in the app's private SharedPreferences. The plain-text PIN is never written to disk and is zeroed in memory immediately after hashing.
