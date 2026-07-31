@@ -19,9 +19,10 @@ import android.os.SystemClock
  *
  * [groupOnDemand] is the escape hatch for both.
  *
- * NOTHING here is reachable from the render path. It is driven by onResume and by the profile
- * lifecycle broadcasts, and it takes the enumeration as a parameter rather than querying, so it
- * can never add a key that reconcile strips in the same pass.
+ * NOTHING here is reachable from the render path. It is driven by onResume, by the profile
+ * lifecycle broadcasts, and by the re-check timer that [maybeGroupWorkAppsOnce]'s own return
+ * value arms, and it takes the enumeration as a parameter rather than querying, so it can never
+ * add a key that reconcile strips in the same pass.
  */
 object WorkGrouping {
 
@@ -36,6 +37,18 @@ object WorkGrouping {
      */
     private const val SETTLE_MS = 60_000L
 
+    /**
+     * Age past which a profile is treated as done provisioning, so [SETTLE_MS] is skipped and
+     * the one shot fires on the first pass with any apps in it.
+     *
+     * The window above exists for one situation: a profile being provisioned right now. Without
+     * this cutoff every user paid for it - install Slate on a phone whose work profile has
+     * existed for a year and its app count is stable on the first read, yet it still waited a
+     * minute. Ten minutes is far past any plausible provisioning burst while staying short
+     * enough that someone who enrols and immediately reaches for the launcher still gets the
+     * settle window. An unknown age (see WorkProfiles.ageMillis) falls through to the window,
+     * never around it.
+     */
     private const val ESTABLISHED_MS = 10 * 60_000L
 
     private data class Settle(val firstSeenElapsed: Long, val lastCount: Int)
@@ -43,8 +56,14 @@ object WorkGrouping {
     private val pending = mutableMapOf<Long, Settle>()
 
     /**
-     * Called from onResume and from each profile lifecycle broadcast. [workApps] is the already
-     * enumerated work half - this never queries the package manager or the profile list itself.
+     * Called from onResume, from each profile lifecycle broadcast, and from the scheduled
+     * re-check that this function's own return value arms. [workApps] is the already enumerated
+     * work half - this never queries the package manager or the profile list itself, so the
+     * caller controls freshness. Invalidate the enumeration cache BEFORE calling, the way every
+     * caller now does, because the write behind this decision is permanent.
+     *
+     * Returns the minimum milliseconds until it is worth asking again, or null when nothing is
+     * pending - every profile is grouped, ungroupable right now, or absent.
      */
     fun maybeGroupWorkAppsOnce(
         context: Context,
@@ -65,14 +84,20 @@ object WorkGrouping {
 
     /**
      * The Settings action. Files any work app that is not already in a folder, into the profile's
-     * folder, creating it if the user deleted it. Marks every live serial, so the automatic path
-     * stays disarmed afterwards.
+     * folder, creating it if the user deleted it. Marks every serial it actually filed for, so
+     * the automatic path stays disarmed for those afterwards.
      *
      * This can drag an app back that the user previously moved out - and that is correct here,
      * because they just asked for it. The automatic path never can.
      */
     fun groupOnDemand(context: Context, prefs: PreferencesManager, workApps: List<AppInfo>) {
         WorkProfiles.profiles(context).forEach { profile ->
+            // Same rule as G3' on the automatic path: a profile enumerating nothing is locked,
+            // still provisioning, or unreadable. Marking it would file nothing yet permanently
+            // disarm its one shot - with one profile unlocked and one locked, tapping the action
+            // used to do exactly that to the locked one. Skipping keeps its one shot armed for
+            // when it unlocks.
+            if (workApps.none { it.profile?.serial == profile.serial }) return@forEach
             fill(prefs, profile, workApps, prefs.workGroupedSerials + profile.serial.toString())
         }
     }

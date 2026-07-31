@@ -59,9 +59,12 @@ object WorkProfiles {
     /**
      * Milliseconds since [handle]'s profile was created, or null if the system will not say.
      *
-     * `getUserCreationTime` is API 23 and permitted for a managed profile of the calling user,
-     * which is the only kind of handle reaching this - profiles() has already filtered to those.
-     * Still wrapped, because a SecurityException here must not take a launcher down.
+     * `getUserCreationTime` is API 23, documented for the calling user and its associated
+     * profiles - exactly the set LauncherApps.getProfiles() yields, which is where every handle
+     * reaching this comes from. Below API 35 that set can include a clone profile, not only
+     * managed ones (see isManagedProfile), and a clone satisfies the same precondition. Still
+     * wrapped, because the failure mode for a handle outside the precondition is undocumented,
+     * and nothing thrown here may take a launcher down.
      *
      * The comparison is against wall-clock time, unavoidably: the API returns an epoch stamp and
      * elapsedRealtime cannot be compared to one. So a device whose clock is badly wrong reads the

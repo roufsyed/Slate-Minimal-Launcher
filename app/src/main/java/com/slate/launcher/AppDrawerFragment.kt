@@ -290,15 +290,20 @@ class AppDrawerFragment : Fragment() {
             activity?.runOnUiThread { buildAppList() }
         }
         registerProfileReceiver()
+        // Invalidate FIRST, matching the order the profile receiver already uses. The grouping
+        // decision below writes permanently (the serial is marked done), so it must never read
+        // the 30-second enumeration cache: a work app installed inside that window would be
+        // missing from the snapshot and stranded outside the folder forever. This also covers
+        // broadcasts missed while paused (work apps toggled from the shade), which cost nothing
+        // for the same reason they always did - the state logic lives in the rebuild path and
+        // onResume rebuilds anyway. buildAppList further down reuses this fresh enumeration
+        // within its TTL, so the resume now does one enumeration, not two.
+        repository.invalidateWorkCache()
         scheduleWorkGroupingRecheck(
             WorkGrouping.maybeGroupWorkAppsOnce(
                 requireContext(), prefs, repository.workAppsForGrouping()
             )
         )
-        // A broadcast missed while Slate was not resumed costs nothing: all the state logic
-        // lives in the rebuild path and onResume rebuilds anyway. This only keeps a resumed
-        // launcher live while the user pauses work apps from the shade.
-        repository.invalidateWorkCache()
         val bg = parseColorSafe(prefs.backgroundColor)
         scrollView.setBackgroundColor(bg)
         requireView().setBackgroundColor(bg)
@@ -1417,24 +1422,19 @@ class AppDrawerFragment : Fragment() {
     private var profileReceiver: BroadcastReceiver? = null
 
     /**
-     * Work-profile lifecycle. These MUST be registered at runtime: every one of these actions is
-     * documented as "only sent to registered receivers, not to manifest receivers", so a
-     * <receiver> in the manifest would silently never fire - the kind of bug that reaches users
-     * on a project with no automated tests.
-     *
-     * The generic ACTION_PROFILE_* set (API 34/35) is deliberately NOT also registered: a
-     * managed profile fires both families, and a listener watching both double-handles.
-     */
-    /**
      * Re-asks [WorkGrouping.maybeGroupWorkAppsOnce] after the delay it requested, so a profile
      * still being provisioned groups on its own rather than waiting for the user to leave the
      * launcher and come back. [delayMs] null means nothing is pending and any armed re-check is
      * dropped.
      *
-     * Deliberately NOT cancelled in onPause. Firing while paused is the entire point: the window
-     * elapses in the user's pocket and the folder is already there next time they look. Cleared in
-     * onDestroyView along with every other mainHandler callback, and the runnable re-checks
-     * isAdded because the view can be torn down between the post and the fire.
+     * Deliberately NOT cancelled in onPause, so a paused launcher whose process stays alive can
+     * still finish the job. What that buys is bounded, and the mechanism matters: postDelayed
+     * runs on uptimeMillis, so deep sleep STRETCHES the timer rather than letting it fire in the
+     * pocket. The settle window itself is measured with sleep-inclusive elapsedRealtime, and
+     * onResume re-asks immediately, so whichever arrives first - the stretched timer or the next
+     * resume - completes the window at the right wall-clock moment. Cleared in onDestroyView
+     * along with every other mainHandler callback, and the runnable re-checks isAdded because
+     * the view can be torn down between the post and the fire.
      */
     private fun scheduleWorkGroupingRecheck(delayMs: Long?) {
         workGroupingRecheck?.let { mainHandler.removeCallbacks(it) }
@@ -1455,6 +1455,15 @@ class AppDrawerFragment : Fragment() {
         mainHandler.postDelayed(task, delayMs)
     }
 
+    /**
+     * Work-profile lifecycle. These MUST be registered at runtime: every one of these actions is
+     * documented as "only sent to registered receivers, not to manifest receivers", so a
+     * <receiver> in the manifest would silently never fire - the kind of bug that reaches users
+     * on a project with no automated tests.
+     *
+     * The generic ACTION_PROFILE_* set (API 34/35) is deliberately NOT also registered: a
+     * managed profile fires both families, and a listener watching both double-handles.
+     */
     private fun registerProfileReceiver() {
         if (profileReceiver != null) return
         val receiver = object : BroadcastReceiver() {
