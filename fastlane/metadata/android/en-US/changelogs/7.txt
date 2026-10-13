@@ -1,0 +1,9 @@
+Features:
+- Added language support for German, Spanish, French, Russian, Portuguese, Italian, Dutch, Polish, Turkish and Indonesian
+- Added a language spinner in settings
+- Added multi-select apps feature; supporting bulk pin, hide, uninstall, move and color
+- Added a selection highlight setting
+
+Fixes:
+- Fix a hidden or unhidden work app not updating the home list at once
+- Remove a folder when its last app is moved out
